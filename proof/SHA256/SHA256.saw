@@ -89,12 +89,7 @@ let sha256_block_data_order_spec check_postcond = do {
 
   crucible_execute_func [state_ptr, data_ptr, crucible_term {{ 1 : [64] }}];
 
-  if check_postcond then do {
-    crucible_points_to state_ptr (crucible_term {{ SHA256Block state (split (join data)) }});
-  } else do {
-    state' <- crucible_fresh_var "state'" (llvm_array 8 (llvm_int 32));
-    crucible_points_to state_ptr (crucible_term state');
-  };
+  crucible_points_to state_ptr (crucible_term {{ SHA256Block state (split (join data)) }});
 };
 
 
@@ -257,12 +252,99 @@ OPENSSL_cleanse_ov <- crucible_llvm_unsafe_assume_spec
   (OPENSSL_cleanse_spec SHA256_CTX_SIZE);
 
 
+let bvShl15 = parse_core "\\(x : bitvector 32) -> bvShl 32 x 15";
+let bvShl18 = parse_core "\\(x : bitvector 32) -> bvShl 32 x 18";
+let bvShl21 = parse_core "\\(x : bitvector 32) -> bvShl 32 x 21";
+let bvShl23 = parse_core "\\(x : bitvector 32) -> bvShl 32 x 23";
+let bvShl25 = parse_core "\\(x : bitvector 32) -> bvShl 32 x 25";
+let bvShl26 = parse_core "\\(x : bitvector 32) -> bvShl 32 x 26";
+let bvShl27 = parse_core "\\(x : bitvector 32) -> bvShl 32 x 27";
+let bvShl30 = parse_core "\\(x : bitvector 32) -> bvShl 32 x 30";
+
+let bvShr2 = parse_core "\\(x : bitvector 32) -> bvShr 32 x 2";
+let bvShr3 = parse_core "\\(x : bitvector 32) -> bvShr 32 x 3";
+let bvShr5 = parse_core "\\(x : bitvector 32) -> bvShr 32 x 5";
+let bvShr6 = parse_core "\\(x : bitvector 32) -> bvShr 32 x 6";
+let bvShr7 = parse_core "\\(x : bitvector 32) -> bvShr 32 x 7";
+let bvShr9 = parse_core "\\(x : bitvector 32) -> bvShr 32 x 9";
+let bvShr10 = parse_core "\\(x : bitvector 32) -> bvShr 32 x 10";
+let bvShr11 = parse_core "\\(x : bitvector 32) -> bvShr 32 x 11";
+let bvShr14 = parse_core "\\(x : bitvector 32) -> bvShr 32 x 14";
+let bvShr17 = parse_core "\\(x : bitvector 32) -> bvShr 32 x 17";
+
+let prove_folding_theorem t = prove_print abc (rewrite (cryptol_ss ()) t);
+
+rotate15_thm <- prove_folding_theorem {{ \x -> (bvShr17 x) || (bvShl15 x) == x <<< 15 }};
+rotate18_thm <- prove_folding_theorem {{ \x -> (bvShr14 x) || (bvShl18 x) == x <<< 18 }};
+rotate21_thm <- prove_folding_theorem {{ \x -> (bvShr11 x) || (bvShl21 x) == x <<< 21 }};
+rotate23_thm <- prove_folding_theorem {{ \x -> (bvShr9  x) || (bvShl23 x) == x <<< 23 }};
+rotate25_thm <- prove_folding_theorem {{ \x -> (bvShr7  x) || (bvShl25 x) == x <<< 25 }};
+rotate26_thm <- prove_folding_theorem {{ \x -> (bvShr6  x) || (bvShl26 x) == x <<< 26 }};
+rotate27_thm <- prove_folding_theorem {{ \x -> (bvShr5  x) || (bvShl27 x) == x <<< 27 }};
+rotate30_thm <- prove_folding_theorem {{ \x -> (bvShr2  x) || (bvShl30 x) == x <<< 30 }};
+
+Sigma0_thm   <- prove_folding_theorem {{ \x -> (x ^ ((x ^ (x <<< 23)) <<< 21)) <<< 30 == S0 x }};
+Sigma0_1_thm <- prove_folding_theorem {{ \x -> ((((x <<< 23) ^ x) <<< 21) ^ x) <<< 30 == S0 x }};
+Sigma1_thm   <- prove_folding_theorem {{ \x -> (x ^ ((x ^ (x <<< 18)) <<< 27)) <<< 26 == S1 x }};
+Sigma1_1_thm <- prove_folding_theorem {{ \x -> ((((x <<< 18) ^ x) <<< 27) ^ x) <<< 26 == S1 x }};
+sigma0_thm <- prove_folding_theorem {{ \x -> (bvShr3  x) ^ ((x ^ (x <<< 21)) <<< 25) == s0 x }};
+sigma1_thm <- prove_folding_theorem {{ \x -> (bvShr10 x) ^ ((x ^ (x <<< 30)) <<< 15) == s1 x }};
+
+Ch_thm   <- prove_folding_theorem {{ \x y z -> z ^ (x && (z ^ y)) == Ch x y z }};
+Ch_1_thm <- prove_folding_theorem {{ \x y z -> z ^ (x && (y ^ z)) == Ch x y z }};
+Ch_2_thm <- prove_folding_theorem {{ \x y z -> z ^ ((y ^ z) && x) == Ch x y z }};
+Ch_3_thm <- prove_folding_theorem {{ \x y z -> z ^ ((y ^ z) && x) == Ch x y z }};
+Ch_4_thm <- prove_folding_theorem {{ \x y z -> ((y ^ z) && x) ^ z == Ch x y z }};
+Ch_5_thm <- prove_folding_theorem {{ \x y z -> ((z ^ y) && x) ^ z == Ch x y z }};
+Ch_6_thm <- prove_folding_theorem {{ \x y z -> (x && (y ^ z)) ^ z == Ch x y z }};
+Ch_7_thm <- prove_folding_theorem {{ \x y z -> (x && (z ^ y)) ^ z == Ch x y z }};
+
+Maj_thm   <- prove_folding_theorem {{ \x y z -> Ch (x ^ y) z y == Maj x y z }};
+Maj_1_thm <- prove_folding_theorem {{ \x y z -> Ch (y ^ x) z y == Maj x y z }};
+
+let thms =
+  [ rotate15_thm
+  , rotate18_thm
+  , rotate21_thm
+  , rotate23_thm
+  , rotate25_thm
+  , rotate26_thm
+  , rotate27_thm
+  , rotate30_thm
+  , Sigma0_thm
+  , Sigma0_1_thm
+  , Sigma1_thm
+  , Sigma1_1_thm
+  , sigma0_thm
+  , sigma1_thm
+  , Ch_thm
+  , Ch_1_thm
+  , Ch_2_thm
+  , Ch_3_thm
+  , Ch_4_thm
+  , Ch_5_thm
+  , Ch_6_thm
+  , Ch_7_thm
+  , Maj_thm
+  , Maj_1_thm
+  ];
+
+
+enable_what4_hash_consing;
+
 crucible_llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "sha256_block_data_order"
   [ ("K256", 704) // immutable constants
   ]
   true
   (sha256_block_data_order_spec false)
-  (w4_unint_yices []);
+  (do {
+    simplify (cryptol_ss ());
+    simplify (addsimps thms empty_ss);
+    w4_unint_yices ["S0", "S1", "s0", "s1", "Ch"];
+  });
+
+disable_what4_hash_consing;
+
 sha256_block_data_order_spec <- crucible_llvm_unsafe_assume_spec m "sha256_block_data_order"
   (sha256_block_data_order_spec true);
 
