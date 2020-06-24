@@ -1,0 +1,9 @@
+version: '3'
+services:
+  lc:
+    build: .
+    volumes:
+      - ./build:/lc/build:rw
+      - ./src:/lc/src:ro
+      - ./proof:/lc/proof:ro
+      - ./spec:/lc/spec:ro
