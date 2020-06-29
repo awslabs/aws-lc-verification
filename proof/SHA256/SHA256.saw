@@ -302,6 +302,11 @@ Ch_7_thm <- prove_folding_theorem {{ \x y z -> (x && (z ^ y)) ^ z == Ch x y z }}
 Maj_thm   <- prove_folding_theorem {{ \x y z -> Ch (x ^ y) z y == Maj x y z }};
 Maj_1_thm <- prove_folding_theorem {{ \x y z -> Ch (y ^ x) z y == Maj x y z }};
 
+let bvult = parse_core "\\(x y : bitvector 64) -> bvult 64 x y";
+// replace (bvult x y) with (x - y <$ 0) in order for the semiring and abstract domain to work
+cmp_sub_thm <- prove_folding_theorem
+  {{ \x y -> bvult x y == if (x @ 0 == y @ 0) then (x - y <$ 0) else (x @ 0 < y @ 0) }};
+
 let thms =
   [ rotate15_thm
   , rotate18_thm
@@ -327,6 +332,7 @@ let thms =
   , Ch_7_thm
   , Maj_thm
   , Maj_1_thm
+  , cmp_sub_thm
   ];
 
 
