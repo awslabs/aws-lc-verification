@@ -129,7 +129,7 @@ SHA512 msg = join (SHA512' [ split x | x <- preprocess(join msg)])
 type SHA512State = { h : [8][64]
                    , block : [128][8]
                    , n : [32]
-                   , sz : [64]
+                   , sz : [128]
                    }
 
 SHA512Init : SHA512State
