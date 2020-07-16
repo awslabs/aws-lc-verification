@@ -14,5 +14,5 @@ For more details about each verified implementation, including details of the ve
 
 ## License
 
-This project is licensed under the [Apache-2.0 License](License). See [Contributing](Contributing.md) for information about contributions to this repository.
+This project is licensed under the [Apache-2.0 License](LICENSE). See [Contributing](CONTRIBUTING.md) for information about contributions to this repository.
 
