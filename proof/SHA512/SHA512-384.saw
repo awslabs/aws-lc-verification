@@ -1,0 +1,13 @@
+/*
+ * SHA384 defines
+ */
+let NID = 673;
+let SHA_DIGEST_LENGTH = 48;
+let SHA_INIT = "sha384_init";
+let SHA_UPDATE = "sha384_update";
+let SHA_FINAL = "sha384_final";
+let EVP_SHA_STORAGE = "EVP_sha384_storage";
+let SHA_H0 = {{ SHA384H0 }};
+let EVP_SHA_INIT = "EVP_sha384_init";
+let SHA_FINAL_SPEC = {{ SHA384Final }};
+let SHA_IMP_SPEC = {{ SHA384Imp }};

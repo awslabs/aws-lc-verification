@@ -1,7 +1,5 @@
 enable_experimental;
 
-import "../../spec/SHA512/SHA512.cry";
-
 m <- llvm_load_module "../../build/llvm/crypto/crypto_test.bc";
 
 
@@ -64,10 +62,8 @@ let OPENSSL_cleanse_spec len = do {
 /*
  * SHA512 defines
  */
-let NID_sha512 = 674;
 let SHA512_CBLOCK = 128;
-let SHA512_DIGEST_LENGTH = 64;
-let SHA512_CTX_SIZE = eval_int {{ (`SHA512_DIGEST_LENGTH + 8 + 8 + `SHA512_CBLOCK + 4 + 4) : [64] }};
+let SHA512_CTX_SIZE = eval_int {{ (64 + 8 + 8 + `SHA512_CBLOCK + 4 + 4) : [64] }};
 
 
 /*
@@ -114,17 +110,17 @@ let points_to_sha512_state_st ptr state num = do {
     crucible_points_to_untyped (crucible_field ptr "p") (crucible_term {{ take`{num} state.block }});
   };
   crucible_points_to (crucible_field ptr "num") (crucible_term {{ state.n }});
-  crucible_points_to (crucible_field ptr "md_len") (crucible_term {{ 64 : [32] }});
+  crucible_points_to (crucible_field ptr "md_len") (crucible_term {{ `SHA_DIGEST_LENGTH : [32] }});
 };
 
 // Specify the env_md_st struct for SHA512
 let points_to_env_md_st ptr = do {
-  crucible_points_to (crucible_field ptr "type") (crucible_term {{ `NID_sha512 : [32] }});
-  crucible_points_to (crucible_field ptr "md_size") (crucible_term {{ `SHA512_DIGEST_LENGTH : [32] }});
+  crucible_points_to (crucible_field ptr "type") (crucible_term {{ `NID : [32] }});
+  crucible_points_to (crucible_field ptr "md_size") (crucible_term {{ `SHA_DIGEST_LENGTH : [32] }});
   crucible_points_to (crucible_field ptr "flags") (crucible_term {{ 0 : [32] }});
-  crucible_points_to (crucible_field ptr "init") (crucible_global "sha512_init");
-  crucible_points_to (crucible_field ptr "update") (crucible_global "sha512_update");
-  crucible_points_to (crucible_field ptr "final") (crucible_global "sha512_final");
+  crucible_points_to (crucible_field ptr "init") (crucible_global SHA_INIT);
+  crucible_points_to (crucible_field ptr "update") (crucible_global SHA_UPDATE);
+  crucible_points_to (crucible_field ptr "final") (crucible_global SHA_FINAL);
   crucible_points_to (crucible_field ptr "block_size") (crucible_term {{ `SHA512_CBLOCK : [32] }});
   crucible_points_to (crucible_field ptr "ctx_size") (crucible_term {{ `SHA512_CTX_SIZE : [32] }});
 };
@@ -137,12 +133,12 @@ let points_to_env_md_ctx_st ptr digest_ptr md_data_ptr = do {
   crucible_points_to (crucible_field ptr "pctx_ops") crucible_null;
 };
 
-// Specification of EVP_sha512_init, the initialization function for
-// EVP_sha512_storage
-let EVP_sha512_init_spec = do {
-  crucible_alloc_global "EVP_sha512_storage";
+// Specification of EVP_sha512_init and EVP_sha384_init, the initialization
+// functions for EVP_sha512_storage and EVP_sha384_storage respectively
+let EVP_sha_init_spec = do {
+  crucible_alloc_global EVP_SHA_STORAGE;
   crucible_execute_func [];
-  points_to_env_md_st (crucible_global "EVP_sha512_storage");
+  points_to_env_md_st (crucible_global EVP_SHA_STORAGE);
 };
 
 
@@ -160,11 +156,12 @@ let EVP_DigestInit_spec = do {
   sha512_ctx_ptr <- crucible_alloc (llvm_struct "struct.sha512_state_st");
   points_to_sha512_state_st
     sha512_ctx_ptr
-    {{ { h = H0, block = zero : [128][8], n = 0 : [32], sz = 0 : [128] } }}
+    {{ { h = SHA_H0, block = zero : [128][8], n = 0 : [32], sz = 0 : [128] } }}
     0;
   points_to_env_md_ctx_st ctx_ptr type_ptr sha512_ctx_ptr;
   crucible_return (crucible_term {{ 1 : [32] }});
 };
+
 
 let EVP_DigestUpdate_spec num len = do {
   ctx_ptr <- crucible_alloc (llvm_struct "struct.env_md_ctx_st");
@@ -190,7 +187,7 @@ let EVP_DigestUpdate_spec num len = do {
 };
 
 let EVP_DigestFinal_spec num = do {
-  md_out_ptr <- crucible_alloc (llvm_array 64 (llvm_int 8));
+  md_out_ptr <- crucible_alloc (llvm_array SHA_DIGEST_LENGTH (llvm_int 8));
 
   ctx_ptr <- crucible_alloc (llvm_struct "struct.env_md_ctx_st");
 
@@ -205,7 +202,7 @@ let EVP_DigestFinal_spec num = do {
 
   crucible_execute_func [ctx_ptr, md_out_ptr, crucible_null];
 
-  crucible_points_to md_out_ptr (crucible_term {{ reverse (split`{64} (join (reverse (split`{8} (SHA512Final sha512_ctx))))) }});
+  crucible_points_to md_out_ptr (crucible_term {{ reverse (split`{SHA_DIGEST_LENGTH} (join (reverse (split`{each=64} (SHA_FINAL_SPEC sha512_ctx))))) }});
 
   crucible_return (crucible_term {{ 1 : [32] }});
 };
@@ -213,7 +210,7 @@ let EVP_DigestFinal_spec num = do {
 let EVP_Digest_spec len = do {
   (data, data_ptr) <- ptr_to_fresh_readonly "data" (llvm_array len (llvm_int 8));
 
-  md_out_ptr <- crucible_alloc (llvm_array 64 (llvm_int 8));
+  md_out_ptr <- crucible_alloc (llvm_array SHA_DIGEST_LENGTH (llvm_int 8));
 
   type_ptr <- crucible_alloc_readonly (llvm_struct "struct.env_md_st");
   points_to_env_md_st type_ptr;
@@ -227,7 +224,7 @@ let EVP_Digest_spec len = do {
     , crucible_null
     ];
 
-  crucible_points_to md_out_ptr (crucible_term {{ reverse (split`{64} (join (reverse (split`{8} (SHA512Imp data))))) }});
+  crucible_points_to md_out_ptr (crucible_term {{ reverse (split`{SHA_DIGEST_LENGTH} (join (reverse (split`{each=64} (SHA_IMP_SPEC data))))) }});
 
   crucible_return (crucible_term {{ 1 : [32] }});
 };
@@ -406,8 +403,7 @@ disable_what4_hash_consing;
 sha512_block_data_order_spec <- crucible_llvm_unsafe_assume_spec m "sha512_block_data_order"
   (sha512_block_data_order_spec true);
 
-
-crucible_llvm_verify m "EVP_sha512_init" [] true EVP_sha512_init_spec (w4_unint_yices []);
+crucible_llvm_verify m EVP_SHA_INIT [] true EVP_sha_init_spec (w4_unint_yices []);
 
 
 crucible_llvm_verify m "EVP_DigestInit"

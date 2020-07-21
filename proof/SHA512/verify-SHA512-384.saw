@@ -1,0 +1,4 @@
+import "../../spec/SHA512/SHA512.cry";
+
+include "SHA512-384.saw";
+include "SHA512.saw";
