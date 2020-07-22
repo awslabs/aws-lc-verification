@@ -80,7 +80,7 @@ let sha512_block_data_order_spec check_postcond = do {
     crucible_alloc_global "OPENSSL_ia32cap_P";
     crucible_points_to
       (crucible_global "OPENSSL_ia32cap_P")
-      (crucible_term {{ [0, 0, 0, 0] : [4][32] }});
+      (crucible_term {{ [0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff] : [4][32] }});
   };
 
   (state, state_ptr) <- ptr_to_fresh "state" (llvm_array 8 (llvm_int 64));
@@ -256,8 +256,156 @@ OPENSSL_cleanse_ov <- crucible_llvm_unsafe_assume_spec
   "OPENSSL_cleanse"
   (OPENSSL_cleanse_spec SHA512_CTX_SIZE);
 
+
+let bvShl3  = parse_core "\\(x : bitvector 64) -> bvShl 64 x 3";
+let bvShl7  = parse_core "\\(x : bitvector 64) -> bvShl 64 x 7";
+let bvShl42 = parse_core "\\(x : bitvector 64) -> bvShl 64 x 42";
+let bvShl56 = parse_core "\\(x : bitvector 64) -> bvShl 64 x 56";
+
+let bvShr1  = parse_core "\\(x : bitvector 64) -> bvShr 64 x 1";
+let bvShr7  = parse_core "\\(x : bitvector 64) -> bvShr 64 x 7";
+let bvShr6  = parse_core "\\(x : bitvector 64) -> bvShr 64 x 6";
+let bvShr19 = parse_core "\\(x : bitvector 64) -> bvShr 64 x 19";
+let bvShr42 = parse_core "\\(x : bitvector 64) -> bvShr 64 x 42";
+
+let slice_8_56_0  = parse_core "\\(x : bitvector 64) -> slice Bool 8 56 0 x";
+let slice_0_8_56  = parse_core "\\(x : bitvector 64) -> slice Bool 0 8 56 x";
+let slice_36_28_0 = parse_core "\\(x : bitvector 64) -> slice Bool 36 28 0 x";
+let slice_0_36_28 = parse_core "\\(x : bitvector 64) -> slice Bool 0 36 28 x";
+let slice_41_23_0 = parse_core "\\(x : bitvector 64) -> slice Bool 41 23 0 x";
+let slice_0_41_23 = parse_core "\\(x : bitvector 64) -> slice Bool 0 41 23 x";
+let slice_50_14_0 = parse_core "\\(x : bitvector 64) -> slice Bool 50 14 0 x";
+let slice_0_50_14 = parse_core "\\(x : bitvector 64) -> slice Bool 0 50 14 x";
+let slice_58_6_0  = parse_core "\\(x : bitvector 64) -> slice Bool 58 6 0 x";
+let slice_0_58_6  = parse_core "\\(x : bitvector 64) -> slice Bool 0 58 6 x";
+let slice_59_5_0  = parse_core "\\(x : bitvector 64) -> slice Bool 59 5 0 x";
+let slice_0_59_5  = parse_core "\\(x : bitvector 64) -> slice Bool 0 59 5 x";
+let slice_60_4_0  = parse_core "\\(x : bitvector 64) -> slice Bool 60 4 0 x";
+let slice_0_60_4  = parse_core "\\(x : bitvector 64) -> slice Bool 0 60 4 x";
+
+
+let prove_folding_theorem t = prove_print abc (rewrite (cryptol_ss ()) t);
+
+rotate8_thm  <- prove_folding_theorem {{ \x -> (slice_8_56_0  x) # (slice_0_8_56  x) == x <<<  8 }};
+rotate36_thm <- prove_folding_theorem {{ \x -> (slice_36_28_0 x) # (slice_0_36_28 x) == x <<< 36 }};
+rotate41_thm <- prove_folding_theorem {{ \x -> (slice_41_23_0 x) # (slice_0_41_23 x) == x <<< 41 }};
+rotate50_thm <- prove_folding_theorem {{ \x -> (slice_50_14_0 x) # (slice_0_50_14 x) == x <<< 50 }};
+rotate58_thm <- prove_folding_theorem {{ \x -> (slice_58_6_0  x) # (slice_0_58_6  x) == x <<< 58 }};
+rotate59_thm <- prove_folding_theorem {{ \x -> (slice_59_5_0  x) # (slice_0_59_5  x) == x <<< 59 }};
+rotate60_thm <- prove_folding_theorem {{ \x -> (slice_60_4_0  x) # (slice_0_60_4  x) == x <<< 60 }};
+
+rotate59_slice_add_thm <- prove_folding_theorem
+  {{ \x0 x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 x15 x16 x17 x18 x19 x20 x21 x22 x23 x24 x25 x26 x27 x28 x29 x30 x31 x32 x33 x34 x35 x36 x37 x38 x39 x40 x41 x42 x43 x44 x45 x46 x47 x48 x49 x50 ->
+      (slice_59_5_0 (x0 + x2 + x3 + x4 + x5 + x6 + x7 +x8 + x9 + x10 + x11 + x12 + x13 + x14 + x15 + x16 + x17 + x18 + x19 + x20 + x21 + x22 + x23 + x24 + x25 + x26 + x27 + x28 + x29 + x30 + x31 + x32 + x33 + x34 + x35 + x36 + x37 + x38 + x39 + x40 + x41 + x42 + x43 + x44 + x45 + x46 + x47 + x48 + x49 + x50))
+        # (slice_0_59_5 (x0 + (64 * x1) + x2 + x3 + x4 + x5 + x6 + x7 +x8 + x9 + x10 + x11 + x12 + x13 + x14 + x15 + x16 + x17 + x18 + x19 + x20 + x21 + x22 + x23 + x24 + x25 + x26 + x27 + x28 + x29 + x30 + x31 + x32 + x33 + x34 + x35 + x36 + x37 + x38 + x39 + x40 + x41 + x42 + x43 + x44 + x45 + x46 + x47 + x48 + x49 + x50))
+      == (x0 + (64 * x1) + x2 + x3 + x4 + x5 + x6 + x7 +x8 + x9 + x10 + x11 + x12 + x13 + x14 + x15 + x16 + x17 + x18 + x19 + x20 + x21 + x22 + x23 + x24 + x25 + x26 + x27 + x28 + x29 + x30 + x31 + x32 + x33 + x34 + x35 + x36 + x37 + x38 + x39 + x40 + x41 + x42 + x43 + x44 + x45 + x46 + x47 + x48 + x49 + x50) <<< 59
+  }};
+
+rotate59_slice_add_1_thm <- prove_folding_theorem
+  {{ \x0 x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 x15 x16 x17 x18 x19 x20 x21 x22 x23 x24 x25 x26 x27 x28 x29 x30 x31 x32 x33 x34 x35 x36 x37 x38 x39 x40 x41 x42 x43 x44 x45 x46 x47 x48 x49 x50 x51 x52 x53 x54 ->
+      (slice_59_5_0 (x0 + x2 + x3 + x4 + x5 + x6 + x7 +x8 + x9 + x10 + x11 + x12 + x13 + x14 + x15 + x16 + x17 + x18 + x19 + x20 + x21 + x22 + x23 + x24 + x25 + x26 + x27 + x28 + x29 + x30 + x31 + x32 + x33 + x34 + x35 + x36 + x37 + x38 + x39 + x40 + x41 + x42 + x43 + x44 + x45 + x46 + x47 + x48 + x49 + x50 + x51 + x52 + x53 + x54))
+        # (slice_0_59_5 (x0 + (64 * x1) + x2 + x3 + x4 + x5 + x6 + x7 +x8 + x9 + x10 + x11 + x12 + x13 + x14 + x15 + x16 + x17 + x18 + x19 + x20 + x21 + x22 + x23 + x24 + x25 + x26 + x27 + x28 + x29 + x30 + x31 + x32 + x33 + x34 + x35 + x36 + x37 + x38 + x39 + x40 + x41 + x42 + x43 + x44 + x45 + x46 + x47 + x48 + x49 + x50 + x51 + x52 + x53 + x54))
+      == (x0 + (64 * x1) + x2 + x3 + x4 + x5 + x6 + x7 +x8 + x9 + x10 + x11 + x12 + x13 + x14 + x15 + x16 + x17 + x18 + x19 + x20 + x21 + x22 + x23 + x24 + x25 + x26 + x27 + x28 + x29 + x30 + x31 + x32 + x33 + x34 + x35 + x36 + x37 + x38 + x39 + x40 + x41 + x42 + x43 + x44 + x45 + x46 + x47 + x48 + x49 + x50 + x51 + x52 + x53 + x54) <<< 59
+  }};
+
+rotate59_slice_add_2_thm <- prove_folding_theorem
+  {{ \x0 x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 x15 x16 x17 x18 x19 x20 x21 x22 x23 x24 x25 x26 x27 x28 x29 x30 x31 x32 x33 x34 x35 x36 x37 x38 x39 x40 x41 x42 x43 x44 x45 x46 x47 x48 x49 x50 x51 x52 x53 x54 x55 x56 x57 x58 ->
+      (slice_59_5_0 (x0 + x2 + x3 + x4 + x5 + x6 + x7 +x8 + x9 + x10 + x11 + x12 + x13 + x14 + x15 + x16 + x17 + x18 + x19 + x20 + x21 + x22 + x23 + x24 + x25 + x26 + x27 + x28 + x29 + x30 + x31 + x32 + x33 + x34 + x35 + x36 + x37 + x38 + x39 + x40 + x41 + x42 + x43 + x44 + x45 + x46 + x47 + x48 + x49 + x50 + x51 + x52 + x53 + x54 + x55 + x56 + x57 + x58))
+        # (slice_0_59_5 (x0 + (64 * x1) + x2 + x3 + x4 + x5 + x6 + x7 +x8 + x9 + x10 + x11 + x12 + x13 + x14 + x15 + x16 + x17 + x18 + x19 + x20 + x21 + x22 + x23 + x24 + x25 + x26 + x27 + x28 + x29 + x30 + x31 + x32 + x33 + x34 + x35 + x36 + x37 + x38 + x39 + x40 + x41 + x42 + x43 + x44 + x45 + x46 + x47 + x48 + x49 + x50 + x51 + x52 + x53 + x54 + x55 + x56 + x57 + x58))
+      == (x0 + (64 * x1) + x2 + x3 + x4 + x5 + x6 + x7 +x8 + x9 + x10 + x11 + x12 + x13 + x14 + x15 + x16 + x17 + x18 + x19 + x20 + x21 + x22 + x23 + x24 + x25 + x26 + x27 + x28 + x29 + x30 + x31 + x32 + x33 + x34 + x35 + x36 + x37 + x38 + x39 + x40 + x41 + x42 + x43 + x44 + x45 + x46 + x47 + x48 + x49 + x50 + x51 + x52 + x53 + x54 + x55 + x56 + x57 + x58) <<< 59
+  }};
+
+rotate59_slice_add_3_thm <- prove_folding_theorem
+  {{ \x0 x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 x15 x16 x17 x18 x19 x20 x21 x22 x23 x24 x25 x26 x27 x28 x29 x30 x31 x32 x33 x34 x35 x36 x37 x38 x39 x40 x41 x42 x43 x44 x45 x46 x47 x48 x49 x50 x51 x52 x53 x54 x55 x56 x57 x58 x59 x60 x61 x62 ->
+      (slice_59_5_0 (x0 + x2 + x3 + x4 + x5 + x6 + x7 +x8 + x9 + x10 + x11 + x12 + x13 + x14 + x15 + x16 + x17 + x18 + x19 + x20 + x21 + x22 + x23 + x24 + x25 + x26 + x27 + x28 + x29 + x30 + x31 + x32 + x33 + x34 + x35 + x36 + x37 + x38 + x39 + x40 + x41 + x42 + x43 + x44 + x45 + x46 + x47 + x48 + x49 + x50 + x51 + x52 + x53 + x54 + x55 + x56 + x57 + x58 + x59 + x60 + x61 + x62))
+        # (slice_0_59_5 (x0 + (64 * x1) + x2 + x3 + x4 + x5 + x6 + x7 +x8 + x9 + x10 + x11 + x12 + x13 + x14 + x15 + x16 + x17 + x18 + x19 + x20 + x21 + x22 + x23 + x24 + x25 + x26 + x27 + x28 + x29 + x30 + x31 + x32 + x33 + x34 + x35 + x36 + x37 + x38 + x39 + x40 + x41 + x42 + x43 + x44 + x45 + x46 + x47 + x48 + x49 + x50 + x51 + x52 + x53 + x54 + x55 + x56 + x57 + x58 + x59 + x60 + x61 + x62))
+      == (x0 + (64 * x1) + x2 + x3 + x4 + x5 + x6 + x7 +x8 + x9 + x10 + x11 + x12 + x13 + x14 + x15 + x16 + x17 + x18 + x19 + x20 + x21 + x22 + x23 + x24 + x25 + x26 + x27 + x28 + x29 + x30 + x31 + x32 + x33 + x34 + x35 + x36 + x37 + x38 + x39 + x40 + x41 + x42 + x43 + x44 + x45 + x46 + x47 + x48 + x49 + x50 + x51 + x52 + x53 + x54 + x55 + x56 + x57 + x58 + x59 + x60 + x61 + x62) <<< 59
+  }};
+
+xor_append_64_64_thm <- prove_folding_theorem
+  {{ \(x : [64]) (y : [64]) u v -> (x # y) ^ (u # v) == (x ^ u) # (y ^ v) }};
+
+Sigma0_thm   <- prove_folding_theorem {{ \x -> (x ^ ((x ^ (x <<< 59)) <<< 58)) <<< 36 == S0 x }};
+Sigma0_1_thm <- prove_folding_theorem {{ \x -> ((((x <<< 59) ^ x) <<< 58) ^ x) <<< 36 == S0 x }};
+Sigma1_thm   <- prove_folding_theorem {{ \x -> (x ^ ((x ^ (x <<< 41)) <<< 60)) <<< 50 == S1 x }};
+Sigma1_1_thm <- prove_folding_theorem {{ \x -> ((((x <<< 41) ^ x) <<< 60) ^ x) <<< 50 == S1 x }};
+sigma0_thm <- prove_folding_theorem
+  {{ \x -> (bvShr1 x) ^ (bvShr7 x) ^ (bvShl56 x) ^ (bvShr7 (bvShr1 x)) ^ (bvShl7 (bvShl56 x)) == s0 x }};
+sigma1_thm <- prove_folding_theorem
+  {{ \x -> (bvShr6 x) ^ (bvShl3 x) ^ (bvShr19 x) ^ (bvShl42 (bvShl3 x)) ^ (bvShr42 (bvShr19 x)) == s1 x }};
+
+Ch_thm   <- prove_folding_theorem {{ \x y z -> z ^ (x && (z ^ y)) == Ch x y z }};
+Ch_1_thm <- prove_folding_theorem {{ \x y z -> z ^ (x && (y ^ z)) == Ch x y z }};
+Ch_2_thm <- prove_folding_theorem {{ \x y z -> z ^ ((y ^ z) && x) == Ch x y z }};
+Ch_3_thm <- prove_folding_theorem {{ \x y z -> z ^ ((y ^ z) && x) == Ch x y z }};
+Ch_4_thm <- prove_folding_theorem {{ \x y z -> ((y ^ z) && x) ^ z == Ch x y z }};
+Ch_5_thm <- prove_folding_theorem {{ \x y z -> ((z ^ y) && x) ^ z == Ch x y z }};
+Ch_6_thm <- prove_folding_theorem {{ \x y z -> (x && (y ^ z)) ^ z == Ch x y z }};
+Ch_7_thm <- prove_folding_theorem {{ \x y z -> (x && (z ^ y)) ^ z == Ch x y z }};
+
+Maj_thm   <- prove_folding_theorem {{ \x y z -> Ch (x ^ y) z y == Maj x y z }};
+Maj_1_thm <- prove_folding_theorem {{ \x y z -> Ch (y ^ x) z y == Maj x y z }};
+
+let bvult = parse_core "\\(x y : bitvector 64) -> bvult 64 x y";
+// replace (bvult x y) with (x - y <$ 0) in order for the semiring and abstract domain to work
+cmp_sub_thm <- prove_folding_theorem
+  {{ \x y -> bvult x y == if (x @ 0 == y @ 0) then (x - y <$ 0) else (x @ 0 < y @ 0) }};
+
+let thms =
+  [ rotate8_thm
+  , rotate36_thm
+  , rotate41_thm
+  , rotate50_thm
+  , rotate58_thm
+  , rotate59_thm
+  , rotate60_thm
+  , rotate59_slice_add_thm
+  , rotate59_slice_add_1_thm
+  , rotate59_slice_add_2_thm
+  , rotate59_slice_add_3_thm
+  , xor_append_64_64_thm
+  , Sigma0_thm
+  , Sigma0_1_thm
+  , Sigma1_thm
+  , Sigma1_1_thm
+  , sigma0_thm
+  , sigma1_thm
+  , Ch_thm
+  , Ch_1_thm
+  , Ch_2_thm
+  , Ch_3_thm
+  , Ch_4_thm
+  , Ch_5_thm
+  , Ch_6_thm
+  , Ch_7_thm
+  , Maj_thm
+  , Maj_1_thm
+  , cmp_sub_thm
+  ];
+
+concat_assoc_thm <- prove_folding_theorem
+  {{ \(x0 : [8]) (x1 : [8]) (x2 : [8]) (x3 : [8]) (x4 : [8]) (x5 : [8]) (x6 : [8]) (x7 : [8]) -> x0 # (x1 # (x2 # (x3 # (x4 # (x5 # (x6 # x7)))))) == (((((((x0 # x1) # x2) # x3) # x4) # x5) # x6) # x7) }};
+
+
+enable_what4_hash_consing;
+
+crucible_llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "sha512_block_data_order"
+  [ ("K512", 5120) // immutable constants
+  ]
+  true
+  (sha512_block_data_order_spec false)
+  (do {
+    simplify (cryptol_ss ());
+    simplify (addsimps thms empty_ss);
+    simplify (addsimp concat_assoc_thm empty_ss);
+    w4_unint_yices ["S0", "S1", "s0", "s1", "Ch"];
+  });
+
+disable_what4_hash_consing;
+
 sha512_block_data_order_spec <- crucible_llvm_unsafe_assume_spec m "sha512_block_data_order"
   (sha512_block_data_order_spec true);
+
 
 crucible_llvm_verify m "EVP_sha512_init" [] true EVP_sha512_init_spec (w4_unint_yices []);
 
@@ -322,3 +470,4 @@ crucible_llvm_verify m "EVP_Digest"
   true
   (EVP_Digest_spec 240)
   (w4_unint_yices ["SHA512Block"]);
+
