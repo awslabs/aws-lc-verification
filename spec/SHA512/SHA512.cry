@@ -2,11 +2,12 @@
  * Copyright (c) 2020 Galois, Inc.
  * Distributed under the terms of the BSD3 license (see LICENSE file)
  *
- * This is a very simple implementation of SHA512, designed to be as clearly
- * mathced to the specification in NIST's FIPS-PUB-180-4 as possible
+ * This is a very simple implementation of SHA512 and SHA384, designed to be as
+ * clearly mathced to the specification in NIST's FIPS-PUB-180-4 as possible
  *
  * * The output correctly matches on all test vectors from
- * http://csrc.nist.gov/groups/ST/toolkit/documents/Examples/SHA512.pdf
+ * http://csrc.nist.gov/groups/ST/toolkit/documents/Examples/SHA512.pdf and
+ * http://csrc.nist.gov/groups/ST/toolkit/documents/Examples/SHA384.pdf
  */
 module SHA512 where
 
@@ -81,6 +82,10 @@ SHA512H0 = [ 0x6a09e667f3bcc908, 0xbb67ae8584caa73b, 0x3c6ef372fe94f82b,
              0xa54ff53a5f1d36f1, 0x510e527fade682d1, 0x9b05688c2b3e6c1f,
              0x1f83d9abfb41bd6b, 0x5be0cd19137e2179 ]
 
+/*
+ * SHA384 Initial Hash Value : Section 5.3.4
+ */
+
 SHA384H0 : [8][64]
 SHA384H0 = [ 0xcbbb9d5dc1059ed8, 0x629a292a367cd507, 0x9159015a3070dd17,
              0x152fecd8f70e5939, 0x67332667ffc00b31, 0x8eb44a8768581511,
@@ -129,6 +134,11 @@ SHA512' blocks H0 = hash!0 where
 SHA512 : {a} (fin a, 128 >= width (8*a)) => [a][8] -> [512]
 SHA512 msg = join (SHA512' [ split x | x <- preprocess(join msg)] SHA512H0)
 
+/*
+ * The SHA384 function uses the same algorithm as SHA512 with a different H0,
+ * then drops all but the first 384 bits
+ */
+
 SHA384 : {a} (fin a, 128 >= width (8*a)) => [a][8] -> [384]
 SHA384 msg = join (take`{6} (SHA512' [ split x | x <- preprocess(join msg)]
                                      SHA384H0))
@@ -141,6 +151,7 @@ type SHA512State = { h : [8][64]
                    , sz : [128]
                    }
 
+// Initial state for SHA512
 SHA512Init : SHA512State
 SHA512Init = { h = SHA512H0
              , block = zero
@@ -148,6 +159,7 @@ SHA512Init = { h = SHA512H0
              , sz = 0
              }
 
+// Initial state for SHA384.  Uses same state structure as SHA512.
 SHA384Init : SHA512State
 SHA384Init = { h = SHA384H0
              , block = zero
@@ -155,6 +167,10 @@ SHA384Init = { h = SHA384H0
              , sz = 0
              }
 
+// SHA512Update1 updates a single byte at position s.n in s.block and return a
+// new state to pass to subsequent updates.  If s.n is 128, updates position 0
+// to b and zeros the remainder of the block, setting s.n to 1 for the next
+// update.
 SHA512Update1 : SHA512State -> [8] -> SHA512State
 SHA512Update1 s b =
   if s.n == 128
@@ -169,6 +185,8 @@ SHA512Update1 s b =
          , sz = s.sz + 8
          }
 
+// Process message being hashed, iteratively updating the SHA state with the
+// input message.
 SHA512Update : {n} (fin n) => SHA512State -> [n][8] -> SHA512State
 SHA512Update sinit bs = ss!0
   where ss = [sinit] # [ SHA512Update1 s b | s <- ss | b <- bs ]
@@ -187,11 +205,15 @@ SHA512Final s = join (SHA512Block h b')
                  else (SHA512Block s'.h (split (join s'.block)), zero)
         b' = split (join b || (zero # s.sz))
 
+// Drop all but the first 384 bytes of the result of applying SHA512Final to s
+// to get the SHA384 digest.
 SHA384Final : SHA512State -> [384]
 SHA384Final s = join (take`{6} (split`{8} (SHA512Final s)))
 
+// Imperative SHA512 implementation
 SHA512Imp : {n} (fin n) => [n][8] -> [512]
 SHA512Imp msg = SHA512Final (SHA512Update SHA512Init msg)
 
+// Imparative SHA384 implementation
 SHA384Imp : {n} (fin n) => [n][8] -> [384]
 SHA384Imp msg = SHA384Final (SHA512Update SHA384Init msg)
