@@ -53,12 +53,64 @@ let global_alloc_init n v = do {
 // Specifications
 
 /*
+ * This section of the SAW script contains specifications of the functions that
+ * SAW will verify.  Each specification can be broken down into 3 components:
+ * preconditions, a function call description, and postconditions.
+ *
+ * A precondition is a predicate that must be true prior to the application of
+ * a function for the specification's postcondition to hold.  Preconditions are
+ * typically restrictions on function inputs or global state.  For example, a
+ * function that returns the first element of an array might have a
+ * precondition that the array is not empty.  A specification makes no
+ * guarantees about how the function acts when the precondition is violated.
+ * In a SAW specification, preconditions are the statements that come before a
+ * function call description.  If a function has no preconditions we say that
+ * the precondition is "true", meaning that the postcondition holds for all
+ * possible inputs and program states.
+ *
+ * A function call description tells SAW how to call the function being
+ * specified.  It has the form:
+ *     crucible_execute_func [<list of arguments>]
+ * These arguments are typically from the preconditions, specification inputs,
+ * global variables, and literals.  SAW does not actually execute the function,
+ * but rather uses symbolic execution to examine all possible executions
+ * through the function, subject to precondition constraints.  For example,
+ * if a precondition states that a variable `ctx_ptr` is a pointer to an
+ * `env_md_ctx_st` struct:
+ *     ctx_ptr <- crucible_alloc (llvm_struct "struct.env_md_ctx_st");
+ * And the function call description takes `ctx_ptr` as an input:
+ *     crucible_execute_func [ctx_ptr];
+ * Then SAW will reason about the function over all possible `env_md_ctx_st`
+ * structs.  We call `ctx_ptr` a symbol because SAW does not evaluate it, but
+ * rather treats it as the set of all possible `env_md_ctx_st` structs.
+ *
+ * A postcondition is a predicate that must be true following the application
+ * of a function, assuming the function's precondition held.  From a logic
+ * perspective, you can think of this as:
+ *     (<conjunction of preconditions> /\ <function application>) ->
+ *     <conjunction of postconditions>
+ * where "/\" is logical AND and "->" is logical implication.  If a SAW proof
+ * succeeds, then SAW guarantees that the postconditions hold following function
+ * application, so long as the function's preconditions held just prior to the
+ * function's application.  In a SAW specification, postconditions are the
+ * statements that come after a function call description.  If a function has
+ * no postconditions, then we say that the postcondition is "true", meaning
+ * that the specification makes no guarantees about the function's behavior.
+ */
+
+/*
  * Specification of OPENSSL memory management functions
  */
 let OPENSSL_malloc_spec size = do {
   // Precondition: true
 
-  // Call function with argument `size`
+  // Call function with argument `size`.
+  // `crucible_term` converts `size` to a symbol so that SAW may reason about
+  // it during symbolic execution.  This line also contains a type annotation
+  // on `size` to declare that it is a 64 bit integer.  This is necessary
+  // because SAW integers are unbounded, but the function expects a 64 bit
+  // value so the spec must explicitly convert the unbounded SAW integer to a
+  // 64 bit value.
   crucible_execute_func [crucible_term {{ `size : [64] }}];
 
   // Postcondition: returns a pointer to a 128 byte aligned array of `size`
