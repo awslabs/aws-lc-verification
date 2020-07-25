@@ -30,6 +30,15 @@ let ptr_to_fresh_readonly n ty = do {
   return (x, p);
 };
 
+let global_points_to n v = do {
+  crucible_points_to (crucible_global n) (crucible_term v);
+};
+
+let global_alloc_init n v = do {
+  crucible_alloc_global n;
+  global_points_to n v;
+};
+
 
 ////////////////////////////////////////////////////////////////////////////////
 // Specifications
@@ -67,23 +76,24 @@ let SHA512_CTX_SIZE = eval_int {{ (64 + 8 + 8 + `SHA512_CBLOCK + 4 + 4) : [64] }
 
 
 /*
+ * Architecture features for the AVX+shrd code path
+ */
+let {{ ia32cap = [0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff] : [4][32] }};
+
+
+/*
  * Specification of block function for SHA512
  */
-let sha512_block_data_order_spec check_postcond = do {
-  if check_postcond then do {
-    return ();
-  } else do {
-    crucible_alloc_global "OPENSSL_ia32cap_P";
-    crucible_points_to
-      (crucible_global "OPENSSL_ia32cap_P")
-      (crucible_term {{ [0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff] : [4][32] }});
-  };
+let sha512_block_data_order_spec = do {
+  global_alloc_init "OPENSSL_ia32cap_P" {{ ia32cap }};
 
   (state, state_ptr) <- ptr_to_fresh "state" (llvm_array 8 (llvm_int 64));
 
   (data, data_ptr) <- ptr_to_fresh_readonly "data" (llvm_array SHA512_CBLOCK (llvm_int 8));
 
   crucible_execute_func [state_ptr, data_ptr, crucible_term {{ 1 : [64] }}];
+
+  global_points_to "OPENSSL_ia32cap_P" {{ ia32cap }};
 
   crucible_points_to state_ptr (crucible_term {{ SHA512Block state (split (join data)) }});
 };
@@ -164,6 +174,8 @@ let EVP_DigestInit_spec = do {
 
 
 let EVP_DigestUpdate_spec num len = do {
+  global_alloc_init "OPENSSL_ia32cap_P" {{ ia32cap }};
+
   ctx_ptr <- crucible_alloc (llvm_struct "struct.env_md_ctx_st");
 
   digest_ptr <- crucible_alloc_readonly (llvm_struct "struct.env_md_st");
@@ -179,6 +191,8 @@ let EVP_DigestUpdate_spec num len = do {
 
   crucible_execute_func [ctx_ptr, data_ptr, crucible_term {{ `len : [64] }}];
 
+  global_points_to "OPENSSL_ia32cap_P" {{ ia32cap }};
+
   points_to_sha512_state_st sha512_ctx_ptr {{ SHA512Update sha512_ctx data }} (eval_int {{ `((num + len) % SHA512_CBLOCK ) : [64]}});
 
   points_to_env_md_ctx_st ctx_ptr digest_ptr sha512_ctx_ptr;
@@ -187,6 +201,8 @@ let EVP_DigestUpdate_spec num len = do {
 };
 
 let EVP_DigestFinal_spec num = do {
+  global_alloc_init "OPENSSL_ia32cap_P" {{ ia32cap }};
+
   md_out_ptr <- crucible_alloc (llvm_array SHA_DIGEST_LENGTH (llvm_int 8));
 
   ctx_ptr <- crucible_alloc (llvm_struct "struct.env_md_ctx_st");
@@ -202,12 +218,16 @@ let EVP_DigestFinal_spec num = do {
 
   crucible_execute_func [ctx_ptr, md_out_ptr, crucible_null];
 
+  global_points_to "OPENSSL_ia32cap_P" {{ ia32cap }};
+
   crucible_points_to md_out_ptr (crucible_term {{ reverse (split`{SHA_DIGEST_LENGTH} (join (reverse (split`{each=64} (SHA_FINAL_SPEC sha512_ctx))))) }});
 
   crucible_return (crucible_term {{ 1 : [32] }});
 };
 
 let EVP_Digest_spec len = do {
+  global_alloc_init "OPENSSL_ia32cap_P" {{ ia32cap }};
+
   (data, data_ptr) <- ptr_to_fresh_readonly "data" (llvm_array len (llvm_int 8));
 
   md_out_ptr <- crucible_alloc (llvm_array SHA_DIGEST_LENGTH (llvm_int 8));
@@ -223,6 +243,8 @@ let EVP_Digest_spec len = do {
     , type_ptr
     , crucible_null
     ];
+
+  global_points_to "OPENSSL_ia32cap_P" {{ ia32cap }};
 
   crucible_points_to md_out_ptr (crucible_term {{ reverse (split`{SHA_DIGEST_LENGTH} (join (reverse (split`{each=64} (SHA_IMP_SPEC data))))) }});
 
@@ -386,11 +408,11 @@ concat_assoc_thm <- prove_folding_theorem
 
 enable_what4_hash_consing;
 
-crucible_llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "sha512_block_data_order"
+sha512_block_data_order_spec <- crucible_llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "sha512_block_data_order"
   [ ("K512", 5120) // immutable constants
   ]
   true
-  (sha512_block_data_order_spec false)
+  sha512_block_data_order_spec
   (do {
     simplify (cryptol_ss ());
     simplify (addsimps thms empty_ss);
@@ -400,8 +422,6 @@ crucible_llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "sha512_block_da
 
 disable_what4_hash_consing;
 
-sha512_block_data_order_spec <- crucible_llvm_unsafe_assume_spec m "sha512_block_data_order"
-  (sha512_block_data_order_spec true);
 
 crucible_llvm_verify m EVP_SHA_INIT [] true EVP_sha_init_spec (w4_unint_yices []);
 
