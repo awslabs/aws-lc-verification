@@ -25,5 +25,5 @@ let SHA_H0 = {{ SHA384H0 }};
 // Cryptol spec for SHA final function
 let SHA_FINAL_SPEC = {{ SHA384Final }};
 
-// Cryptol spec for SHA imparative function
+// Cryptol spec for SHA imperative function
 let SHA_IMP_SPEC = {{ SHA384Imp }};

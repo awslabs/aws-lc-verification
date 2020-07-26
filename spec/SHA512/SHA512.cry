@@ -3,7 +3,7 @@
  * Distributed under the terms of the BSD3 license (see LICENSE file)
  *
  * This is a very simple implementation of SHA512 and SHA384, designed to be as
- * clearly mathced to the specification in NIST's FIPS-PUB-180-4 as possible
+ * clearly matched to the specification in NIST's FIPS-PUB-180-4 as possible
  *
  * * The output correctly matches on all test vectors from
  * http://csrc.nist.gov/groups/ST/toolkit/documents/Examples/SHA512.pdf and
@@ -214,6 +214,7 @@ SHA384Final s = join (take`{6} (split`{8} (SHA512Final s)))
 SHA512Imp : {n} (fin n) => [n][8] -> [512]
 SHA512Imp msg = SHA512Final (SHA512Update SHA512Init msg)
 
-// Imparative SHA384 implementation
+// Imperative SHA384 implementation
 SHA384Imp : {n} (fin n) => [n][8] -> [384]
 SHA384Imp msg = SHA384Final (SHA512Update SHA384Init msg)
+

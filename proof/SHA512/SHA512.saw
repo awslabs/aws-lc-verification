@@ -232,7 +232,7 @@ let points_to_sha512_state_st ptr state num = do {
   } else do {
     // Specify that the first `num` bytes of `sha512_state_st.p` match the
     // first `num` bits of `state.block`.
-    // Untypted check because the size of `sha512_state_st.p` does not match
+    // Untyped check because the size of `sha512_state_st.p` does not match
     // the size of (take`{num} state.block) unless `num` == `SHA512_CBLOCK`
     crucible_points_to_untyped (crucible_field ptr "p") (crucible_term {{ take`{num} state.block }});
   };
