@@ -5,6 +5,16 @@ m <- llvm_load_module "../../build/llvm/crypto/crypto_test.bc";
 
 
 /*
+ * SHA512 defines
+ */
+// Size of a block in bytes
+let SHA512_CBLOCK = 128;
+
+// Size of the SHA512 context struct
+let SHA512_CTX_SIZE = eval_int {{ (64 + 8 + 8 + `SHA512_CBLOCK + 4 + 4) : [64] }};
+
+
+/*
  * SAW helpers
  */
 // Given a value `v` of type `ty`, allocates and returns a pointer to memory
@@ -148,16 +158,6 @@ let OPENSSL_cleanse_spec len = do {
   // Postcondition: Data pointed to by `ptr` has been zeroed out
   crucible_points_to ptr (crucible_term {{ zero : [len][8] }});
 };
-
-
-/*
- * SHA512 defines
- */
-// Size of a block in bytes
-let SHA512_CBLOCK = 128;
-
-// Size of the SHA512 context struct
-let SHA512_CTX_SIZE = eval_int {{ (64 + 8 + 8 + `SHA512_CBLOCK + 4 + 4) : [64] }};
 
 
 /*
