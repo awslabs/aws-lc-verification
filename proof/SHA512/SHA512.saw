@@ -4,6 +4,13 @@ m <- llvm_load_module "../../build/llvm/crypto/crypto_test.bc";
 
 
 /*
+ * SHA512 defines
+ */
+let SHA512_CBLOCK = 128;
+let SHA512_CTX_SIZE = eval_int {{ (64 + 8 + 8 + `SHA512_CBLOCK + 4 + 4) : [64] }};
+
+
+/*
  * SAW helpers
  */
 let alloc_init ty v = do {
@@ -66,13 +73,6 @@ let OPENSSL_cleanse_spec len = do {
   crucible_execute_func [ptr, crucible_term {{ `len : [64] }}];
   crucible_points_to ptr (crucible_term {{ zero : [len][8] }});
 };
-
-
-/*
- * SHA512 defines
- */
-let SHA512_CBLOCK = 128;
-let SHA512_CTX_SIZE = eval_int {{ (64 + 8 + 8 + `SHA512_CBLOCK + 4 + 4) : [64] }};
 
 
 /*
