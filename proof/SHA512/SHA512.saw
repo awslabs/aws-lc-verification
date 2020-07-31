@@ -13,51 +13,8 @@ let SHA512_CBLOCK = 128;
 // Size of the SHA512 context struct
 let SHA512_CTX_SIZE = eval_int {{ (64 + 8 + 8 + `SHA512_CBLOCK + 4 + 4) : [64] }};
 
-
-/*
- * SAW helpers
- */
-// Given a value `v` of type `ty`, allocates and returns a pointer to memory
-// storing `v`
-let alloc_init ty v = do {
-  p <- crucible_alloc ty;
-  crucible_points_to p v;
-  return p;
-};
-
-// Given a value `v` of type `ty`, allocates and returns a read only pointer to
-// memory storing `v`
-let alloc_init_readonly ty v = do {
-  p <- crucible_alloc_readonly ty;
-  crucible_points_to p v;
-  return p;
-};
-
-// Given a name `n` and a type `ty`, allocates a fresh variable `x` of type
-// `ty` and returns a tuple of `x` and a pointer to `x`.
-let ptr_to_fresh n ty = do {
-  x <- crucible_fresh_var n ty;
-  p <- alloc_init ty (crucible_term x);
-  return (x, p);
-};
-
-// Given a name `n` and a type `ty`, allocates a fresh variable `x` of type
-// `ty` and returns a tuple of `x` and a read only pointer to `x`.
-let ptr_to_fresh_readonly n ty = do {
-  x <- crucible_fresh_var n ty;
-  p <- alloc_init_readonly ty (crucible_term x);
-  return (x, p);
-};
-
-let global_points_to n v = do {
-  crucible_points_to (crucible_global n) (crucible_term v);
-};
-
-let global_alloc_init n v = do {
-  crucible_alloc_global n;
-  global_points_to n v;
-};
-
+// Include helper functions
+include "helpers.saw";
 
 ////////////////////////////////////////////////////////////////////////////////
 // Specifications
@@ -107,58 +64,6 @@ let global_alloc_init n v = do {
  * no postconditions, then we say that the postcondition is "true", meaning
  * that the specification makes no guarantees about the function's behavior.
  */
-
-/*
- * Specification of OPENSSL memory management functions
- */
-let OPENSSL_malloc_spec size = do {
-  // Precondition: true
-
-  // Call function with argument `size`.
-  // `crucible_term` converts `size` to a symbol so that SAW may reason about
-  // it during symbolic execution.  This line also contains a type annotation
-  // on `size` to declare that it is a 64 bit integer.  This is necessary
-  // because SAW integers are unbounded, but the function expects a 64 bit
-  // value so the spec must explicitly convert the unbounded SAW integer to a
-  // 64 bit value.
-  crucible_execute_func [crucible_term {{ `size : [64] }}];
-
-  // Postcondition: returns a pointer to a 128 byte aligned array of `size`
-  // bytes
-  ptr <- crucible_alloc_aligned 128 (llvm_array size (llvm_int 8));
-  crucible_return ptr;
-};
-
-let OPENSSL_free_nonnull_spec size = do {
-  // Precondition: `ptr` is a pointer to an array of `size` bytes
-  ptr <- crucible_alloc (llvm_array size (llvm_int 8));
-
-  // Call function with argument `ptr`
-  crucible_execute_func [ptr];
-
-  // Postcondition: true
-};
-
-let OPENSSL_free_null_spec = do {
-  // Precondition: true
-
-  // Call function with NULL as the argument
-  crucible_execute_func [crucible_null];
-
-  // Postcondition: true
-};
-
-let OPENSSL_cleanse_spec len = do {
-  // Precondition: `ptr` is a pointer to an array of `len` bytes
-  ptr <- crucible_alloc (llvm_array len (llvm_int 8));
-
-  // Call function with arguments `ptr` and `len`
-  crucible_execute_func [ptr, crucible_term {{ `len : [64] }}];
-
-  // Postcondition: Data pointed to by `ptr` has been zeroed out
-  crucible_points_to ptr (crucible_term {{ zero : [len][8] }});
-};
-
 
 /*
  * Architecture features for the AVX+shrd code path
@@ -263,368 +168,17 @@ let points_to_env_md_ctx_st ptr digest_ptr md_data_ptr = do {
   crucible_points_to (crucible_field ptr "pctx_ops") crucible_null;
 };
 
-// Specification of EVP_sha512_init and EVP_sha384_init, the initialization
-// functions for EVP_sha512_storage and EVP_sha384_storage respectively
-let EVP_sha_init_spec = do {
-  // Precondition: The global variable `EVP_SHA_STORAGE` exists
-  crucible_alloc_global EVP_SHA_STORAGE;
-
-  // Call function with no arguments
-  crucible_execute_func [];
-
-  // Postcondition: `EVP_SHA_STORAGE` global variable satisfies the
-  // `points_to_env_md_st` specification
-  points_to_env_md_st (crucible_global EVP_SHA_STORAGE);
-};
-
-
-/*
- * Specifications of EVP_Digest, EVP_DigestInit, EVP_DigestUpdate, and
- * EVP_DigestFinal functions for SHA512.
- */
-let EVP_DigestInit_spec = do {
-  // Precondition: `ctx_ptr` is a pointer to an `env_md_ctx_st` struct
-  ctx_ptr <- crucible_alloc (llvm_struct "struct.env_md_ctx_st");
-
-  // Precondition: `type_ptr` is a pointer to a const `env_md_ctx_st` struct
-  // satisfying the `points_to_env_md_st` specification
-  type_ptr <- crucible_alloc_readonly (llvm_struct "struct.env_md_st");
-  points_to_env_md_st type_ptr;
-
-  // Call function with `ctx_ptr` and `type_ptr`
-  crucible_execute_func [ctx_ptr, type_ptr];
-
-  // Postcondition: `ctx_ptr->digest == type_ptr` and `ctx_ptr->md_data`
-  // holds an initialized SHA512 context
-  sha512_ctx_ptr <- crucible_alloc (llvm_struct "struct.sha512_state_st");
-  points_to_sha512_state_st
-    sha512_ctx_ptr
-    {{ { h = SHA_H0, block = zero : [128][8], n = 0 : [32], sz = 0 : [128] } }}
-    0;
-  points_to_env_md_ctx_st ctx_ptr type_ptr sha512_ctx_ptr;
-
-  // Postcondition: The function returns 1
-  crucible_return (crucible_term {{ 1 : [32] }});
-};
-
-
-let EVP_DigestUpdate_spec num len = do {
-  global_alloc_init "OPENSSL_ia32cap_P" {{ ia32cap }};
-
-  // Precondition: `ctx_ptr` is a pointer to an `env_md_ctx_st` struct
-  ctx_ptr <- crucible_alloc (llvm_struct "struct.env_md_ctx_st");
-
-  // Precondition: `digest_ptr` is a pointer to a const `env_md_st` struct
-  // satisfying the `points_to_env_md_st` specification
-  digest_ptr <- crucible_alloc_readonly (llvm_struct "struct.env_md_st");
-  points_to_env_md_st digest_ptr;
-
-  // Precondition: `sha512_ctx_ptr` is a pointer to a `sha512_state_st` struct
-  sha512_ctx_ptr <- crucible_alloc (llvm_struct "struct.sha512_state_st");
-  // Precondition: `sha512_ctx` is a fresh Cryptol SHA512State
-  sha512_ctx <- fresh_sha512_state_st "sha512_ctx" num;
-  // Precondition: `sha512_ctx_ptr` matches `sha512_ctx`.  The message blocks
-  // of the two must only match up to the first `num` bits
-  points_to_sha512_state_st sha512_ctx_ptr sha512_ctx num;
-
-  // Precondition: Struct pointed to by `ctx_ptr` points to `digest_ptr` and
-  // `sha512_ctx_ptr`.
-  points_to_env_md_ctx_st ctx_ptr digest_ptr sha512_ctx_ptr;
-
-  // Precondition: `data` is a fresh array of `len` bytes, and `data_ptr`
-  // points to `data`.
-  (data, data_ptr) <- ptr_to_fresh_readonly "data" (llvm_array len (llvm_int 8));
-
-  // Call function with `ctx_ptr`, `data_ptr`, and `len` as arguments.
-  crucible_execute_func [ctx_ptr, data_ptr, crucible_term {{ `len : [64] }}];
-
-  global_points_to "OPENSSL_ia32cap_P" {{ ia32cap }};
-
-  // Postcondition: The context `sha512_ctx_ptr` points to matches the result
-  // of executing the cryptol function `SHA512Update` on `sha512_ctx` and
-  // `data`, with the exception of the message block, which must only match up
-  // to the first `(num + len) % SHA512_CBLOCK` bytes.  This is because the
-  // C implementation does not clear the unused bytes of message block, and
-  // therefore the tail end of the block contains garbage.
-  points_to_sha512_state_st sha512_ctx_ptr {{ SHA512Update sha512_ctx data }} (eval_int {{ `((num + len) % SHA512_CBLOCK ) : [64]}});
-
-  // Postcondition: Struct pointed to by `ctx_ptr` points to `digest_ptr` and
-  // `sha512_ctx_ptr`.
-  points_to_env_md_ctx_st ctx_ptr digest_ptr sha512_ctx_ptr;
-
-  // Postcondition: The function returns 1
-  crucible_return (crucible_term {{ 1 : [32] }});
-};
-
-let EVP_DigestFinal_spec num = do {
-  global_alloc_init "OPENSSL_ia32cap_P" {{ ia32cap }};
-
-  // Precondition: `md_out_ptr` points to an array of `SHA_DIGEST_LENGTH` bytes
-  md_out_ptr <- crucible_alloc (llvm_array SHA_DIGEST_LENGTH (llvm_int 8));
-
-  // Precondition: `ctx_ptr` points to an `env_md_ctx_st` struct
-  ctx_ptr <- crucible_alloc (llvm_struct "struct.env_md_ctx_st");
-
-  // Precondition: `digest_ptr` points to a const `env_md_st` struct satisfying
-  // the `digest_ptr` specification.
-  digest_ptr <- crucible_alloc_readonly (llvm_struct "struct.env_md_st");
-  points_to_env_md_st digest_ptr;
-
-  // Precondition: `sha512_ctx_ptr` is a pointer to a `sha512_state_st` struct
-  sha512_ctx_ptr <- crucible_alloc (llvm_struct "struct.sha512_state_st");
-  // Precondition: `sha512_ctx` is a fresh Cryptol SHA512State
-  sha512_ctx <- fresh_sha512_state_st "sha512_ctx" num;
-  // Precondition: `sha512_ctx_ptr` matches `sha512_ctx`.  The message blocks
-  // of the two must only match up to the first `num` bits
-  points_to_sha512_state_st sha512_ctx_ptr sha512_ctx num;
-
-  // Precondition: Struct pointed to by `ctx_ptr` points to `digest_ptr` and
-  // `sha512_ctx_ptr`.
-  points_to_env_md_ctx_st ctx_ptr digest_ptr sha512_ctx_ptr;
-
-  // Call function with `ctx_ptr`, `md_out_ptr`, and NULL
-  crucible_execute_func [ctx_ptr, md_out_ptr, crucible_null];
-
-  global_points_to "OPENSSL_ia32cap_P" {{ ia32cap }};
-
-  // Postcondition: The data pointed to by `md_out_ptr` matches the message
-  // digest returned by the Cryptol function `SHA_FINAL_SPEC`.  The reverses,
-  // splits, and joins transform the Cryptol function's big endian output to
-  // little endian.
-  crucible_points_to md_out_ptr (crucible_term {{ reverse (split`{SHA_DIGEST_LENGTH} (join (reverse (split`{each=64} (SHA_FINAL_SPEC sha512_ctx))))) }});
-
-  // Postcondition: The function returns 1
-  crucible_return (crucible_term {{ 1 : [32] }});
-};
-
-let EVP_Digest_spec len = do {
-  global_alloc_init "OPENSSL_ia32cap_P" {{ ia32cap }};
-
-  // Precondition: `data` is a fresh const array of `len` bytes, and `data_ptr`
-  // points to `data`.
-  (data, data_ptr) <- ptr_to_fresh_readonly "data" (llvm_array len (llvm_int 8));
-
-  // Precondition: `md_out_ptr` is a pointer to an array of `SHA_DIGEST_LENGTH`
-  // bytes.
-  md_out_ptr <- crucible_alloc (llvm_array SHA_DIGEST_LENGTH (llvm_int 8));
-
-  // Precondition: `type_ptr` is a pointer to a const `env_md_ctx_st` struct
-  // satisfying the `points_to_env_md_st` specification
-  type_ptr <- crucible_alloc_readonly (llvm_struct "struct.env_md_st");
-  points_to_env_md_st type_ptr;
-
-  // Call function with arguments data_ptr, len, md_out_ptr, NULL, type_ptr,
-  // and NULL
-  crucible_execute_func
-    [ data_ptr
-    , crucible_term {{ `len : [64] }}
-    , md_out_ptr
-    , crucible_null
-    , type_ptr
-    , crucible_null
-    ];
-
-  global_points_to "OPENSSL_ia32cap_P" {{ ia32cap }};
-
-  // Postcondition: The data pointed to by `md_out_ptr` matches the message
-  // digest returned by the Cryptol function `SHA_IMP_SPEC`.  The reverses,
-  // splits, and joins transform the Cryptol function's big endian output to
-  // little endian.
-  crucible_points_to md_out_ptr (crucible_term {{ reverse (split`{SHA_DIGEST_LENGTH} (join (reverse (split`{each=64} (SHA_IMP_SPEC data))))) }});
-
-  // Postcondition:  The function returns the value `1`
-  crucible_return (crucible_term {{ 1 : [32] }});
-};
-
+// Specifications of the various EVP functions
+include "evp-function-specs.saw";
 
 ////////////////////////////////////////////////////////////////////////////////
 // Proof commands
 
-// Assume `OPENSSL_malloc` satisfies `OPENSSL_malloc_spec`
-OPENSSL_malloc_ov <- crucible_llvm_unsafe_assume_spec
-  m
-  "OPENSSL_malloc"
-  (OPENSSL_malloc_spec SHA512_CTX_SIZE);
+// Assume OpenSSL memory functions satisfy specs
+include "memory.saw";
 
-// Assume `OPENSSL_free` satisfies `OPENSSL_free_nonnull_spec`
-OPENSSL_free_nonnull_ov <- crucible_llvm_unsafe_assume_spec
-  m
-  "OPENSSL_free"
-  (OPENSSL_free_nonnull_spec SHA512_CTX_SIZE);
-
-// Assume `OPENSSL_free` satisfies `OPENSSL_free_null_spec`
-OPENSSL_free_null_ov <- crucible_llvm_unsafe_assume_spec
-  m
-  "OPENSSL_free"
-  OPENSSL_free_null_spec;
-
-// Assume `OPENSSL_cleanse` satisfies `OPENSSL_cleanse_spec`
-OPENSSL_cleanse_ov <- crucible_llvm_unsafe_assume_spec
-  m
-  "OPENSSL_cleanse"
-  (OPENSSL_cleanse_spec SHA512_CTX_SIZE);
-
-
-/*
- * Verifying that the X86_64 implementation of `sha512_block_data_order` is
- * equivalent with the Cryptol specification by sending the goal to an SMT
- * solver is not feasible because of the complexity of the algorithm. Instead,
- * low-level operations (left shift, right shift, bitwise and, bitwise or, xor)
- * are gradually rewritten to high-level operations (Sigma0, Sigma1, sigma0,
- * sigma1, Ch, Maj), until the goal becomes a conjunction of equalities between
- * terms consisting only of addition and high-level operations. For each
- * equality, its two terms are syntactically equal, modulo the associativity
- * and commutativity of addition.
- */
-
-// bvShl<N> functions take a 64 bit vector and shift left by N
-let bvShl3  = parse_core "\\(x : bitvector 64) -> bvShl 64 x 3";
-let bvShl7  = parse_core "\\(x : bitvector 64) -> bvShl 64 x 7";
-let bvShl42 = parse_core "\\(x : bitvector 64) -> bvShl 64 x 42";
-let bvShl56 = parse_core "\\(x : bitvector 64) -> bvShl 64 x 56";
-
-// bvShr<N> functions take a 64 bit vector and shift right by N
-let bvShr1  = parse_core "\\(x : bitvector 64) -> bvShr 64 x 1";
-let bvShr7  = parse_core "\\(x : bitvector 64) -> bvShr 64 x 7";
-let bvShr6  = parse_core "\\(x : bitvector 64) -> bvShr 64 x 6";
-let bvShr19 = parse_core "\\(x : bitvector 64) -> bvShr 64 x 19";
-let bvShr42 = parse_core "\\(x : bitvector 64) -> bvShr 64 x 42";
-
-// slice_<A>_<B>_<C> functions take a 64 bit vector x and return the slice of
-// size B that immediately follows the first A bits of x and that immediately
-// precedes the final C bits of x.
-let slice_8_56_0  = parse_core "\\(x : bitvector 64) -> slice Bool 8 56 0 x";
-let slice_0_8_56  = parse_core "\\(x : bitvector 64) -> slice Bool 0 8 56 x";
-let slice_36_28_0 = parse_core "\\(x : bitvector 64) -> slice Bool 36 28 0 x";
-let slice_0_36_28 = parse_core "\\(x : bitvector 64) -> slice Bool 0 36 28 x";
-let slice_41_23_0 = parse_core "\\(x : bitvector 64) -> slice Bool 41 23 0 x";
-let slice_0_41_23 = parse_core "\\(x : bitvector 64) -> slice Bool 0 41 23 x";
-let slice_50_14_0 = parse_core "\\(x : bitvector 64) -> slice Bool 50 14 0 x";
-let slice_0_50_14 = parse_core "\\(x : bitvector 64) -> slice Bool 0 50 14 x";
-let slice_58_6_0  = parse_core "\\(x : bitvector 64) -> slice Bool 58 6 0 x";
-let slice_0_58_6  = parse_core "\\(x : bitvector 64) -> slice Bool 0 58 6 x";
-let slice_59_5_0  = parse_core "\\(x : bitvector 64) -> slice Bool 59 5 0 x";
-let slice_0_59_5  = parse_core "\\(x : bitvector 64) -> slice Bool 0 59 5 x";
-let slice_60_4_0  = parse_core "\\(x : bitvector 64) -> slice Bool 60 4 0 x";
-let slice_0_60_4  = parse_core "\\(x : bitvector 64) -> slice Bool 0 60 4 x";
-
-
-// Helper function for proving theorems
-let prove_folding_theorem t = prove_print abc (rewrite (cryptol_ss ()) t);
-
-// rotate<N>_thm proves that left rotations of size N are equivalent to two
-// slices concatenated together
-rotate8_thm  <- prove_folding_theorem {{ \x -> (slice_8_56_0  x) # (slice_0_8_56  x) == x <<<  8 }};
-rotate36_thm <- prove_folding_theorem {{ \x -> (slice_36_28_0 x) # (slice_0_36_28 x) == x <<< 36 }};
-rotate41_thm <- prove_folding_theorem {{ \x -> (slice_41_23_0 x) # (slice_0_41_23 x) == x <<< 41 }};
-rotate50_thm <- prove_folding_theorem {{ \x -> (slice_50_14_0 x) # (slice_0_50_14 x) == x <<< 50 }};
-rotate58_thm <- prove_folding_theorem {{ \x -> (slice_58_6_0  x) # (slice_0_58_6  x) == x <<< 58 }};
-rotate59_thm <- prove_folding_theorem {{ \x -> (slice_59_5_0  x) # (slice_0_59_5  x) == x <<< 59 }};
-rotate60_thm <- prove_folding_theorem {{ \x -> (slice_60_4_0  x) # (slice_0_60_4  x) == x <<< 60 }};
-
-// These variants of rotate59_thm apply in cases when SAW built-in
-// simplifications prevent rotate59_thm from applying.
-rotate59_slice_add_thm <- prove_folding_theorem
-  {{ \x0 x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 x15 x16 x17 x18 x19 x20 x21 x22 x23 x24 x25 x26 x27 x28 x29 x30 x31 x32 x33 x34 x35 x36 x37 x38 x39 x40 x41 x42 x43 x44 x45 x46 x47 x48 x49 x50 ->
-      (slice_59_5_0 (x0 + x2 + x3 + x4 + x5 + x6 + x7 +x8 + x9 + x10 + x11 + x12 + x13 + x14 + x15 + x16 + x17 + x18 + x19 + x20 + x21 + x22 + x23 + x24 + x25 + x26 + x27 + x28 + x29 + x30 + x31 + x32 + x33 + x34 + x35 + x36 + x37 + x38 + x39 + x40 + x41 + x42 + x43 + x44 + x45 + x46 + x47 + x48 + x49 + x50))
-        # (slice_0_59_5 (x0 + (64 * x1) + x2 + x3 + x4 + x5 + x6 + x7 +x8 + x9 + x10 + x11 + x12 + x13 + x14 + x15 + x16 + x17 + x18 + x19 + x20 + x21 + x22 + x23 + x24 + x25 + x26 + x27 + x28 + x29 + x30 + x31 + x32 + x33 + x34 + x35 + x36 + x37 + x38 + x39 + x40 + x41 + x42 + x43 + x44 + x45 + x46 + x47 + x48 + x49 + x50))
-      == (x0 + (64 * x1) + x2 + x3 + x4 + x5 + x6 + x7 +x8 + x9 + x10 + x11 + x12 + x13 + x14 + x15 + x16 + x17 + x18 + x19 + x20 + x21 + x22 + x23 + x24 + x25 + x26 + x27 + x28 + x29 + x30 + x31 + x32 + x33 + x34 + x35 + x36 + x37 + x38 + x39 + x40 + x41 + x42 + x43 + x44 + x45 + x46 + x47 + x48 + x49 + x50) <<< 59
-  }};
-
-rotate59_slice_add_1_thm <- prove_folding_theorem
-  {{ \x0 x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 x15 x16 x17 x18 x19 x20 x21 x22 x23 x24 x25 x26 x27 x28 x29 x30 x31 x32 x33 x34 x35 x36 x37 x38 x39 x40 x41 x42 x43 x44 x45 x46 x47 x48 x49 x50 x51 x52 x53 x54 ->
-      (slice_59_5_0 (x0 + x2 + x3 + x4 + x5 + x6 + x7 +x8 + x9 + x10 + x11 + x12 + x13 + x14 + x15 + x16 + x17 + x18 + x19 + x20 + x21 + x22 + x23 + x24 + x25 + x26 + x27 + x28 + x29 + x30 + x31 + x32 + x33 + x34 + x35 + x36 + x37 + x38 + x39 + x40 + x41 + x42 + x43 + x44 + x45 + x46 + x47 + x48 + x49 + x50 + x51 + x52 + x53 + x54))
-        # (slice_0_59_5 (x0 + (64 * x1) + x2 + x3 + x4 + x5 + x6 + x7 +x8 + x9 + x10 + x11 + x12 + x13 + x14 + x15 + x16 + x17 + x18 + x19 + x20 + x21 + x22 + x23 + x24 + x25 + x26 + x27 + x28 + x29 + x30 + x31 + x32 + x33 + x34 + x35 + x36 + x37 + x38 + x39 + x40 + x41 + x42 + x43 + x44 + x45 + x46 + x47 + x48 + x49 + x50 + x51 + x52 + x53 + x54))
-      == (x0 + (64 * x1) + x2 + x3 + x4 + x5 + x6 + x7 +x8 + x9 + x10 + x11 + x12 + x13 + x14 + x15 + x16 + x17 + x18 + x19 + x20 + x21 + x22 + x23 + x24 + x25 + x26 + x27 + x28 + x29 + x30 + x31 + x32 + x33 + x34 + x35 + x36 + x37 + x38 + x39 + x40 + x41 + x42 + x43 + x44 + x45 + x46 + x47 + x48 + x49 + x50 + x51 + x52 + x53 + x54) <<< 59
-  }};
-
-rotate59_slice_add_2_thm <- prove_folding_theorem
-  {{ \x0 x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 x15 x16 x17 x18 x19 x20 x21 x22 x23 x24 x25 x26 x27 x28 x29 x30 x31 x32 x33 x34 x35 x36 x37 x38 x39 x40 x41 x42 x43 x44 x45 x46 x47 x48 x49 x50 x51 x52 x53 x54 x55 x56 x57 x58 ->
-      (slice_59_5_0 (x0 + x2 + x3 + x4 + x5 + x6 + x7 +x8 + x9 + x10 + x11 + x12 + x13 + x14 + x15 + x16 + x17 + x18 + x19 + x20 + x21 + x22 + x23 + x24 + x25 + x26 + x27 + x28 + x29 + x30 + x31 + x32 + x33 + x34 + x35 + x36 + x37 + x38 + x39 + x40 + x41 + x42 + x43 + x44 + x45 + x46 + x47 + x48 + x49 + x50 + x51 + x52 + x53 + x54 + x55 + x56 + x57 + x58))
-        # (slice_0_59_5 (x0 + (64 * x1) + x2 + x3 + x4 + x5 + x6 + x7 +x8 + x9 + x10 + x11 + x12 + x13 + x14 + x15 + x16 + x17 + x18 + x19 + x20 + x21 + x22 + x23 + x24 + x25 + x26 + x27 + x28 + x29 + x30 + x31 + x32 + x33 + x34 + x35 + x36 + x37 + x38 + x39 + x40 + x41 + x42 + x43 + x44 + x45 + x46 + x47 + x48 + x49 + x50 + x51 + x52 + x53 + x54 + x55 + x56 + x57 + x58))
-      == (x0 + (64 * x1) + x2 + x3 + x4 + x5 + x6 + x7 +x8 + x9 + x10 + x11 + x12 + x13 + x14 + x15 + x16 + x17 + x18 + x19 + x20 + x21 + x22 + x23 + x24 + x25 + x26 + x27 + x28 + x29 + x30 + x31 + x32 + x33 + x34 + x35 + x36 + x37 + x38 + x39 + x40 + x41 + x42 + x43 + x44 + x45 + x46 + x47 + x48 + x49 + x50 + x51 + x52 + x53 + x54 + x55 + x56 + x57 + x58) <<< 59
-  }};
-
-rotate59_slice_add_3_thm <- prove_folding_theorem
-  {{ \x0 x1 x2 x3 x4 x5 x6 x7 x8 x9 x10 x11 x12 x13 x14 x15 x16 x17 x18 x19 x20 x21 x22 x23 x24 x25 x26 x27 x28 x29 x30 x31 x32 x33 x34 x35 x36 x37 x38 x39 x40 x41 x42 x43 x44 x45 x46 x47 x48 x49 x50 x51 x52 x53 x54 x55 x56 x57 x58 x59 x60 x61 x62 ->
-      (slice_59_5_0 (x0 + x2 + x3 + x4 + x5 + x6 + x7 +x8 + x9 + x10 + x11 + x12 + x13 + x14 + x15 + x16 + x17 + x18 + x19 + x20 + x21 + x22 + x23 + x24 + x25 + x26 + x27 + x28 + x29 + x30 + x31 + x32 + x33 + x34 + x35 + x36 + x37 + x38 + x39 + x40 + x41 + x42 + x43 + x44 + x45 + x46 + x47 + x48 + x49 + x50 + x51 + x52 + x53 + x54 + x55 + x56 + x57 + x58 + x59 + x60 + x61 + x62))
-        # (slice_0_59_5 (x0 + (64 * x1) + x2 + x3 + x4 + x5 + x6 + x7 +x8 + x9 + x10 + x11 + x12 + x13 + x14 + x15 + x16 + x17 + x18 + x19 + x20 + x21 + x22 + x23 + x24 + x25 + x26 + x27 + x28 + x29 + x30 + x31 + x32 + x33 + x34 + x35 + x36 + x37 + x38 + x39 + x40 + x41 + x42 + x43 + x44 + x45 + x46 + x47 + x48 + x49 + x50 + x51 + x52 + x53 + x54 + x55 + x56 + x57 + x58 + x59 + x60 + x61 + x62))
-      == (x0 + (64 * x1) + x2 + x3 + x4 + x5 + x6 + x7 +x8 + x9 + x10 + x11 + x12 + x13 + x14 + x15 + x16 + x17 + x18 + x19 + x20 + x21 + x22 + x23 + x24 + x25 + x26 + x27 + x28 + x29 + x30 + x31 + x32 + x33 + x34 + x35 + x36 + x37 + x38 + x39 + x40 + x41 + x42 + x43 + x44 + x45 + x46 + x47 + x48 + x49 + x50 + x51 + x52 + x53 + x54 + x55 + x56 + x57 + x58 + x59 + x60 + x61 + x62) <<< 59
-  }};
-
-// This pushes XOR under concatenation.
-xor_append_64_64_thm <- prove_folding_theorem
-  {{ \(x : [64]) (y : [64]) u v -> (x # y) ^ (u # v) == (x ^ u) # (y ^ v) }};
-
-// These prove that the various sigma functions are equivalent to sequences of
-// ANDs, rotations, and shifts.
-Sigma0_thm   <- prove_folding_theorem {{ \x -> (x ^ ((x ^ (x <<< 59)) <<< 58)) <<< 36 == S0 x }};
-Sigma0_1_thm <- prove_folding_theorem {{ \x -> ((((x <<< 59) ^ x) <<< 58) ^ x) <<< 36 == S0 x }};
-Sigma1_thm   <- prove_folding_theorem {{ \x -> (x ^ ((x ^ (x <<< 41)) <<< 60)) <<< 50 == S1 x }};
-Sigma1_1_thm <- prove_folding_theorem {{ \x -> ((((x <<< 41) ^ x) <<< 60) ^ x) <<< 50 == S1 x }};
-sigma0_thm <- prove_folding_theorem
-  {{ \x -> (bvShr1 x) ^ (bvShr7 x) ^ (bvShl56 x) ^ (bvShr7 (bvShr1 x)) ^ (bvShl7 (bvShl56 x)) == s0 x }};
-sigma1_thm <- prove_folding_theorem
-  {{ \x -> (bvShr6 x) ^ (bvShl3 x) ^ (bvShr19 x) ^ (bvShl42 (bvShl3 x)) ^ (bvShr42 (bvShr19 x)) == s1 x }};
-
-// Prove that the Ch function is equivalent to various combinations of XOR and
-// AND
-Ch_thm   <- prove_folding_theorem {{ \x y z -> z ^ (x && (z ^ y)) == Ch x y z }};
-Ch_1_thm <- prove_folding_theorem {{ \x y z -> z ^ (x && (y ^ z)) == Ch x y z }};
-Ch_2_thm <- prove_folding_theorem {{ \x y z -> z ^ ((y ^ z) && x) == Ch x y z }};
-Ch_3_thm <- prove_folding_theorem {{ \x y z -> z ^ ((y ^ z) && x) == Ch x y z }};
-Ch_4_thm <- prove_folding_theorem {{ \x y z -> ((y ^ z) && x) ^ z == Ch x y z }};
-Ch_5_thm <- prove_folding_theorem {{ \x y z -> ((z ^ y) && x) ^ z == Ch x y z }};
-Ch_6_thm <- prove_folding_theorem {{ \x y z -> (x && (y ^ z)) ^ z == Ch x y z }};
-Ch_7_thm <- prove_folding_theorem {{ \x y z -> (x && (z ^ y)) ^ z == Ch x y z }};
-
-// Prove relationships between Ch and Maj
-Maj_thm   <- prove_folding_theorem {{ \x y z -> Ch (x ^ y) z y == Maj x y z }};
-Maj_1_thm <- prove_folding_theorem {{ \x y z -> Ch (y ^ x) z y == Maj x y z }};
-
-// replace (bvult x y) with (x - y <$ 0) in order for the semiring and abstract
-// domain to work. This simplifies goals related to the 64-byte alignment of
-// the stack.
-let bvult = parse_core "\\(x y : bitvector 64) -> bvult 64 x y";
-cmp_sub_thm <- prove_folding_theorem
-  {{ \x y -> bvult x y == if (x @ 0 == y @ 0) then (x - y <$ 0) else (x @ 0 < y @ 0) }};
-
-let thms =
-  [ rotate8_thm
-  , rotate36_thm
-  , rotate41_thm
-  , rotate50_thm
-  , rotate58_thm
-  , rotate59_thm
-  , rotate60_thm
-  , rotate59_slice_add_thm
-  , rotate59_slice_add_1_thm
-  , rotate59_slice_add_2_thm
-  , rotate59_slice_add_3_thm
-  , xor_append_64_64_thm
-  , Sigma0_thm
-  , Sigma0_1_thm
-  , Sigma1_thm
-  , Sigma1_1_thm
-  , sigma0_thm
-  , sigma1_thm
-  , Ch_thm
-  , Ch_1_thm
-  , Ch_2_thm
-  , Ch_3_thm
-  , Ch_4_thm
-  , Ch_5_thm
-  , Ch_6_thm
-  , Ch_7_thm
-  , Maj_thm
-  , Maj_1_thm
-  , cmp_sub_thm
-  ];
-
-// Prove concatenation is associative
-concat_assoc_thm <- prove_folding_theorem
-  {{ \(x0 : [8]) (x1 : [8]) (x2 : [8]) (x3 : [8]) (x4 : [8]) (x5 : [8]) (x6 : [8]) (x7 : [8]) -> x0 # (x1 # (x2 # (x3 # (x4 # (x5 # (x6 # x7)))))) == (((((((x0 # x1) # x2) # x3) # x4) # x5) # x6) # x7) }};
-
+// Include rewrite rules
+include "rewrite.saw";
 
 enable_what4_hash_consing;
 
@@ -654,13 +208,13 @@ sha512_block_data_order_spec <- crucible_llvm_unsafe_assume_spec m "sha512_block
 // specification
 crucible_llvm_verify m EVP_SHA_INIT [] true EVP_sha_init_spec (w4_unint_yices []);
 
+// Include lists of theorems for EVP function proofs
+include "evp-theorem-lists.saw";
 
 // Verify the `EVP_DigestInit` C function satisfies the `EVP_DigestInit_spec`
 // specification
 crucible_llvm_verify m "EVP_DigestInit"
-  [ OPENSSL_malloc_ov
-  , OPENSSL_free_null_ov
-  ]
+  EVP_DigestInit_thms
   true
   EVP_DigestInit_spec
   (w4_unint_yices []);
@@ -669,21 +223,21 @@ crucible_llvm_verify m "EVP_DigestInit"
 // `EVP_DigestUpdate_spec` specification.  There are 3 cases to consider to
 // ensure the proof covers all possible code paths through the update function
 crucible_llvm_verify m "EVP_DigestUpdate"
-  [sha512_block_data_order_spec]
+  EVP_DigestUpdate_thms
   true
   // num=0, len=240 covers the case with one call to the block function,
   // on one block from data, and the rest of data copied in c->data
   (EVP_DigestUpdate_spec 0 240)
   (w4_unint_yices ["SHA512Block"]);
 crucible_llvm_verify m "EVP_DigestUpdate"
-  [sha512_block_data_order_spec]
+  EVP_DigestUpdate_thms
   true
   // num=0, len=127 covers the case without any calls to the block function,
   // and data copied in c->data
   (EVP_DigestUpdate_spec 0 127)
   (w4_unint_yices ["SHA512Block"]);
 crucible_llvm_verify m "EVP_DigestUpdate"
-  [sha512_block_data_order_spec]
+  EVP_DigestUpdate_thms
   true
   // num=127, len=241 covers the case with two calls to the block function,
   // the first one on c->data, the second one on one block from data,
@@ -695,19 +249,13 @@ crucible_llvm_verify m "EVP_DigestUpdate"
 // `EVP_DigestFinal_spec` specification.  There are 2 cases to consider to
 // ensure the proof covers all possible code paths through the update function
 crucible_llvm_verify m "EVP_DigestFinal"
-  [ sha512_block_data_order_spec
-  , OPENSSL_free_nonnull_ov
-  , OPENSSL_cleanse_ov
-  ]
+  EVP_DigestFinal_thms
   true
   // num=111 covers the case with one call to the block function
   (EVP_DigestFinal_spec 111)
   (w4_unint_yices ["SHA512Block"]);
 crucible_llvm_verify m "EVP_DigestFinal"
-  [ sha512_block_data_order_spec
-  , OPENSSL_free_nonnull_ov
-  , OPENSSL_cleanse_ov
-  ]
+  EVP_DigestFinal_thms
   true
   // num=112 covers the case with two calls to the block function
   (EVP_DigestFinal_spec 112)
@@ -716,12 +264,7 @@ crucible_llvm_verify m "EVP_DigestFinal"
 // Verify the `EVP_Digest` C function satisfies the `EVP_Digest_spec`
 // specification
 crucible_llvm_verify m "EVP_Digest"
-  [ sha512_block_data_order_spec
-  , OPENSSL_malloc_ov
-  , OPENSSL_free_nonnull_ov
-  , OPENSSL_free_null_ov
-  , OPENSSL_cleanse_ov
-  ]
+  EVP_Digest_thms
   true
   (EVP_Digest_spec 240)
   (w4_unint_yices ["SHA512Block"]);

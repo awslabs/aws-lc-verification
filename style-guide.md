@@ -8,6 +8,7 @@ This document details best practices for organizing proofs in SAW script.
 * Pointers should be suffixed with `_ptr`.
 * Function specifications should be named `<function_name>_spec`.
 * Overrides should be named `<function_name>_ov`.
+* Theorem lists should be name `<function_name>_thms`
 * In the case of multiple specifications or overrides of the same function,
   some meaningful name should be between the function name and the suffix.  For
   example, `OPENSSL_free_nonnull_spec` and `OPENSSL_free_null_spec` provide
@@ -83,6 +84,20 @@ let dotprod_struct_spec n = do {
 dotprod_struct_ov <- crucible_llvm_verify m "dotprod_struct" [] true (dotprod_struct_spec 2) z3;
 crucible_llvm_verify m "dotprod_wrap" [dotprod_struct_ov] true (dotprod_struct_spec 2) z3;
 ```
+
+### Splitting Proofs Apart ###
+
+Proofs should be split into multiple files once the proof becomes long enough
+that readability is negatively impacted.  Components that you may wish to group
+in separate files include:
+
+* Helper functions
+* Specifications
+* Rewrite rules
+* Lists of theorems used in `crucible_llvm_verify` commands
+
+The contents of these separate files should be organized according to the list
+at the at the top of the Proof Organization section.
 
 ## Parameterized Proofs ##
 
