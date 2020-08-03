@@ -4,7 +4,7 @@ This document details best practices for organizing proofs in SAW script.
 
 ## Naming Conventions ##
 
-* Definition names should be in all caps.
+* Constant definitions should be in all caps.
 * Pointers should be suffixed with `_ptr`.
 * Function specifications should be named `<function_name>_spec`.
 * Overrides should be named `<function_name>_ov`.
@@ -20,10 +20,16 @@ This document details best practices for organizing proofs in SAW script.
 SAW scripts should be organized in the following order:
 
 1. Imports
-2. Definitions
+2. Constant definitions
 3. Helpers
 4. Specifications
 5. Proofs
+
+Splitting proofs across multiple files is recommended to enable code reuse and
+increase readability.  If a proof is split across multiple files, then each
+file should be organized in the above order.  This document provides more
+details on best practices for splitting up proofs in the Splitting Proofs Apart
+section.
 
 ### Example ###
 
@@ -40,7 +46,7 @@ import "dotprod.cry";
 m <- llvm_load_module "dotprod_struct.bc";
 
 ///////////////////////////////////////////////////////////////////////////////
-// Definitions
+// Constant definitions
 ///////////////////////////////////////////////////////////////////////////////
 
 let INT_SIZE = 32;
@@ -87,9 +93,10 @@ crucible_llvm_verify m "dotprod_wrap" [dotprod_struct_ov] true (dotprod_struct_s
 
 ### Splitting Proofs Apart ###
 
-Proofs should be split into multiple files once the proof becomes long enough
-that readability is negatively impacted.  Components that you may wish to group
-in separate files include:
+Proofs should be split into multiple files when multiple proofs are present
+and, for example, share helpers or specifications.  Proofs should also be split
+once the proof becomes long enough that readability is negatively impacted.
+Components that you may wish to group in separate files include:
 
 * Helper functions
 * Specifications
