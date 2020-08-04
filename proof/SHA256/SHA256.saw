@@ -4,34 +4,8 @@ import "../../spec/SHA256/SHA256.cry";
 
 m <- llvm_load_module "../../build/llvm/crypto/crypto_test.bc";
 
-
-/*
- * SAW helpers
- */
-let alloc_init ty v = do {
-  p <- crucible_alloc ty;
-  crucible_points_to p v;
-  return p;
-};
-
-let alloc_init_readonly ty v = do {
-  p <- crucible_alloc_readonly ty;
-  crucible_points_to p v;
-  return p;
-};
-
-let ptr_to_fresh n ty = do {
-  x <- crucible_fresh_var n ty;
-  p <- alloc_init ty (crucible_term x);
-  return (x, p);
-};
-
-let ptr_to_fresh_readonly n ty = do {
-  x <- crucible_fresh_var n ty;
-  p <- alloc_init_readonly ty (crucible_term x);
-  return (x, p);
-};
-
+// Include helper functions
+include "../common/helpers.saw";
 
 ////////////////////////////////////////////////////////////////////////////////
 // Specifications

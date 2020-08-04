@@ -1,8 +1,4 @@
 /*
- * SHA-384/512 rewrite rules
- */
-
-/*
  * Verifying that the X86_64 implementation of `sha512_block_data_order` is
  * equivalent with the Cryptol specification by sending the goal to an SMT
  * solver is not feasible because of the complexity of the algorithm. Instead,
