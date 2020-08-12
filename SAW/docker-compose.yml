@@ -3,7 +3,7 @@ services:
   lc:
     build: .
     volumes:
-      - ./build:/lc/build:rw
-      - ./src:/lc/src:ro
+      - ../src:/src:rw
+      - ./build_src:/lc/build_src:rw
       - ./proof:/lc/proof:ro
       - ./spec:/lc/spec:ro

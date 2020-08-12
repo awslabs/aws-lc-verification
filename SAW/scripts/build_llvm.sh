@@ -1,11 +1,10 @@
 #!/bin/sh
 set -e
 
-mkdir -p build/llvm
-cd build/llvm
+mkdir -p build_src/llvm
+cd build_src/llvm
 export LLVM_COMPILER=clang
 export CC=wllvm
 export CXX=clang++
-cmake ../../src
+cmake ../../../src
 make
-extract-bc crypto/crypto_test

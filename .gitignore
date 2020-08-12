@@ -1,3 +1,4 @@
-build/*
-deps/*
-bin/*
+*/build/*
+*/build_src/*
+*/deps/*
+*/bin/*
