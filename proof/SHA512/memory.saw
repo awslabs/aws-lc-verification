@@ -52,8 +52,7 @@ let OPENSSL_cleanse_spec len = do {
   // Call function with arguments `ptr` and `len`
   crucible_execute_func [ptr, crucible_term {{ `len : [64] }}];
 
-  // Postcondition: Data pointed to by `ptr` has been zeroed out
-  crucible_points_to ptr (crucible_term {{ zero : [len][8] }});
+  // Postcondition: Data pointed to by `ptr` has been invalidated
 };
 
 ////////////////////////////////////////////////////////////////////////////////

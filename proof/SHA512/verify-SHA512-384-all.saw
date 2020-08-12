@@ -1,5 +1,5 @@
 import "../../spec/SHA512/SHA512.cry";
 
-let quick_check = true;
+let quick_check = false;
 include "SHA512-384.saw";
 include "SHA512.saw";
