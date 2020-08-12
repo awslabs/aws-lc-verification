@@ -3,4 +3,4 @@ name: 'Run Proofs'
 description: 'Run the LC proofs'
 runs:
   using: 'docker'
-  image: '../Dockerfile'
+  image: '../SAW/Dockerfile'
