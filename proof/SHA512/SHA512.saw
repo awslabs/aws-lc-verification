@@ -182,10 +182,9 @@ include "sha512_block_data_order-goal-rewrites.saw";
 
 enable_what4_hash_consing;
 
-sha512_block_data_order_spec <- crucible_llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "sha512_block_data_order"
 // Verify the block data function assembly satisfies the
 // `sha512_block_data_order_spec` specification
-crucible_llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "sha512_block_data_order"
+sha512_block_data_order_spec <- crucible_llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "sha512_block_data_order"
   [ ("K512", 5120) // immutable constants
   ]
   true
@@ -199,10 +198,6 @@ crucible_llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "sha512_block_da
 
 disable_what4_hash_consing;
 
-// Assume the `sha512_block_data_order` function satisfies the
-// `sha512_block_data_order_spec`
-sha512_block_data_order_spec <- crucible_llvm_unsafe_assume_spec m "sha512_block_data_order"
-  (sha512_block_data_order_spec true);
 
 // Verify the `EVP_SHA_INIT` C function satisfies the `EVP_sha_init_spec`
 // specification
