@@ -9,4 +9,4 @@ ADD ./scripts /lc/scripts
 
 RUN ./scripts/install.sh
 
-ENTRYPOINT ["./scripts/docker_entrypoint.sh"]
+ENTRYPOINT ["./SAW/scripts/docker_entrypoint.sh"]

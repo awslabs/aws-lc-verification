@@ -1,3 +1,9 @@
+/* 
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+*/
+
+
 enable_experimental;
 
 // Load LLVM bytecode
@@ -11,7 +17,7 @@ m <- llvm_load_module "../../build/llvm/crypto/crypto_test.bc";
 let SHA512_CBLOCK = 128;
 
 // Size of the SHA512 context struct
-let SHA512_CTX_SIZE = eval_int {{ (64 + 8 + 8 + `SHA512_CBLOCK + 4 + 4) : [64] }};
+let SHA512_CTX_SIZE = llvm_sizeof m (llvm_struct "struct.sha512_state_st");
 
 // Include helper functions
 include "../common/helpers.saw";
@@ -75,17 +81,19 @@ let {{ ia32cap = [0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff] : [4][32] }};
  * Specification of block function for SHA512
  */
 let sha512_block_data_order_spec = do {
+  // Precondition: The function uses the AVX+shrd code path
   global_alloc_init "OPENSSL_ia32cap_P" {{ ia32cap }};
 
   // Precondition: `state_ptr` points to an array of 8 64 bit integers
-  (state, state_ptr) <- ptr_to_fresh "state" (llvm_array 8 (llvm_int 64));
+  (state, state_ptr) <- ptr_to_fresh "state" (llvm_array 8 i64);
 
   // Precondition: `data_ptr` points to a const message block
-  (data, data_ptr) <- ptr_to_fresh_readonly "data" (llvm_array SHA512_CBLOCK (llvm_int 8));
+  (data, data_ptr) <- ptr_to_fresh_readonly "data" (llvm_array SHA512_CBLOCK i8);
 
   // Call function with `state_ptr`, `data_ptr`, and the value `1`
   crucible_execute_func [state_ptr, data_ptr, crucible_term {{ 1 : [64] }}];
 
+  // Postcondition: The function has not changed the variable that decides the AVX+shrd code path
   global_points_to "OPENSSL_ia32cap_P" {{ ia32cap }};
 
   // Postcondition: The data pointed to by `state_ptr` is equivalent to the
@@ -101,13 +109,13 @@ let sha512_block_data_order_spec = do {
 // Create a Cryptol SHA512State
 let fresh_sha512_state_st name n = do {
   // Hash value
-  h <- crucible_fresh_var (str_concat name ".h") (llvm_array 8 (llvm_int 64));
+  h <- crucible_fresh_var (str_concat name ".h") (llvm_array 8 i64);
   // Message block
-  block <- crucible_fresh_var (str_concat name ".block") (llvm_array n (llvm_int 8));
+  block <- crucible_fresh_var (str_concat name ".block") (llvm_array n i8);
   // Size
-  sz <- crucible_fresh_var (str_concat name ".sz") (llvm_int 128);
+  sz <- crucible_fresh_var (str_concat name ".sz") i128;
   // Build SHA512State, padding `block` with zeros to fit
-  return {{ { h = h, block = (block # zero) : [128][8], n = `n : [32], sz = sz } }};
+  return {{ { h = h, block = (block # zero) : [SHA512_CBLOCK][8], n = `n : [32], sz = sz } }};
 };
 
 /*
@@ -185,7 +193,7 @@ enable_what4_hash_consing;
 // Verify the block data function assembly satisfies the
 // `sha512_block_data_order_spec` specification
 sha512_block_data_order_spec <- crucible_llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "sha512_block_data_order"
-  [ ("K512", 5120) // immutable constants
+  [ ("K512", 5120) // Initializes the global for round constants, called K, at a size of 5120 bytes
   ]
   true
   sha512_block_data_order_spec
@@ -214,6 +222,7 @@ crucible_llvm_verify m "EVP_DigestInit"
   (w4_unint_yices []);
 
 
+// range of valid indices in the internal block ([0 .. (SHA512_CBLOCK - 1)])
 nums <- for (eval_list {{ [0 .. (SHA512_CBLOCK - 1)] : [SHA512_CBLOCK][64] }})
   (\x -> (return (eval_int x)) : (TopLevel Int));
 
@@ -254,7 +263,7 @@ if quick_check then do {
       crucible_llvm_verify m "EVP_DigestUpdate"
         [sha512_block_data_order_spec]
         true
-        (EVP_DigestUpdate_spec num (eval_int {{ (`SHA512_CBLOCK : [64]) - 1 }}))
+        (EVP_DigestUpdate_spec num (eval_size {| SHA512_CBLOCK - 1 |}))
         (w4_unint_yices ["SHA512Block"]);
       // this covers the case with one call to the block
       // function, on one block from data, and the rest of
@@ -262,7 +271,7 @@ if quick_check then do {
       crucible_llvm_verify m "EVP_DigestUpdate"
         [sha512_block_data_order_spec]
         true
-        (EVP_DigestUpdate_spec num (eval_int {{ (`SHA512_CBLOCK : [64]) + 1 }}))
+        (EVP_DigestUpdate_spec num (eval_size {| SHA512_CBLOCK + 1 |}))
         (w4_unint_yices ["SHA512Block"]);
     } else do {
       // this covers the case without any calls to the block
@@ -270,7 +279,7 @@ if quick_check then do {
       crucible_llvm_verify m "EVP_DigestUpdate"
         [sha512_block_data_order_spec]
         true
-        (EVP_DigestUpdate_spec num (eval_int {{ (`SHA512_CBLOCK : [64]) - 1 - (`num : [64]) }}))
+        (EVP_DigestUpdate_spec num (eval_size {| SHA512_CBLOCK - 1 - num |}))
         (w4_unint_yices ["SHA512Block"]);
       // this covers the case with one call to the block
       // function, on c->data, and the rest of data copied
@@ -278,7 +287,7 @@ if quick_check then do {
       crucible_llvm_verify m "EVP_DigestUpdate"
         [sha512_block_data_order_spec]
         true
-        (EVP_DigestUpdate_spec num (eval_int {{ (`SHA512_CBLOCK : [64]) + 1 - (`num : [64]) }}))
+        (EVP_DigestUpdate_spec num (eval_size {| SHA512_CBLOCK + 1 - num |}))
         (w4_unint_yices ["SHA512Block"]);
       // this covers the case with two calls to the block
       // function, the first one on c->data, the second one
@@ -287,7 +296,7 @@ if quick_check then do {
       crucible_llvm_verify m "EVP_DigestUpdate"
         [sha512_block_data_order_spec]
         true
-        (EVP_DigestUpdate_spec num (eval_int {{ 2 * (`SHA512_CBLOCK : [64]) + 1 - (`num : [64]) }}))
+        (EVP_DigestUpdate_spec num (eval_size {| 2 * SHA512_CBLOCK + 1 - num |}))
         (w4_unint_yices ["SHA512Block"]);
     };
   };

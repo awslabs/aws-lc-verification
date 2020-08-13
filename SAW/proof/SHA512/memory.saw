@@ -1,3 +1,9 @@
+/* 
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+*/
+
+
 /*
  * This file contains OpenSSL specs and assumptions needed for the SHA proofs
  */
@@ -22,13 +28,13 @@ let OPENSSL_malloc_spec size = do {
 
   // Postcondition: returns a pointer to a 128 byte aligned array of `size`
   // bytes
-  ptr <- crucible_alloc_aligned 128 (llvm_array size (llvm_int 8));
+  ptr <- crucible_alloc_aligned 128 (llvm_array size i8);
   crucible_return ptr;
 };
 
 let OPENSSL_free_nonnull_spec size = do {
   // Precondition: `ptr` is a pointer to an array of `size` bytes
-  ptr <- crucible_alloc (llvm_array size (llvm_int 8));
+  ptr <- crucible_alloc (llvm_array size i8);
 
   // Call function with argument `ptr`
   crucible_execute_func [ptr];
@@ -47,7 +53,7 @@ let OPENSSL_free_null_spec = do {
 
 let OPENSSL_cleanse_spec len = do {
   // Precondition: `ptr` is a pointer to an array of `len` bytes
-  ptr <- crucible_alloc (llvm_array len (llvm_int 8));
+  ptr <- crucible_alloc (llvm_array len i8);
 
   // Call function with arguments `ptr` and `len`
   crucible_execute_func [ptr, crucible_term {{ `len : [64] }}];

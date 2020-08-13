@@ -1,3 +1,8 @@
+/* 
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+*/
+
 /*
  * SAW helpers
  */
@@ -33,12 +38,21 @@ let ptr_to_fresh_readonly n ty = do {
   return (x, p);
 };
 
+// Given a name `n` and a value `v`, assert that the `n` has a value of `v`
 let global_points_to n v = do {
   crucible_points_to (crucible_global n) (crucible_term v);
 };
 
+// Given a name `n` and a value `v`, declare that n is initialized, and assert that has value v
 let global_alloc_init n v = do {
   crucible_alloc_global n;
   global_points_to n v;
 };
+
+// llvm integer type aliases
+let i8 = llvm_int 8;
+let i16 = llvm_int 16;
+let i32 = llvm_int 32;
+let i64 = llvm_int 64;
+let i128 = llvm_int 128;
 

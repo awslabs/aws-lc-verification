@@ -4,6 +4,7 @@ services:
     build: .
     volumes:
       - ../src:/src:rw
+      - ./build:/lc/build:rw
       - ./build_src:/lc/build_src:rw
       - ./proof:/lc/proof:ro
-      - ./spec:/lc/spec:ro
+      - ../cryptol-specs:/cryptol-specs:ro

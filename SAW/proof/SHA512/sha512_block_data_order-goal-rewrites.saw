@@ -1,3 +1,9 @@
+/* 
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+*/
+
+
 /*
  * Verifying that the X86_64 implementation of `sha512_block_data_order` is
  * equivalent with the Cryptol specification by sending the goal to an SMT
