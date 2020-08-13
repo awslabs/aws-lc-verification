@@ -173,10 +173,10 @@ SHA384Init = { h = SHA384H0
 // update.
 SHA512Update1 : SHA512State -> [8] -> SHA512State
 SHA512Update1 s b =
-  if s.n == 128
-    then { h = SHA512Block s.h (split (join s.block))
-         , block = [b] # zero
-         , n = 1
+  if s.n == 127
+    then { h = SHA512Block s.h (split (join (update s.block s.n b)))
+         , block = zero
+         , n = 0
          , sz = s.sz + 8
          }
     else { h = s.h
