@@ -1,3 +1,7 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+
 # This workflow checks out the repository and runs an action that starts up the dockerfile for proofs
 
 name: CI
