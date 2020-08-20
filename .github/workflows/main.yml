@@ -19,7 +19,8 @@ jobs:
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-    # Check out main repos
+    # Check out main repo and individually check out submodules.
+    # Once all submodules are public, this can be replaced with a single checkout action with submodules:true
     - uses: actions/checkout@v2
       name: check out top-level repository
     - uses: actions/checkout@v2
