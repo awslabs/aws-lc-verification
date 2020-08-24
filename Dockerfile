@@ -11,10 +11,8 @@ RUN pip3 install wllvm
 ADD ./SAW/scripts /lc/scripts
 RUN /lc/scripts/install.sh
 
-# When running in GitHub, the entire repo is available, so these adds are not necessary.
-# The adds below allow the container to be run outside of GitHub.
-ADD ./SAW /SAW
-ADD ./src /src
-ADD ./cryptol-specs /cryptol-specs
+# This container expects all files in the directory to be mounted or copied. 
+# The GitHub action will mount the workspace and set the working directory of the container.
+# Another way to mount the files is: docker run -v `pwd`:`pwd` -w `pwd` <name>
 
 ENTRYPOINT ["./SAW/scripts/docker_entrypoint.sh"]
