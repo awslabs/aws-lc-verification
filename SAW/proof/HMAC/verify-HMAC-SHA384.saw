@@ -1,0 +1,8 @@
+// Import HMAC cryptol spec
+import "../../../cryptol-specs/Primitive/Keyless/Hash/HMAC.cry";
+
+// Include SHA512-384 proof
+include "../SHA512/verify-SHA512-384-quickcheck.saw";
+
+// Include HMAC proof
+include "HMAC.saw";
