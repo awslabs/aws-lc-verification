@@ -159,17 +159,9 @@ let HMAC_Final_spec withLength num = do {
   // Precondition: `hmac_ctx_ptr` matches `hmac_ctx`
   points_to_hmac_ctx_st hmac_ctx_ptr digest_ptr hmac_ctx num;
 
-  // Precondition: `out_ptr` is a pointer to an array of `SHA_DIGEST_LENGTH`
-  // bytes
-  out_ptr <- crucible_alloc (llvm_array SHA_DIGEST_LENGTH i8);
-
-  // Precondition: `out_len_ptr` is null or a pointer to a 32 bit integer
-  out_len_ptr <-
-    if withLength then do {
-      crucible_alloc i32;
-    } else do {
-      return crucible_null;
-    };
+  // Precondition: out_ptr is allocated and correct length, and 
+  // out_len_ptr is null or points to an int.
+  (out_ptr, out_len_ptr) <- digestOut_pre withLength;
 
   // Call function with `hmac_ctx_ptr`, `out_ptr`, and `out_len_ptr`
   crucible_execute_func [ hmac_ctx_ptr , out_ptr , out_len_ptr ];
@@ -182,14 +174,8 @@ let HMAC_Final_spec withLength num = do {
   // result returned by the HMACFinal cryptol spec
   crucible_points_to out_ptr (crucible_term {{ HMACFinal hmac_ctx }});
 
-  if withLength then do {
-    // Postcondition: The integer pointed to by `out_len_ptr` equals
-    // `SHA_DIGEST_LENGTH`
-    crucible_points_to out_len_ptr (crucible_term {{ `SHA_DIGEST_LENGTH : [32] }});
-  } else do {
-    // No postcondition on length output
-    return ();
-  };
+  // Postcondition: if length output is used, out_len_ptr points to correct length.
+  digestOut_length_post withLength out_len_ptr;
 
   // Postcondition: The function returns 1
   crucible_return (crucible_term {{ 1 : [32] }});
@@ -213,17 +199,9 @@ let HMAC_spec withLength key_len data_len = do {
   // `data_ptr` points to `data`.
   (data, data_ptr) <- ptr_to_fresh_readonly "data" (llvm_array data_len i8);
 
-  // Precondition: `md_out_ptr` is a pointer to an array of `SHA_DIGEST_LENGTH`
-  // bytes.
-  md_out_ptr <- crucible_alloc (llvm_array SHA_DIGEST_LENGTH i8);
-
-  // Precondition: `md_out_len_ptr` is null or a pointer to a 32 bit integer
-  md_out_len_ptr <-
-    if withLength then do {
-      crucible_alloc i32;
-    } else do {
-      return crucible_null;
-    };
+  // Precondition: md_out_ptr is allocated and correct length, and 
+  // md_out_len_ptr is null or points to an int.
+  (md_out_ptr, md_out_len_ptr) <- digestOut_pre withLength;
 
   // Call function with arguments `type_ptr`, `key_ptr`, `key_len`, `data_ptr`,
   // `data_len`, `md_out_ptr`, and `md_out_len_ptr`
@@ -244,14 +222,8 @@ let HMAC_spec withLength key_len data_len = do {
   // the result returned by the HMACFinal cryptol spec
   crucible_points_to md_out_ptr (crucible_term {{ HMAC key data }});
 
-  if withLength then do {
-    // Postcondition: The integer pointed to by `md_out_len_ptr` equals
-    // `SHA_DIGEST_LENGTH`
-    crucible_points_to md_out_len_ptr (crucible_term {{ `SHA_DIGEST_LENGTH : [32] }});
-  } else do {
-    // No postcondition on length output
-    return ();
-  };
+  // Postcondition: if length output is used, md_out_len_ptr points to correct length.
+  digestOut_length_post withLength md_out_len_ptr;
   
   // Postcondition: The function returns `md_out_ptr`
   crucible_return md_out_ptr;

@@ -100,11 +100,39 @@ let EVP_DigestUpdate_spec num len = do {
   crucible_return (crucible_term {{ 1 : [32] }});
 };
 
-let EVP_DigestFinal_spec withLength num = do {
-  global_alloc_init "OPENSSL_ia32cap_P" {{ ia32cap }};
+let digestOut_pre withLength = do {
 
   // Precondition: `md_out_ptr` points to an array of `SHA_DIGEST_LENGTH` bytes
   md_out_ptr <- crucible_alloc (llvm_array SHA_DIGEST_LENGTH i8);
+  
+  // Precondition: The last parameter points to an integer or is null
+  s_ptr <-
+    if withLength then do {
+      crucible_alloc i32;
+    } else do {
+      return crucible_null;
+    };
+  
+  return (md_out_ptr, s_ptr);
+};
+
+let digestOut_length_post withLength s_ptr = do {
+
+  if withLength then do {
+    // Postcondition: The output length is correct
+    crucible_points_to s_ptr (crucible_term {{`SHA_DIGEST_LENGTH : [32]}} );
+  }  else do {
+    // No postcondition on the output length pointer
+    return ();
+  };
+};
+
+let EVP_DigestFinal_spec withLength num = do {
+  global_alloc_init "OPENSSL_ia32cap_P" {{ ia32cap }};
+
+  // Precondition: md_out_ptr is allocated and correct length, and 
+  // s_ptr is null or points to an int.
+  (md_out_ptr, s_ptr) <- digestOut_pre withLength;
 
   // Precondition: `ctx_ptr` points to an `env_md_ctx_st` struct
   ctx_ptr <- crucible_alloc (llvm_struct "struct.env_md_ctx_st");
@@ -125,14 +153,6 @@ let EVP_DigestFinal_spec withLength num = do {
   // Precondition: Struct pointed to by `ctx_ptr` points to `digest_ptr` and
   // `sha512_ctx_ptr`.
   points_to_env_md_ctx_st ctx_ptr digest_ptr sha512_ctx_ptr;
-
-  // Precondition: The last parameter points to an integer or is null
-  s_ptr <-
-    if withLength then do {
-      crucible_alloc i32;
-    } else do {
-      return crucible_null;
-    };
   
   // Call function with `ctx_ptr`, `md_out_ptr`, and `s_ptr`
   crucible_execute_func [ctx_ptr, md_out_ptr, s_ptr];
@@ -145,13 +165,8 @@ let EVP_DigestFinal_spec withLength num = do {
   // little endian.
   crucible_points_to md_out_ptr (crucible_term {{ reverse (split`{SHA_DIGEST_LENGTH} (join (reverse (split`{each=64} (SHA_FINAL_SPEC sha512_ctx))))) }});
 
-  if withLength then do {
-    // Postcondition: The output length is correct
-    crucible_points_to s_ptr (crucible_term {{`SHA_DIGEST_LENGTH : [32]}} );
-  }  else do {
-    // No postcondition on the output length pointer
-    return ();
-  };
+  // Postcondition: if length output is used, s_ptr points to correct length.
+  digestOut_length_post withLength s_ptr;
   
   // Postcondition: The function returns 1
   crucible_return (crucible_term {{ 1 : [32] }});
@@ -165,22 +180,14 @@ let EVP_Digest_spec withLength len = do {
   // points to `data`.
   (data, data_ptr) <- ptr_to_fresh_readonly "data" (llvm_array len i8);
 
-  // Precondition: `md_out_ptr` is a pointer to an array of `SHA_DIGEST_LENGTH`
-  // bytes.
-  md_out_ptr <- crucible_alloc (llvm_array SHA_DIGEST_LENGTH i8);
+  // Precondition: md_out_ptr is allocated and correct length, and 
+  // size_ptr is null or points to an int.
+  (md_out_ptr, size_ptr) <- digestOut_pre withLength;
 
   // Precondition: `type_ptr` is a pointer to a const `env_md_ctx_st` struct
   // satisfying the `points_to_env_md_st` specification
   type_ptr <- crucible_alloc_readonly (llvm_struct "struct.env_md_st");
   points_to_env_md_st type_ptr;
-
-  // Precondition: The "size" parameter points to an integer or is null
-  size_ptr <-
-    if withLength then do {
-      crucible_alloc i32;
-    } else do {
-      return crucible_null;
-    };
     
   // Call function with arguments data_ptr, len, md_out_ptr, size_ptr, type_ptr,
   // and NULL
@@ -202,13 +209,8 @@ let EVP_Digest_spec withLength len = do {
   // little endian.
   crucible_points_to md_out_ptr (crucible_term {{ reverse (split`{SHA_DIGEST_LENGTH} (join (reverse (split`{each=64} (SHA_IMP_SPEC data))))) }});
 
-  if withLength then do {
-    // Postcondition: The output length is correct
-    crucible_points_to size_ptr (crucible_term {{`SHA_DIGEST_LENGTH : [32]}} );
-  }  else do {
-    // No postcondition on the output length pointer
-    return ();
-  };
+  // Postcondition: if length output is used, size_ptr points to correct length.
+  digestOut_length_post withLength size_ptr;
   
   // Postcondition:  The function returns the value `1`
   crucible_return (crucible_term {{ 1 : [32] }});
