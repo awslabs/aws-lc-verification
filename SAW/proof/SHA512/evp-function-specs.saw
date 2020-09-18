@@ -116,7 +116,9 @@ let digestOut_pre withLength = do {
   return (md_out_ptr, s_ptr);
 };
 
-let digestOut_length_post withLength s_ptr = do {
+let digestOut_post withLength out_ptr s_ptr out_value = do {
+
+  crucible_points_to out_ptr out_value;
 
   if withLength then do {
     // Postcondition: The output length is correct
@@ -163,10 +165,9 @@ let EVP_DigestFinal_spec withLength num = do {
   // digest returned by the Cryptol function `SHA_FINAL_SPEC`.  The reverses,
   // splits, and joins transform the Cryptol function's big endian output to
   // little endian.
-  crucible_points_to md_out_ptr (crucible_term {{ reverse (split`{SHA_DIGEST_LENGTH} (join (reverse (split`{each=64} (SHA_FINAL_SPEC sha512_ctx))))) }});
-
-  // Postcondition: if length output is used, s_ptr points to correct length.
-  digestOut_length_post withLength s_ptr;
+  // If length output is used, s_ptr points to correct length.
+  digestOut_post withLength md_out_ptr s_ptr
+    (crucible_term {{ reverse (split`{SHA_DIGEST_LENGTH} (join (reverse (split`{each=64} (SHA_FINAL_SPEC sha512_ctx))))) }});
   
   // Postcondition: The function returns 1
   crucible_return (crucible_term {{ 1 : [32] }});
@@ -207,11 +208,10 @@ let EVP_Digest_spec withLength len = do {
   // digest returned by the Cryptol function `SHA_IMP_SPEC`.  The reverses,
   // splits, and joins transform the Cryptol function's big endian output to
   // little endian.
-  crucible_points_to md_out_ptr (crucible_term {{ reverse (split`{SHA_DIGEST_LENGTH} (join (reverse (split`{each=64} (SHA_IMP_SPEC data))))) }});
+  // If length output is used, s_ptr points to correct length.
+  digestOut_post withLength md_out_ptr size_ptr
+    (crucible_term {{ reverse (split`{SHA_DIGEST_LENGTH} (join (reverse (split`{each=64} (SHA_IMP_SPEC data))))) }});
 
-  // Postcondition: if length output is used, size_ptr points to correct length.
-  digestOut_length_post withLength size_ptr;
-  
   // Postcondition:  The function returns the value `1`
   crucible_return (crucible_term {{ 1 : [32] }});
 };

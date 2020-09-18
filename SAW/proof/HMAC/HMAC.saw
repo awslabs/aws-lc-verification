@@ -171,11 +171,9 @@ let HMAC_Final_spec withLength num = do {
   global_points_to "OPENSSL_ia32cap_P" {{ ia32cap }};
 
   // Postcondition: The contents of the array pointed to by `out_ptr` match the
-  // result returned by the HMACFinal cryptol spec
-  crucible_points_to out_ptr (crucible_term {{ HMACFinal hmac_ctx }});
-
-  // Postcondition: if length output is used, out_len_ptr points to correct length.
-  digestOut_length_post withLength out_len_ptr;
+  // result returned by the HMACFinal cryptol spec.
+  // If length output is used, out_len_ptr points to correct length.
+  digestOut_post withLength out_ptr out_len_ptr (crucible_term {{ HMACFinal hmac_ctx }});
 
   // Postcondition: The function returns 1
   crucible_return (crucible_term {{ 1 : [32] }});
@@ -219,11 +217,9 @@ let HMAC_spec withLength key_len data_len = do {
   global_points_to "OPENSSL_ia32cap_P" {{ ia32cap }};
 
   // Postcondition: The contents of the array pointed to by `md_out_ptr` match
-  // the result returned by the HMACFinal cryptol spec
-  crucible_points_to md_out_ptr (crucible_term {{ HMAC key data }});
-
-  // Postcondition: if length output is used, md_out_len_ptr points to correct length.
-  digestOut_length_post withLength md_out_len_ptr;
+  // the result returned by the HMACFinal cryptol spec.
+  // If length output is used, md_out_len_ptr points to correct length
+  digestOut_post withLength md_out_ptr md_out_len_ptr (crucible_term {{ HMAC key data }});
   
   // Postcondition: The function returns `md_out_ptr`
   crucible_return md_out_ptr;
