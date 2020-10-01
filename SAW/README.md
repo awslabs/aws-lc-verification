@@ -22,8 +22,8 @@ The following table describes the implementations that are verified using SAW. S
 The verification ensures that each verified function has the following general properties:
 * The function does not write to or read from memory outside of the allocated space pointed to by its parameters. Though an exception to this rule exists in cases where a function frees memory. In these cases, the verification would not fail if the function writes to memory after it is freed.
 * The function does not write to memory within the allocated space pointed to by parameters that are intended to be read only.
-* The function does not read from memory that has not been initialized with a value
-* The C functions are free from all other undefined behaviors
+* The function does not read from memory that has not been initialized with a value.
+* If the function is written in C, then it is free from all other undefined behavior.
 
 ### SHA-2
 
