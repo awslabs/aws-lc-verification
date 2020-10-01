@@ -20,7 +20,7 @@ The following table describes the implementations that are verified using SAW. S
 | HMAC      | with <nobr>SHA-384</nobr> | HMAC_CTX_init, HMAC_Init_ex, HMAC_Update, HMAC_Final, HMAC | SandyBridge+ | InputLength, NoEngine, MemCorrect, InitZero
 
 The verification ensures that each verified function has the following general properties:
-* The function does not write to memory outside of the allocated space pointed to by its parameters. Though an exception to this rule exists in cases where a function frees memory. In these cases, the verification allows the function to write to memory after it is freed.
+* The function does not write to or read from memory outside of the allocated space pointed to by its parameters. Though an exception to this rule exists in cases where a function frees memory. In these cases, the verification would not fail if the function writes to memory after it is freed.
 * The function does not write to memory within the allocated space pointed to by parameters that are intended to be read only.
 
 
