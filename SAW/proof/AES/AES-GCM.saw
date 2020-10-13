@@ -1,0 +1,763 @@
+enable_experimental;
+
+
+include "../common/helpers.saw";
+
+
+import "../../../cryptol-specs/Primitive/Symmetric/Cipher/Block/AES.cry";
+import "../../spec/AES/X86.cry";
+import "../../spec/AES/AES-GCM.cry";
+
+
+let slice_0_64_64 = parse_core "\\(x : bitvector 128) -> slice Bool 0 64 64 x";
+let slice_64_64_0 = parse_core "\\(x : bitvector 128) -> slice Bool 64 64 0 x";
+let slice_0_128_128 = parse_core "\\(x : bitvector 256) -> slice Bool 0 128 128 x";
+let slice_128_128_0 = parse_core "\\(x : bitvector 256) -> slice Bool 128 128 0 x";
+let slice_0_64_192 = parse_core "\\(x : bitvector 256) -> slice Bool 0 64 192 x";
+let slice_64_64_128 = parse_core "\\(x : bitvector 256) -> slice Bool 64 64 128 x";
+let slice_128_64_64 = parse_core "\\(x : bitvector 256) -> slice Bool 128 64 64 x";
+let slice_192_64_0 = parse_core "\\(x : bitvector 256) -> slice Bool 192 64 0 x";
+let slice_0_32_96 = parse_core "\\(x : bitvector 128) -> slice Bool 0 32 96 x";
+let slice_32_32_64 = parse_core "\\(x : bitvector 128) -> slice Bool 32 32 64 x";
+let slice_64_32_32 = parse_core "\\(x : bitvector 128) -> slice Bool 64 32 32 x";
+let slice_96_32_0 = parse_core "\\(x : bitvector 128) -> slice Bool 96 32 0 x";
+let slice_0_8_120 = parse_core "\\(x : bitvector 128) -> slice Bool 0 8 120 x";
+let slice_8_8_112 = parse_core "\\(x : bitvector 128) -> slice Bool 8 8 112 x";
+let slice_16_8_104 = parse_core "\\(x : bitvector 128) -> slice Bool 16 8 104 x";
+let slice_24_8_96 = parse_core "\\(x : bitvector 128) -> slice Bool 24 8 96 x";
+let slice_32_8_88 = parse_core "\\(x : bitvector 128) -> slice Bool 32 8 88 x";
+let slice_40_8_80 = parse_core "\\(x : bitvector 128) -> slice Bool 40 8 80 x";
+let slice_48_8_72 = parse_core "\\(x : bitvector 128) -> slice Bool 48 8 72 x";
+let slice_56_8_64 = parse_core "\\(x : bitvector 128) -> slice Bool 56 8 64  x";
+let slice_64_8_56 = parse_core "\\(x : bitvector 128) -> slice Bool 64 8 56 x";
+let slice_72_8_48 = parse_core "\\(x : bitvector 128) -> slice Bool 72 8 48 x";
+let slice_80_8_40 = parse_core "\\(x : bitvector 128) -> slice Bool 80 8 40 x";
+let slice_88_8_32 = parse_core "\\(x : bitvector 128) -> slice Bool 88 8 32 x";
+let slice_96_8_24 = parse_core "\\(x : bitvector 128) -> slice Bool 96 8 24 x";
+let slice_104_8_16 = parse_core "\\(x : bitvector 128) -> slice Bool 104 8 16 x";
+let slice_112_8_8 = parse_core "\\(x : bitvector 128) -> slice Bool 112 8 8 x";
+let slice_120_8_0 = parse_core "\\(x : bitvector 128) -> slice Bool 120 8 0 x";
+let slice_0_8_56 = parse_core "\\(x : bitvector 64) -> slice Bool 0 8 56 x";
+let slice_8_8_48 = parse_core "\\(x : bitvector 64) -> slice Bool 8 8 48 x";
+let slice_16_8_40 = parse_core "\\(x : bitvector 64) -> slice Bool 16 8 40 x";
+let slice_24_8_32 = parse_core "\\(x : bitvector 64) -> slice Bool 24 8 32 x";
+let slice_32_8_24 = parse_core "\\(x : bitvector 64) -> slice Bool 32 8 24 x";
+let slice_40_8_16 = parse_core "\\(x : bitvector 64) -> slice Bool 40 8 16 x";
+let slice_48_8_8 = parse_core "\\(x : bitvector 64) -> slice Bool 48 8 8 x";
+let slice_56_8_0 = parse_core "\\(x : bitvector 64) -> slice Bool 56 8 0 x";
+let slice_384_128_0 = parse_core "\\(x : bitvector 512) -> slice Bool 384 128 0 x";
+let slice_384_32_96 = parse_core "\\(x : bitvector 512) -> slice Bool 384 32 96 x";
+let slice_416_32_64 = parse_core "\\(x : bitvector 512) -> slice Bool 416 32 64 x";
+let slice_448_32_32 = parse_core "\\(x : bitvector 512) -> slice Bool 448 32 32 x";
+let slice_480_32_0 = parse_core "\\(x : bitvector 512) -> slice Bool 480 32 0 x";
+
+let bvUExt_384_128 = parse_core "\\(x : bitvector 128) -> bvUExt 384 128 x";
+
+
+slice_384_0_thm <- prove_folding_theorem {{ \x y -> slice_384_128_0 (x && y) == (slice_384_128_0 x) && (slice_384_128_0 y) }};
+slice_384_1_thm <- prove_folding_theorem {{ \x y -> slice_384_128_0 (x || y) == (slice_384_128_0 x) || (slice_384_128_0 y) }};
+slice_384_2_thm <- prove_folding_theorem {{ \x y -> slice_384_128_0 (x ^  y) == (slice_384_128_0 x) ^  (slice_384_128_0 y) }};
+slice_384_3_thm <- prove_folding_theorem {{ \x -> slice_384_128_0 (bvUExt_384_128 x) == x }};
+slice_384_4_thm <- prove_folding_theorem {{ \x -> slice_384_32_96 x == slice_0_32_96 (slice_384_128_0 x) }};
+slice_384_5_thm <- prove_folding_theorem {{ \x -> slice_416_32_64 x == slice_32_32_64 (slice_384_128_0 x) }};
+slice_384_6_thm <- prove_folding_theorem {{ \x -> slice_448_32_32 x == slice_64_32_32 (slice_384_128_0 x) }};
+slice_384_7_thm <- prove_folding_theorem {{ \x -> slice_480_32_0 x == slice_96_32_0 (slice_384_128_0 x) }};
+let slice_384_thms =
+  [ slice_384_0_thm
+  , slice_384_1_thm
+  , slice_384_2_thm
+  , slice_384_3_thm
+  , slice_384_4_thm
+  , slice_384_5_thm
+  , slice_384_6_thm
+  , slice_384_7_thm
+  ];
+
+bar0 <- prove_folding_theorem {{ \(x : [128]) -> \y -> (x ^ y) ^ y == x }};
+bar1 <- prove_folding_theorem {{ \(x : [128]) -> \y -> (y ^ x) ^ y == x }};
+bar2 <- prove_folding_theorem {{ \(x : [128]) -> \y -> y ^ (x ^ y) == x }};
+bar3 <- prove_folding_theorem {{ \(x : [128]) -> \y -> y ^ (y ^ x) == x }};
+
+
+slice_xor_0_thm <- prove_folding_theorem {{ \x y -> slice_64_64_0 (x ^ y) == (slice_64_64_0 x) ^ (slice_64_64_0 y) }};
+slice_xor_1_thm <- prove_folding_theorem {{ \x y -> slice_0_64_64 (x ^ y) == (slice_0_64_64 x) ^ (slice_0_64_64 y) }};
+slice_xor_2_thm <- prove_folding_theorem {{ \x y -> slice_128_128_0 (x ^ y) == (slice_128_128_0 x) ^ (slice_128_128_0 y) }};
+slice_xor_3_thm <- prove_folding_theorem {{ \x y -> slice_0_128_128 (x ^ y) == (slice_0_128_128 x) ^ (slice_0_128_128 y) }};
+slice_xor_4_thm <- prove_folding_theorem {{ \x y -> slice_0_64_192 (x ^ y) == (slice_0_64_192 x) ^ (slice_0_64_192 y) }};
+slice_xor_5_thm <- prove_folding_theorem {{ \x y -> slice_64_64_128 (x ^ y) == (slice_64_64_128 x) ^ (slice_64_64_128 y) }};
+slice_xor_6_thm <- prove_folding_theorem {{ \x y -> slice_128_64_64 (x ^ y) == (slice_128_64_64 x) ^ (slice_128_64_64 y) }};
+slice_xor_7_thm <- prove_folding_theorem {{ \x y -> slice_192_64_0 (x ^ y) == (slice_192_64_0 x) ^ (slice_192_64_0 y) }};
+
+slice_append_0_thm <- prove_folding_theorem {{ \x y -> slice_64_64_0 (x # y) == y }};
+slice_append_1_thm <- prove_folding_theorem {{ \x y -> slice_0_64_64 (x # y) == x }};
+slice_append_2_thm <- prove_folding_theorem {{ \x y -> slice_128_128_0 (x # y) == y }};
+slice_append_3_thm <- prove_folding_theorem {{ \x y -> slice_0_128_128 (x # y) == x }};
+slice_append_4_thm <- prove_folding_theorem {{ \x y -> slice_0_64_192 (x # y) == slice_0_64_64 x }};
+slice_append_5_thm <- prove_folding_theorem {{ \x y -> slice_64_64_128 (x # y) == slice_64_64_0 x }};
+slice_append_6_thm <- prove_folding_theorem {{ \x y -> slice_128_64_64 (x # y) == slice_0_64_64 y }};
+slice_append_7_thm <- prove_folding_theorem {{ \x y -> slice_192_64_0 (x # y) == slice_64_64_0 y }};
+slice_append_8_thm <- prove_folding_theorem
+  {{ \x (y0 : [8]) (y1 : [8]) (y2 : [8]) (y3 : [8]) (y4 : [8]) (y5 : [8]) (y6 : [8]) (y7 : [8]) -> slice_0_64_64 ((((((((x # y0) # y1) # y2) # y3) # y4) # y5) # y6) # y7) == x }};
+slice_append_9_thm <- prove_folding_theorem
+  {{ \x (y0 : [8]) (y1 : [8]) (y2 : [8]) (y3 : [8]) (y4 : [8]) (y5 : [8]) (y6 : [8]) (y7 : [8]) -> slice_64_64_0 ((((((((x # y0) # y1) # y2) # y3) # y4) # y5) # y6) # y7) == y0 # y1 # y2 # y3 # y4 # y5 # y6 # y7 }};
+slice_append_10_thm <- prove_folding_theorem
+  {{ \x (y0 : [8]) (y1 : [8]) (y2 : [8]) (y3 : [8]) (y4 : [8]) (y5 : [8]) (y6 : [8]) (y7 : [8]) -> slice_0_64_64 (y0 # (y1 # (y2 # (y3 # (y4 # (y5 # (y6 # (y7 # x)))))))) == y0 # y1 # y2 # y3 # y4 # y5 # y6 # y7 }};
+slice_append_11_thm <- prove_folding_theorem
+  {{ \x (y0 : [8]) (y1 : [8]) (y2 : [8]) (y3 : [8]) (y4 : [8]) (y5 : [8]) (y6 : [8]) (y7 : [8]) -> slice_64_64_0 (y0 # (y1 # (y2 # (y3 # (y4 # (y5 # (y6 # (y7 # x)))))))) == x }};
+
+append_slice_thm <- prove_folding_theorem
+  {{ \x -> (slice_0_8_56 x) # (slice_8_8_48 x) # (slice_16_8_40 x) # (slice_24_8_32 x) # (slice_32_8_24 x) # (slice_40_8_16 x) # (slice_48_8_8 x) # (slice_56_8_0 x) == x }};
+
+slice_ite_0_thm <- prove_folding_theorem {{ \c x y -> slice_64_64_0 (if c then x else y) == if c then (slice_64_64_0 x) else (slice_64_64_0 y) }};
+slice_ite_1_thm <- prove_folding_theorem {{ \c x y -> slice_0_64_64 (if c then x else y) == if c then (slice_0_64_64 x) else (slice_0_64_64 y) }};
+
+let xor_slice_append_thms =
+  [ slice_xor_0_thm
+  , slice_xor_1_thm
+  , slice_xor_2_thm
+  , slice_xor_3_thm
+  , slice_xor_4_thm
+  , slice_xor_5_thm
+  , slice_xor_6_thm
+  , slice_xor_7_thm
+  , slice_append_0_thm
+  , slice_append_1_thm
+  , slice_append_2_thm
+  , slice_append_3_thm
+  , slice_append_4_thm
+  , slice_append_5_thm
+  , slice_append_6_thm
+  , slice_append_7_thm
+  , slice_append_8_thm
+  , slice_append_9_thm
+  , slice_append_10_thm
+  , slice_append_11_thm
+  , append_slice_thm
+  , slice_ite_0_thm
+  , slice_ite_1_thm
+  ];
+
+
+slice_slice_0_thm <- prove_folding_theorem {{ \x -> slice_0_8_120 x == slice_0_8_56 (slice_0_64_64 x) }};
+slice_slice_1_thm <- prove_folding_theorem {{ \x -> slice_8_8_112 x == slice_8_8_48 (slice_0_64_64 x) }};
+slice_slice_2_thm <- prove_folding_theorem {{ \x -> slice_16_8_104 x == slice_16_8_40 (slice_0_64_64 x) }};
+slice_slice_3_thm <- prove_folding_theorem {{ \x -> slice_24_8_96 x == slice_24_8_32 (slice_0_64_64 x) }};
+slice_slice_4_thm <- prove_folding_theorem {{ \x -> slice_32_8_88 x == slice_32_8_24 (slice_0_64_64 x) }};
+slice_slice_5_thm <- prove_folding_theorem {{ \x -> slice_40_8_80 x == slice_40_8_16 (slice_0_64_64 x) }};
+slice_slice_6_thm <- prove_folding_theorem {{ \x -> slice_48_8_72 x == slice_48_8_8 (slice_0_64_64 x) }};
+slice_slice_7_thm <- prove_folding_theorem {{ \x -> slice_56_8_64 x == slice_56_8_0 (slice_0_64_64 x) }};
+slice_slice_8_thm <- prove_folding_theorem {{ \x -> slice_64_8_56 x == slice_0_8_56 (slice_64_64_0 x) }};
+slice_slice_9_thm <- prove_folding_theorem {{ \x -> slice_72_8_48 x == slice_8_8_48 (slice_64_64_0 x) }};
+slice_slice_10_thm <- prove_folding_theorem {{ \x -> slice_80_8_40 x == slice_16_8_40 (slice_64_64_0 x) }};
+slice_slice_11_thm <- prove_folding_theorem {{ \x -> slice_88_8_32 x == slice_24_8_32 (slice_64_64_0 x) }};
+slice_slice_12_thm <- prove_folding_theorem {{ \x -> slice_96_8_24 x == slice_32_8_24 (slice_64_64_0 x) }};
+slice_slice_13_thm <- prove_folding_theorem {{ \x -> slice_104_8_16 x == slice_40_8_16 (slice_64_64_0 x) }};
+slice_slice_14_thm <- prove_folding_theorem {{ \x -> slice_112_8_8 x == slice_48_8_8 (slice_64_64_0 x) }};
+slice_slice_15_thm <- prove_folding_theorem {{ \x -> slice_120_8_0 x == slice_56_8_0 (slice_64_64_0 x) }};
+
+let slice_slice_thms =
+  [ slice_slice_0_thm
+  , slice_slice_1_thm
+  , slice_slice_2_thm
+  , slice_slice_3_thm
+  , slice_slice_4_thm
+  , slice_slice_5_thm
+  , slice_slice_6_thm
+  , slice_slice_7_thm
+  , slice_slice_8_thm
+  , slice_slice_9_thm
+  , slice_slice_10_thm
+  , slice_slice_11_thm
+  , slice_slice_12_thm
+  , slice_slice_13_thm
+  , slice_slice_14_thm
+  , slice_slice_15_thm
+  ];
+
+
+concat_assoc_0_thm <- prove_folding_theorem
+  {{ \(x0 : [8]) (x1 : [8]) (x2 : [8]) (x3 : [8]) (x4 : [8]) (x5 : [8]) (x6 : [8]) (x7 : [8]) (x8 : [8]) (x9 : [8]) (x10 : [8]) (x11 : [8]) (x12 : [8]) (x13 : [8]) (x14 : [8]) (x15 : [8]) -> x0 # (x1 # (x2 # (x3 # (x4 # (x5 # (x6 # (x7 # (x8 # (x9 # (x10 # (x11 # (x12 # (x13 # (x14 # x15)))))))))))))) == ((((((((((((((x0 # x1) # x2) # x3) # x4) # x5) # x6) # x7) # x8) # x9) # x10) # x11) # x12) # x13) # x14) # x15 }};
+concat_assoc_1_thm <- prove_folding_theorem
+  {{ \(x0 : [32]) (x1 : [8]) (x2 : [8]) (x3 : [8]) (x4 : [8]) (x5 : [8]) (x6 : [8]) (x7 : [8]) (x8 : [8]) (x9 : [8]) (x10 : [8]) (x11 : [8]) (x12 : [8]) -> ((x0 # (x1 # (x2 # (x3 # x4)))) # (x5 # (x6 # (x7 # x8)))) # (x9 # (x10 # (x11 # x12))) == (((((((((((x0 # x1) # x2) # x3) # x4) # x5) # x6) # x7) # x8) # x9) # x10) # x11) # x12 }};
+let concat_assoc_0_thms =
+  [ concat_assoc_0_thm
+  , concat_assoc_1_thm
+  ];
+
+concat_assoc_2_thm <- prove_folding_theorem
+  {{ \(x0 : [8]) (x1 : [8]) (x2 : [8]) (x3 : [8]) (x4 : [8]) (x5 : [8]) (x6 : [8]) (x7 : [8]) -> x0 # (x1 # (x2 # (x3 # (x4 # (x5 # (x6 # x7)))))) == ((((((x0 # x1) # x2) # x3) # x4) # x5) # x6) # x7 }};
+let concat_assoc_1_thms =
+  [ concat_assoc_2_thm
+  ];
+
+concat_assoc_3_thm <- prove_folding_theorem
+  {{ \(x :  [8]) (y :  [8]) (z : [8]) -> x # (y # z) == (x # y) # z }};
+concat_assoc_4_thm <- prove_folding_theorem
+  {{ \(x : [16]) (y :  [8]) (z : [8]) -> x # (y # z) == (x # y) # z }};
+concat_assoc_5_thm <- prove_folding_theorem
+  {{ \(x : [24]) (y :  [8]) (z : [8]) -> x # (y # z) == (x # y) # z }};
+concat_assoc_6_thm <- prove_folding_theorem
+  {{ \(x : [32]) (y :  [8]) (z : [8]) -> x # (y # z) == (x # y) # z }};
+concat_assoc_7_thm <- prove_folding_theorem
+  {{ \(x : [40]) (y :  [8]) (z : [8]) -> x # (y # z) == (x # y) # z }};
+concat_assoc_8_thm <- prove_folding_theorem
+  {{ \(x : [48]) (y :  [8]) (z : [8]) -> x # (y # z) == (x # y) # z }};
+concat_assoc_9_thm <- prove_folding_theorem
+  {{ \(x :  [8]) (y : [16]) (z : [8]) -> x # (y # z) == (x # y) # z }};
+concat_assoc_10_thm <- prove_folding_theorem
+  {{ \(x : [16]) (y : [16]) (z : [8]) -> x # (y # z) == (x # y) # z }};
+concat_assoc_11_thm <- prove_folding_theorem
+  {{ \(x : [24]) (y : [16]) (z : [8]) -> x # (y # z) == (x # y) # z }};
+concat_assoc_12_thm <- prove_folding_theorem
+  {{ \(x : [32]) (y : [16]) (z : [8]) -> x # (y # z) == (x # y) # z }};
+concat_assoc_13_thm <- prove_folding_theorem
+  {{ \(x : [40]) (y : [16]) (z : [8]) -> x # (y # z) == (x # y) # z }};
+concat_assoc_14_thm <- prove_folding_theorem
+  {{ \(x :  [8]) (y : [24]) (z : [8]) -> x # (y # z) == (x # y) # z }};
+concat_assoc_15_thm <- prove_folding_theorem
+  {{ \(x : [16]) (y : [24]) (z : [8]) -> x # (y # z) == (x # y) # z }};
+concat_assoc_16_thm <- prove_folding_theorem
+  {{ \(x : [24]) (y : [24]) (z : [8]) -> x # (y # z) == (x # y) # z }};
+concat_assoc_17_thm <- prove_folding_theorem
+  {{ \(x : [32]) (y : [24]) (z : [8]) -> x # (y # z) == (x # y) # z }};
+concat_assoc_18_thm <- prove_folding_theorem
+  {{ \(x :  [8]) (y : [32]) (z : [8]) -> x # (y # z) == (x # y) # z }};
+concat_assoc_19_thm <- prove_folding_theorem
+  {{ \(x : [16]) (y : [32]) (z : [8]) -> x # (y # z) == (x # y) # z }};
+concat_assoc_20_thm <- prove_folding_theorem
+  {{ \(x : [24]) (y : [32]) (z : [8]) -> x # (y # z) == (x # y) # z }};
+concat_assoc_21_thm <- prove_folding_theorem
+  {{ \(x :  [8]) (y : [40]) (z : [8]) -> x # (y # z) == (x # y) # z }};
+concat_assoc_22_thm <- prove_folding_theorem
+  {{ \(x : [16]) (y : [40]) (z : [8]) -> x # (y # z) == (x # y) # z }};
+concat_assoc_23_thm <- prove_folding_theorem
+  {{ \(x :  [8]) (y : [48]) (z : [8]) -> x # (y # z) == (x # y) # z }};
+let concat_assoc_2_thms =
+  [ concat_assoc_3_thm
+  , concat_assoc_4_thm
+  , concat_assoc_5_thm
+  , concat_assoc_6_thm
+  , concat_assoc_7_thm
+  , concat_assoc_8_thm
+  , concat_assoc_9_thm
+  , concat_assoc_10_thm
+  , concat_assoc_11_thm
+  , concat_assoc_12_thm
+  , concat_assoc_13_thm
+  , concat_assoc_14_thm
+  , concat_assoc_15_thm
+  , concat_assoc_16_thm
+  , concat_assoc_17_thm
+  , concat_assoc_18_thm
+  , concat_assoc_19_thm
+  , concat_assoc_20_thm
+  , concat_assoc_21_thm
+  , concat_assoc_22_thm
+  , concat_assoc_23_thm
+  ];
+
+
+gcm_polyval_mul_0_thm <- prove_print rme (rewrite (cryptol_ss ()) {{ \(x : [128]) (y : [128]) -> gcm_polyval_mul_pmult3 x y == gcm_polyval_mul x y }});
+gcm_polyval_mul_1_thm <- prove_print rme (rewrite (cryptol_ss ()) {{ \(x : [128]) (y : [128]) -> gcm_polyval_mul_pmult4 x y == gcm_polyval_mul x y }});
+gcm_polyval_red_thm <- prove_print rme (rewrite (cryptol_ss ()) {{ \x -> gcm_polyval_red_pmult x == gcm_polyval_red x }});
+gcm_polyval_red_xor_thm <- prove_print rme (rewrite (cryptol_ss ()) {{ \x y -> gcm_polyval_red (x ^ y) == (gcm_polyval_red x) ^ (gcm_polyval_red y) }});
+gcm_polyval_mul_red_thm <- prove_print rme (rewrite (cryptol_ss ()) {{ \x y -> gcm_polyval_red (gcm_polyval_mul x y) == gcm_polyval x y }});
+gcm_polyval_assoc_thm <- prove_print rme (rewrite (cryptol_ss ()) {{ \x y z -> gcm_polyval x (gcm_polyval y z) == gcm_polyval (gcm_polyval x y) z }});
+gcm_polyval_xor_thm <- prove_print rme (rewrite (cryptol_ss ()) {{ \(x : [128]) y z -> gcm_polyval x (y ^ z) == (gcm_polyval x y) ^ (gcm_polyval x z) }});
+append_xor_thm <- prove_folding_theorem
+  {{ \(x0 : [8]) (x1 : [8]) (x2 : [8]) (x3 : [8]) (x4 : [8]) (x5 : [8]) (x6 : [8]) (x7 : [8]) (x8 : [8]) (x9 : [8]) (x10 : [8]) (x11 : [8]) (x12 : [8]) (x13 : [8]) (x14 : [8]) (x15 : [8]) y0 y1 y2 y3 y4 y5 y6 y7 y8 y9 y10 y11 y12 y13 y14 y15 -> ((((((((((((((((x0 ^ y0) # (x1 ^ y1)) # (x2 ^ y2)) # (x3 ^ y3)) # (x4 ^ y4)) # (x5 ^ y5)) # (x6 ^ y6)) # (x7 ^ y7)) # (x8 ^ y8)) # (x9 ^ y9)) # (x10 ^ y10)) # (x11 ^ y11)) # (x12 ^ y12)) # (x13 ^ y13)) # (x14 ^ y14)) # (x15 ^ y15)) == (x0 # x1 # x2 # x3 # x4 # x5 # x6 # x7 # x8 # x9 # x10 # x11 # x12 # x13 # x14 # x15) ^ (y0 # y1 # y2 # y3 # y4 # y5 # y6 # y7 # y8 # y9 # y10 # y11 # y12 # y13 # y14 # y15) }};
+append_slice_thm <- prove_folding_theorem
+  {{ \x -> (slice_0_8_120 x) # (slice_8_8_112 x) # (slice_16_8_104 x) # (slice_24_8_96 x) # (slice_32_8_88 x) # (slice_40_8_80 x) # (slice_48_8_72 x) # (slice_56_8_64 x) # (slice_64_8_56 x) # (slice_72_8_48 x) # (slice_80_8_40 x) # (slice_88_8_32 x) # (slice_96_8_24 x) # (slice_104_8_16 x) # (slice_112_8_8 x) # (slice_120_8_0 x) == x }};
+let gcm_polyval_thms =
+  [ gcm_polyval_mul_0_thm
+  , gcm_polyval_mul_1_thm
+  , gcm_polyval_red_thm
+  , gcm_polyval_red_xor_thm
+  , gcm_polyval_mul_red_thm
+  , gcm_polyval_assoc_thm
+  , gcm_polyval_xor_thm
+  , append_xor_thm
+  , append_slice_thm
+  ];
+
+let prove_cipher_ctr_stream_thm gcm_len len = prove_print
+  (do {
+    w4_unint_yices ["aes_hw_encrypt"];
+  })
+  (rewrite (cryptol_ss ()) {{ \key iv Xi (in : [len][8]) -> cipher_ctr_stream ({ key = key, iv = iv, Xi = Xi, len = `gcm_len } : AES_GCM_Ctx) in == join (map split (aesni_gcm_cipher_ctr_block ({ key = key, iv = iv, Xi = Xi, len = `gcm_len } : AES_GCM_Ctx) in)) }});
+
+cipher_ctr_stream_16_288_thm <- prove_cipher_ctr_stream_thm 16 288;
+let cipher_ctr_stream_thms =
+  [ cipher_ctr_stream_16_288_thm
+  ];
+
+let prove_cipher_update_avx_thm enc gcm_len len = prove_print
+  (do {
+    unfolding ["cipher_update"];
+    simplify (cryptol_ss ());
+    simplify (addsimps cipher_ctr_stream_thms empty_ss);
+    goal_eval_unint ["pmult", "pmod", "gcm_polyval", "gcm_polyval_mul", "gcm_polyval_mul_pmult3", "gcm_polyval_mul_pmult4", "gcm_polyval_red", "gcm_polyval_red_pmult", "aes_hw_encrypt", "aesni_gcm_cipher_ctr_block"];
+    simplify (addsimps gcm_polyval_thms empty_ss);
+    simplify (addsimps [concat_assoc_0_thm] empty_ss);
+    w4_unint_yices ["pmult", "pmod", "gcm_polyval", "aes_hw_encrypt"];
+  })
+  (rewrite (cryptol_ss ()) {{ \key iv Xi (in : [len][8]) -> (cipher_update enc ({ key = key, iv = iv, Xi = Xi, len = `gcm_len } : AES_GCM_Ctx) in).Xi == aesni_gcm_cipher enc ({ key = key, iv = iv, Xi = Xi, len = `gcm_len } : AES_GCM_Ctx) in }});
+
+encrypt_update_avx_thm <- prove_cipher_update_avx_thm {{ 1 : [32] }} 16 288;
+decrypt_update_avx_thm <- prove_cipher_update_avx_thm {{ 0 : [32] }} 16 288;
+let cipher_update_avx_thms =
+  [ encrypt_update_avx_thm
+  , decrypt_update_avx_thm
+  ];
+
+
+m <- llvm_load_module "../../build/llvm/crypto/crypto_test.bc";
+
+
+include "AES.saw";
+include "GHASH.saw";
+
+
+let OPENSSL_malloc_spec size = do {
+  crucible_execute_func [crucible_term {{ `size : [64] }}];
+  ptr <- crucible_alloc_aligned 16 (llvm_array size (llvm_int 8));
+  crucible_return ptr;
+};
+
+
+let NID_aes_256_gcm = 901;
+let aes_block_size = 1;
+let aes_iv_len = 12;
+
+
+let EVP_AES_GCM_CTX_PADDING = 8;
+let EVP_AES_GCM_CTX_size = llvm_sizeof m (llvm_struct "struct.EVP_AES_GCM_CTX");
+let ctx_size = eval_size {| EVP_AES_GCM_CTX_size + EVP_AES_GCM_CTX_PADDING |};
+
+
+OPENSSL_malloc_ov <- crucible_llvm_unsafe_assume_spec
+  m
+  "OPENSSL_malloc"
+  (OPENSSL_malloc_spec EVP_AES_GCM_CTX_size);
+OPENSSL_malloc_696_ov <- crucible_llvm_unsafe_assume_spec
+  m
+  "OPENSSL_malloc"
+  (OPENSSL_malloc_spec 696);
+
+
+let EVP_CIPH_GCM_MODE = 0x6;
+let EVP_CIPH_ALWAYS_CALL_INIT = 0x80;
+let EVP_CIPH_CUSTOM_IV = 0x100;
+let EVP_CIPH_CTRL_INIT = 0x200;
+let EVP_CIPH_FLAG_CUSTOM_CIPHER = 0x400;
+let EVP_CIPH_FLAG_AEAD_CIPHER = 0x800;
+let EVP_CIPH_CUSTOM_COPY = 0x1000;
+
+let points_to_evp_cipher_st ptr = do {
+  crucible_points_to (crucible_elem ptr 0) (crucible_term {{ `NID_aes_256_gcm : [32] }});
+  crucible_points_to (crucible_elem ptr 1) (crucible_term {{ `aes_block_size : [32] }});
+  crucible_points_to (crucible_elem ptr 2) (crucible_term {{ `aes_key_len : [32] }});
+  crucible_points_to (crucible_elem ptr 3) (crucible_term {{ `aes_iv_len : [32] }});
+  crucible_points_to (crucible_elem ptr 4) (crucible_term {{ `ctx_size : [32] }});
+  let flags = eval_size {| EVP_CIPH_GCM_MODE + EVP_CIPH_CUSTOM_IV + EVP_CIPH_CUSTOM_COPY +
+                           EVP_CIPH_FLAG_CUSTOM_CIPHER + EVP_CIPH_ALWAYS_CALL_INIT +
+                           EVP_CIPH_CTRL_INIT + EVP_CIPH_FLAG_AEAD_CIPHER |};
+  crucible_points_to (crucible_elem ptr 5) (crucible_term {{ `flags : [32] }});
+  crucible_points_to (crucible_elem ptr 6) crucible_null;
+  crucible_points_to (crucible_elem ptr 7) (crucible_global "aes_gcm_init_key");
+  crucible_points_to (crucible_elem ptr 8) (crucible_global "aes_gcm_cipher");
+  crucible_points_to (crucible_elem ptr 9) (crucible_global "aes_gcm_cleanup");
+  crucible_points_to (crucible_elem ptr 10) (crucible_global "aes_gcm_ctrl");
+};
+
+let aes_256_gcm_generic_init_spec = do {
+  crucible_alloc_global "aes_256_gcm_generic_storage";
+  crucible_execute_func [];
+  points_to_evp_cipher_st (crucible_global "aes_256_gcm_generic_storage");
+};
+
+llvm_verify m "aes_256_gcm_generic_init" [] true aes_256_gcm_generic_init_spec (w4_unint_yices []);
+
+
+let points_to_evp_cipher_ctx_st ptr cipher_ptr cipher_data_ptr enc = do {
+  crucible_points_to (crucible_field ptr "cipher") cipher_ptr;
+  crucible_points_to (crucible_field ptr "cipher_data") cipher_data_ptr;
+  crucible_points_to (crucible_field ptr "key_len") (crucible_term {{ `aes_key_len : [32] }});
+  crucible_points_to (crucible_field ptr "encrypt") (crucible_term enc);
+  crucible_points_to (crucible_field ptr "flags") (crucible_term {{ 0 : [32] }});
+  crucible_points_to (crucible_field ptr "buf_len") (crucible_term {{ 0 : [32] }});
+  crucible_points_to (crucible_field ptr "final_used") (crucible_term {{ 0 : [32] }});
+  crucible_points_to (crucible_field ptr "block_mask") (crucible_term {{ 0 : [32] }});
+};
+
+let fresh_aes_gcm_ctx len = do {
+  ks <- fresh_aes_key_st;
+  iv <- crucible_fresh_var "iv" (llvm_array aes_iv_len (llvm_int 8));
+  Xi <- crucible_fresh_var "Xi" (llvm_array AES_BLOCK_SIZE (llvm_int 8));
+  return {{ { key = ks.rd_key, iv = iv, Xi = Xi, len = `len } : AES_GCM_Ctx }};
+};
+
+let points_to_gcm128_key_st ptr ctx = do {
+  crucible_points_to_untyped (crucible_elem ptr 1) (crucible_term {{ get_Htable ctx }});
+  crucible_points_to_untyped (crucible_elem ptr 0) (crucible_term {{ get_H ctx }});
+  crucible_points_to (crucible_elem ptr 2) (crucible_global "gcm_gmult_avx");
+  crucible_points_to (crucible_elem ptr 3) (crucible_global "gcm_ghash_avx");
+  crucible_points_to (crucible_elem ptr 4) (crucible_global "aes_hw_encrypt");
+  crucible_points_to (crucible_elem ptr 5) (crucible_term {{ 1 : [8] }});
+};
+
+let points_to_GCM128_CONTEXT ptr ctx mres = do {
+  crucible_points_to_untyped (crucible_elem ptr 0) (crucible_term {{ get_Yi ctx }});
+  if eval_bool {{ `mres == 0 }} then do {
+    return ();
+  } else do {
+    crucible_points_to_untyped (crucible_elem ptr 1) (crucible_term {{ get_EKi ctx }});
+  };
+  crucible_points_to_untyped (crucible_elem ptr 2) (crucible_term {{ get_EK0 ctx }});
+  crucible_points_to_untyped (crucible_elem ptr 3) (crucible_term {{ [(0 : [64]), ctx.len] }});
+  crucible_points_to_untyped (crucible_elem ptr 4) (crucible_term {{ ctx.Xi }});
+  points_to_gcm128_key_st (crucible_elem ptr 5) ctx;
+  crucible_points_to (crucible_elem ptr 6) (crucible_term {{ `mres : [32] }});
+  crucible_points_to (crucible_elem ptr 7) (crucible_term {{ 0 : [32] }});
+};
+
+let points_to_EVP_AES_GCM_CTX ptr ctx mres iv_set taglen = do {
+  points_to_GCM128_CONTEXT (crucible_field ptr "gcm") ctx mres;
+  points_to_aes_key_st (crucible_field ptr "ks") {{ { rd_key = ctx.key } }};
+  crucible_points_to (crucible_field ptr "key_set") (crucible_term {{ 1 : [32] }});
+  crucible_points_to (crucible_field ptr "iv_set") (crucible_term iv_set);
+  crucible_points_to (crucible_field ptr "ivlen") (crucible_term {{ `aes_iv_len : [32] }});
+  crucible_points_to (crucible_field ptr "taglen") (crucible_term {{ `taglen : [32] }});
+  crucible_points_to (crucible_field ptr "iv_gen") (crucible_term {{ 0 : [32] }});
+  crucible_points_to (crucible_field ptr "ctr") (crucible_global "aes_hw_ctr32_encrypt_blocks");
+};
+
+
+let aes_gcm_from_cipher_ctx_spec = do {
+  ctx_ptr <- crucible_alloc_readonly (llvm_struct "struct.evp_cipher_ctx_st");
+  cipher_data_ptr <- crucible_fresh_pointer (llvm_struct "struct.EVP_AES_GCM_CTX");
+  crucible_points_to (crucible_field ctx_ptr "cipher_data") cipher_data_ptr;
+
+  crucible_execute_func [ctx_ptr];
+
+  crucible_return cipher_data_ptr;
+};
+
+aes_gcm_from_cipher_ctx_ov <- crucible_llvm_unsafe_assume_spec
+  m
+  "aes_gcm_from_cipher_ctx"
+  aes_gcm_from_cipher_ctx_spec;
+
+
+let EVP_CipherInit_ex_spec enc = do {
+  crucible_alloc_global "OPENSSL_ia32cap_P";
+  crucible_points_to (crucible_global "OPENSSL_ia32cap_P") (crucible_term {{ [0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff] : [4][32] }});
+
+  ctx_ptr <- crucible_alloc (llvm_struct "struct.evp_cipher_ctx_st");
+  crucible_points_to (crucible_field ctx_ptr "cipher") crucible_null;
+
+  cipher_ptr <- crucible_alloc_readonly (llvm_struct "struct.evp_cipher_st");
+  points_to_evp_cipher_st cipher_ptr;
+
+  (key, key_ptr) <- ptr_to_fresh_readonly "key" (llvm_array aes_key_len (llvm_int 8));
+  (iv, iv_ptr) <- ptr_to_fresh_readonly "iv" (llvm_array aes_iv_len (llvm_int 8));
+
+  crucible_execute_func [ctx_ptr, cipher_ptr, crucible_null, key_ptr, iv_ptr, (crucible_term enc)];
+
+  cipher_data_ptr <- crucible_alloc (llvm_struct "struct.EVP_AES_GCM_CTX");
+  ks <- fresh_aes_key_st;
+  let ctx = {{ { key = ks.rd_key, iv = iv, Xi = zero, len = 0 } : AES_GCM_Ctx }};
+  points_to_EVP_AES_GCM_CTX cipher_data_ptr ctx 0 {{ 1 : [32] }} 0xffffffff;
+
+  points_to_evp_cipher_ctx_st ctx_ptr cipher_ptr cipher_data_ptr enc;
+};
+
+llvm_verify m "EVP_CipherInit_ex"
+  [ OPENSSL_malloc_ov
+  , OPENSSL_malloc_696_ov
+  , aes_gcm_from_cipher_ctx_ov
+  , aes_hw_set_encrypt_key_ov
+  , aes_hw_encrypt_ov
+  , aes_hw_encrypt_ov'
+  , gcm_init_avx_ov
+  ]
+  true
+  (EVP_CipherInit_ex_spec {{ 1 : [32] }})
+  (do {
+    w4_unint_yices ["pmult", "pmod", "AESRound", "AESFinalRound"];
+  });
+llvm_verify m "EVP_CipherInit_ex"
+  [ OPENSSL_malloc_ov
+  , OPENSSL_malloc_696_ov
+  , aes_gcm_from_cipher_ctx_ov
+  , aes_hw_set_encrypt_key_ov
+  , aes_hw_encrypt_ov
+  , aes_hw_encrypt_ov'
+  , gcm_init_avx_ov
+  ]
+  true
+  (EVP_CipherInit_ex_spec {{ 0 : [32] }})
+  (do {
+    w4_unint_yices ["pmult", "pmod", "AESRound", "AESFinalRound"];
+  });
+
+
+let aesni_gcm_cipher_spec enc ctr len = do {
+  (in_, in_ptr) <- ptr_to_fresh_readonly "in" (llvm_array len (llvm_int 8));
+  out_ptr <- crucible_alloc (llvm_array len (llvm_int 8));
+  key <- fresh_aes_key_st;
+  key_ptr <- crucible_alloc_readonly (llvm_struct "struct.aes_key_st");
+  ivec_ptr <- crucible_alloc (llvm_array AES_BLOCK_SIZE (llvm_int 8));
+  ivec <- crucible_fresh_var "ivec" (llvm_array aes_iv_len (llvm_int 8));
+  crucible_points_to_untyped (crucible_elem ivec_ptr 0) (crucible_term ivec);
+  crucible_points_to_untyped (crucible_elem ivec_ptr 12) (crucible_term {{ split`{4} (`ctr : [32]) }});
+  Xi_ptr <- crucible_alloc (llvm_array 14 (llvm_int 128));
+  Xi <- crucible_fresh_var "Xi" (llvm_array AES_BLOCK_SIZE (llvm_int 8));
+  let ctx_len = eval_size {| (ctr - 2) * AES_BLOCK_SIZE |};
+  let ctx = {{ { key = key.rd_key, iv = ivec, Xi = Xi, len = `ctx_len } : AES_GCM_Ctx }};
+  crucible_points_to_untyped (crucible_elem Xi_ptr 2) (crucible_term {{ get_Htable ctx }});
+  crucible_points_to_untyped (crucible_elem Xi_ptr 1) (crucible_term {{ get_H ctx }});
+  crucible_points_to_untyped (crucible_elem Xi_ptr 0) (crucible_term Xi);
+  points_to_aes_key_st key_ptr key;
+
+  crucible_execute_func [in_ptr, out_ptr, (crucible_term {{ `len : [64] }}), key_ptr, ivec_ptr, Xi_ptr];
+
+  let res_ctr = eval_size {| ctr + (len / (6 * AES_BLOCK_SIZE)) * 6 |};
+  let res_len = eval_size {| len - (len % (6 * AES_BLOCK_SIZE)) |};
+
+  out <- crucible_fresh_var "out" (llvm_array res_len (llvm_int 8));
+  crucible_points_to_untyped out_ptr (crucible_term out);
+  crucible_postcond {{ out == cipher_ctr_stream ctx (take`{res_len} in_) }};
+
+  crucible_points_to ivec_ptr (crucible_term {{ ivec # (split (`res_ctr : [32])) }});
+
+  crucible_points_to_untyped (crucible_elem Xi_ptr 2) (crucible_term {{ get_Htable ctx }});
+  crucible_points_to_untyped (crucible_elem Xi_ptr 1) (crucible_term {{ get_H ctx }});
+
+  crucible_points_to_untyped (crucible_elem Xi_ptr 0) (crucible_term {{ (cipher_update enc ctx (take`{res_len} in_)).Xi }} );
+
+  crucible_return (crucible_term {{ `res_len : [64] }});
+};
+
+aesenc_key0_0_thm <- prove_print
+  (do {
+    w4_unint_yices ["AESRound", "AESFinalRound"];
+  })
+  (rewrite (cryptol_ss ()) {{ \(x : [96]) (y : [32]) key0 key1 -> aesenc ((x # y) ^ key0) key1 == aesenc (key0 ^ (x # y)) key1 }});
+aesenc_key0_1_thm <- prove_print
+  (do {
+    w4_unint_yices ["AESRound", "AESFinalRound"];
+  })
+  (rewrite (cryptol_ss ()) {{ \(x : [120]) (y : [8]) key0 key1 -> aesenc ((x # y) ^ key0) key1 == aesenc (key0 ^ (x # y)) key1 }});
+aesenclast_thm <- prove_print
+  (do {
+    w4_unint_yices ["ShiftRows", "SubBytes"];
+  })
+  (rewrite (cryptol_ss ()) {{ \x y z -> aesenclast x (y ^ z) == (aesenclast x y) ^ z }});
+aesenc_aesenclast_thm <- prove_print
+  (do {
+    w4_unint_yices ["AESRound", "AESFinalRound"];
+  })
+  (rewrite (cryptol_ss ()) {{ \in key0 key1 key2 key3 key4 key5 key6 key7 key8 key9 key10 key11 key12 key13 key14 -> aesenclast (aesenc (aesenc (aesenc (aesenc (aesenc (aesenc (aesenc (aesenc (aesenc (aesenc (aesenc (aesenc (aesenc (key0 ^ in) key1) key2) key3) key4) key5) key6) key7) key8) key9) key10) key11) key12) key13) key14 == swap8 (aesEncryptWithKeySchedule (swap8 in) (aes_key_bits_to_schedule [key0, key1, key2, key3, key4, key5, key6, key7, key8, key9, key10, key11, key12, key13, key14])) }});
+
+// replace (bvult x y) with (x - y <$ 0) in order for the semiring and abstract
+// domain to work. This simplifies goals related to the 64-byte alignment of
+// the stack.
+let bvult = parse_core "\\(x y : bitvector 64) -> bvult 64 x y";
+cmp_sub_thm <- prove_folding_theorem
+  {{ \x y -> bvult x y == if (x @ 0 == y @ 0) then (x - y <$ 0) else (x @ 0 < y @ 0) }};
+
+
+let aesni_gcm_cipher_tactic = do {
+  simplify (addsimps [aesenc_key0_0_thm, aesenc_key0_1_thm, aesenclast_thm] empty_ss);
+  simplify (addsimps [aesenc_aesenclast_thm] empty_ss);
+  simplify (cryptol_ss ());
+  simplify (addsimps cipher_update_avx_thms empty_ss);
+  goal_eval_unint ["pmult", "pmod", "gcm_polyval", "aesEncryptWithKeySchedule"];
+  simplify (addsimps xor_slice_append_thms basic_ss);
+  simplify (addsimps slice_slice_thms empty_ss);
+  simplify (addsimps xor_slice_append_thms basic_ss);
+  simplify (addsimps concat_assoc_0_thms empty_ss);
+  simplify (addsimps concat_assoc_1_thms empty_ss);
+  simplify (addsimps concat_assoc_2_thms empty_ss);
+  simplify (addsimps [cmp_sub_thm] empty_ss);
+  w4_unint_yices ["pmult", "pmod", "gcm_polyval", "aesEncryptWithKeySchedule"];
+};
+
+add_x86_preserved_reg "rax";
+enable_what4_hash_consing;
+
+aesni_gcm_encrypt_ov <- llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "aesni_gcm_encrypt"
+  [ ("aesni_gcm_encrypt", 1200) // we need .Lbswap_mask, which lives in .text after aesni_gcm_encrypt (1081 bytes itself). 1200 bytes is an arbitrary size that I guessed would be large enough to contain the right bytes after alignment. TODO trim this
+  ]
+  true
+  (aesni_gcm_cipher_spec {{ 1 : [32] }} 3 314)
+  aesni_gcm_cipher_tactic;
+
+aesni_gcm_decrypt_ov <- llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "aesni_gcm_decrypt"
+  [ ("aesni_gcm_encrypt", 1200) // we need .Lbswap_mask, which lives in .text after aesni_gcm_encrypt (1081 bytes itself). 1200 bytes is an arbitrary size that I guessed would be large enough to contain the right bytes after alignment. TODO trim this
+  ]
+  true
+  (aesni_gcm_cipher_spec {{ 0 : [32] }} 3 314)
+  aesni_gcm_cipher_tactic;
+
+disable_what4_hash_consing;
+default_x86_preserved_reg;
+
+
+let EVP_CipherUpdate_spec enc gcm_len len = do {
+  crucible_alloc_global "OPENSSL_ia32cap_P";
+  crucible_points_to (crucible_global "OPENSSL_ia32cap_P") (crucible_term {{ [0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff] : [4][32] }});
+
+  cipher_ptr <- crucible_alloc_readonly (llvm_struct "struct.evp_cipher_st");
+  points_to_evp_cipher_st cipher_ptr;
+
+  cipher_data_ptr <- crucible_alloc_aligned 16 (llvm_struct "struct.EVP_AES_GCM_CTX");
+  ctx <- fresh_aes_gcm_ctx gcm_len;
+  let mres = eval_size {| gcm_len % AES_BLOCK_SIZE |};
+  points_to_EVP_AES_GCM_CTX cipher_data_ptr ctx mres {{ 1 : [32] }} 0xffffffff;
+
+  ctx_ptr <- crucible_alloc_readonly (llvm_struct "struct.evp_cipher_ctx_st");
+  points_to_evp_cipher_ctx_st ctx_ptr cipher_ptr cipher_data_ptr enc;
+
+  (in_, in_ptr) <- ptr_to_fresh_readonly "in" (llvm_array len (llvm_int 8));
+  out_ptr <- crucible_alloc (llvm_array len (llvm_int 8));
+  out_len_ptr <- crucible_alloc (llvm_int 32);
+
+  crucible_execute_func [ctx_ptr, out_ptr, out_len_ptr, in_ptr, (crucible_term {{ `len : [32] }})];
+
+  let ctx' = {{ cipher_update enc ctx in_ }};
+  let mres' = eval_size {| (gcm_len + len) % AES_BLOCK_SIZE |};
+  points_to_EVP_AES_GCM_CTX cipher_data_ptr ctx' mres' {{ 1 : [32] }} 0xffffffff;
+
+  out <- crucible_fresh_var "out" (llvm_array len (llvm_int 8));
+  crucible_points_to out_ptr (crucible_term out);
+  crucible_postcond {{ out == cipher_ctr_stream ctx in_ }};
+
+  crucible_points_to out_len_ptr (crucible_term {{ `len : [32] }});
+
+  crucible_return (crucible_term {{ 1 : [32] }});
+};
+
+enable_what4_hash_consing;
+
+llvm_verify m "EVP_EncryptUpdate"
+  [ aes_gcm_from_cipher_ctx_ov
+  , aesni_gcm_encrypt_ov
+  , aes_hw_encrypt_ov
+  , aes_hw_ctr32_encrypt_blocks_ov
+  , gcm_gmult_avx_ov
+  , gcm_ghash_avx_ov
+  ]
+  true
+  (EVP_CipherUpdate_spec {{ 1 : [32] }} 10 320) // 320 = (16 - 10) + 288 + 16 + 10
+  //(EVP_CipherUpdate_spec {{ 1 : [32] }} 10 32) // 32 = (16 - 10) + 16 + 10
+  (do {
+    w4_unint_yices ["pmult", "pmod", "gcm_polyval", "AESRound", "AESFinalRound", "aes_hw_encrypt"];
+  });
+
+llvm_verify m "EVP_DecryptUpdate"
+  [ aes_gcm_from_cipher_ctx_ov
+  , aesni_gcm_decrypt_ov
+  , aes_hw_encrypt_ov
+  , aes_hw_ctr32_encrypt_blocks_ov
+  , gcm_gmult_avx_ov
+  , gcm_ghash_avx_ov
+  ]
+  true
+  (EVP_CipherUpdate_spec {{ 0 : [32] }} 10 320) // 320 = (16 - 10) + 288 + 16 + 10
+  //(EVP_CipherUpdate_spec {{ 0 : [32] }} 10 32) // 32 = (16 - 10) + 16 + 10
+  (do {
+    w4_unint_yices ["pmult", "pmod", "gcm_polyval", "AESRound", "AESFinalRound", "aes_hw_encrypt"];
+  });
+
+disable_what4_hash_consing;
+
+
+let EVP_EncryptFinal_ex_spec gcm_len = do {
+  crucible_alloc_global "OPENSSL_ia32cap_P";
+  crucible_points_to (crucible_global "OPENSSL_ia32cap_P") (crucible_term {{ [0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff] : [4][32] }});
+
+  cipher_ptr <- crucible_alloc_readonly (llvm_struct "struct.evp_cipher_st");
+  points_to_evp_cipher_st cipher_ptr;
+
+  cipher_data_ptr <- crucible_alloc_aligned 16 (llvm_struct "struct.EVP_AES_GCM_CTX");
+  ctx <- fresh_aes_gcm_ctx gcm_len;
+  let mres = eval_size {| gcm_len % AES_BLOCK_SIZE |};
+  points_to_EVP_AES_GCM_CTX cipher_data_ptr ctx mres {{ 1 : [32] }} 0xffffffff;
+
+  ctx_ptr <- crucible_alloc (llvm_struct "struct.evp_cipher_ctx_st");
+  points_to_evp_cipher_ctx_st ctx_ptr cipher_ptr cipher_data_ptr {{ 1 : [32]}};
+
+  out_ptr <- crucible_fresh_pointer (llvm_array AES_BLOCK_SIZE (llvm_int 8));
+  out_len_ptr <- crucible_alloc (llvm_int 32);
+
+  crucible_execute_func [ctx_ptr, out_ptr, out_len_ptr];
+
+  Xi' <- crucible_fresh_var "Xi" (llvm_array AES_BLOCK_SIZE (llvm_int 8));
+  let ctx' = {{ { key = ctx.key, iv = ctx.iv, Xi = Xi', len = ctx.len } : AES_GCM_Ctx }};
+  points_to_EVP_AES_GCM_CTX cipher_data_ptr ctx' mres {{ 0 : [32] }} AES_BLOCK_SIZE;
+
+  points_to_evp_cipher_ctx_st ctx_ptr cipher_ptr cipher_data_ptr {{ 1 : [32]}};
+
+  crucible_points_to_untyped (crucible_field ctx_ptr "buf") (crucible_term {{ cipher_final ctx }});
+
+  crucible_points_to out_len_ptr (crucible_term {{ 0 : [32] }});
+
+  crucible_return (crucible_term {{ 1 : [32] }});
+};
+
+let EVP_DecryptFinal_ex_spec gcm_len = do {
+  crucible_alloc_global "OPENSSL_ia32cap_P";
+  crucible_points_to (crucible_global "OPENSSL_ia32cap_P") (crucible_term {{ [0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff] : [4][32] }});
+
+  cipher_ptr <- crucible_alloc_readonly (llvm_struct "struct.evp_cipher_st");
+  points_to_evp_cipher_st cipher_ptr;
+
+  cipher_data_ptr <- crucible_alloc_aligned 16 (llvm_struct "struct.EVP_AES_GCM_CTX");
+  ctx <- fresh_aes_gcm_ctx gcm_len;
+  let mres = eval_size {| gcm_len % AES_BLOCK_SIZE |};
+  points_to_EVP_AES_GCM_CTX cipher_data_ptr ctx mres {{ 1 : [32] }} AES_BLOCK_SIZE;
+
+  ctx_ptr <- crucible_alloc_readonly (llvm_struct "struct.evp_cipher_ctx_st");
+  points_to_evp_cipher_ctx_st ctx_ptr cipher_ptr cipher_data_ptr {{ 0 : [32]}};
+
+  buf <- crucible_fresh_var "buf" (llvm_array AES_BLOCK_SIZE (llvm_int 8));
+  crucible_points_to_untyped (crucible_field ctx_ptr "buf") (crucible_term buf);
+
+  out_ptr <- crucible_fresh_pointer (llvm_array AES_BLOCK_SIZE (llvm_int 8));
+  out_len_ptr <- crucible_alloc (llvm_int 32);
+
+  crucible_execute_func [ctx_ptr, out_ptr, out_len_ptr];
+
+  let ret = {{ buf == cipher_final ctx }};
+
+  Xi' <- crucible_fresh_var "Xi" (llvm_array AES_BLOCK_SIZE (llvm_int 8));
+  let ctx' = {{ { key = ctx.key, iv = ctx.iv, Xi = Xi', len = ctx.len } : AES_GCM_Ctx }};
+  points_to_EVP_AES_GCM_CTX cipher_data_ptr ctx' mres {{ (if ret then 0 else 1) : [32] }} AES_BLOCK_SIZE;
+
+  crucible_points_to out_len_ptr (crucible_term {{ 0 : [32] }});
+
+  crucible_return (crucible_term {{ (if ret then 1 else 0) : [32] }});
+};
+
+llvm_verify m "EVP_EncryptFinal_ex"
+  [ aes_gcm_from_cipher_ctx_ov
+  , gcm_gmult_avx_ov
+  ]
+  true
+  (EVP_EncryptFinal_ex_spec 330)
+  (do {
+    w4_unint_yices ["pmult", "pmod", "gcm_polyval", "aes_hw_encrypt"];
+  });
+
+llvm_verify m "EVP_DecryptFinal_ex"
+  [ aes_gcm_from_cipher_ctx_ov
+  , gcm_gmult_avx_ov
+  ]
+  true
+  (EVP_DecryptFinal_ex_spec 330)
+  (do {
+    w4_unint_yices ["pmult", "pmod", "gcm_polyval", "aes_hw_encrypt"];
+  });
+
