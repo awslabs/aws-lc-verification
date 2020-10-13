@@ -1,3 +1,12 @@
+/*
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+*/
+
+
+////////////////////////////////////////////////////////////////////////////////
+// Specifications
+
 let gcm_init_avx_spec = do {
   (_Htable, Htable_ptr) <- ptr_to_fresh "Htable" (llvm_array 12 (llvm_int 128));
   (Xi, Xi_ptr) <- ptr_to_fresh_readonly "Xi" (llvm_array 2 (llvm_int 64));
@@ -33,9 +42,9 @@ let gcm_ghash_avx_spec len = do {
   crucible_points_to Xi_ptr (crucible_term {{ gcm_ghash Htable0 Xi inp }});
 };
 
-polyval_avx_thm <- prove_print rme (rewrite (cryptol_ss ()) {{ \H Xi -> gcm_polyval H Xi == gcm_polyval_avx H Xi }});
-ghash_mul_thm <- prove_print rme (rewrite (cryptol_ss ()) {{ \(x : [128]) y -> gcm_polyval_mul x y == gcm_polyval_mul_pmult3 x y }});
-ghash_red_thm <- prove_print rme (rewrite (cryptol_ss ()) {{ \x -> gcm_polyval_red x == gcm_polyval_red_pmult x }});
+
+////////////////////////////////////////////////////////////////////////////////
+// Proof commands
 
 enable_what4_hash_consing;
 gcm_init_avx_ov <- llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "gcm_init_avx"

@@ -1,0 +1,84 @@
+/*
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+*/
+
+
+////////////////////////////////////////////////////////////////////////////////
+// Specifications
+
+let aesni_gcm_cipher_spec enc ctr len = do {
+  (in_, in_ptr) <- ptr_to_fresh_readonly "in" (llvm_array len (llvm_int 8));
+  out_ptr <- crucible_alloc (llvm_array len (llvm_int 8));
+  key <- fresh_aes_key_st;
+  key_ptr <- crucible_alloc_readonly (llvm_struct "struct.aes_key_st");
+  ivec_ptr <- crucible_alloc (llvm_array AES_BLOCK_SIZE (llvm_int 8));
+  ivec <- crucible_fresh_var "ivec" (llvm_array aes_iv_len (llvm_int 8));
+  crucible_points_to_untyped (crucible_elem ivec_ptr 0) (crucible_term ivec);
+  crucible_points_to_untyped (crucible_elem ivec_ptr 12) (crucible_term {{ split`{4} (`ctr : [32]) }});
+  Xi_ptr <- crucible_alloc (llvm_array 14 (llvm_int 128));
+  Xi <- crucible_fresh_var "Xi" (llvm_array AES_BLOCK_SIZE (llvm_int 8));
+  let ctx_len = eval_size {| (ctr - 2) * AES_BLOCK_SIZE |};
+  let ctx = {{ { key = key.rd_key, iv = ivec, Xi = Xi, len = `ctx_len } : AES_GCM_Ctx }};
+  crucible_points_to_untyped (crucible_elem Xi_ptr 2) (crucible_term {{ get_Htable ctx }});
+  crucible_points_to_untyped (crucible_elem Xi_ptr 1) (crucible_term {{ get_H ctx }});
+  crucible_points_to_untyped (crucible_elem Xi_ptr 0) (crucible_term Xi);
+  points_to_aes_key_st key_ptr key;
+
+  crucible_execute_func [in_ptr, out_ptr, (crucible_term {{ `len : [64] }}), key_ptr, ivec_ptr, Xi_ptr];
+
+  let res_ctr = eval_size {| ctr + (len / (6 * AES_BLOCK_SIZE)) * 6 |};
+  let res_len = eval_size {| len - (len % (6 * AES_BLOCK_SIZE)) |};
+
+  crucible_points_to_untyped out_ptr (crucible_term {{ cipher_ctr_stream ctx (take`{res_len} in_) }});
+
+  crucible_points_to ivec_ptr (crucible_term {{ ivec # (split (`res_ctr : [32])) }});
+
+  crucible_points_to_untyped (crucible_elem Xi_ptr 2) (crucible_term {{ get_Htable ctx }});
+  crucible_points_to_untyped (crucible_elem Xi_ptr 1) (crucible_term {{ get_H ctx }});
+
+  crucible_points_to_untyped (crucible_elem Xi_ptr 0) (crucible_term {{ (cipher_update enc ctx (take`{res_len} in_)).Xi }} );
+
+  crucible_return (crucible_term {{ `res_len : [64] }});
+};
+
+
+////////////////////////////////////////////////////////////////////////////////
+// Proof commands
+
+let aesni_gcm_cipher_tactic = do {
+  simplify (addsimps [aesenc_key0_0_thm, aesenc_key0_1_thm, aesenclast_thm] empty_ss);
+  simplify (addsimps [aesenc_aesenclast_thm] empty_ss);
+  simplify (cryptol_ss ());
+  simplify (addsimps cipher_update_avx_thms empty_ss);
+  goal_eval_unint ["pmult", "pmod", "gcm_polyval", "aesEncryptWithKeySchedule"];
+  simplify (addsimps xor_slice_append_thms basic_ss);
+  simplify (addsimps slice_slice_thms empty_ss);
+  simplify (addsimps xor_slice_append_thms basic_ss);
+  simplify (addsimps concat_assoc_0_thms empty_ss);
+  simplify (addsimps concat_assoc_1_thms empty_ss);
+  simplify (addsimps concat_assoc_2_thms empty_ss);
+  simplify (addsimps [cmp_sub_thm] empty_ss);
+  w4_unint_yices ["pmult", "pmod", "gcm_polyval", "aesEncryptWithKeySchedule"];
+};
+
+add_x86_preserved_reg "rax";
+enable_what4_hash_consing;
+
+aesni_gcm_encrypt_ov <- llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "aesni_gcm_encrypt"
+  [ ("aesni_gcm_encrypt", 1200) // we need .Lbswap_mask, which lives in .text after aesni_gcm_encrypt (1081 bytes itself). 1200 bytes is an arbitrary size that I guessed would be large enough to contain the right bytes after alignment. TODO trim this
+  ]
+  true
+  (aesni_gcm_cipher_spec {{ 1 : [32] }} 3 314)
+  aesni_gcm_cipher_tactic;
+
+aesni_gcm_decrypt_ov <- llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "aesni_gcm_decrypt"
+  [ ("aesni_gcm_encrypt", 1200) // we need .Lbswap_mask, which lives in .text after aesni_gcm_encrypt (1081 bytes itself). 1200 bytes is an arbitrary size that I guessed would be large enough to contain the right bytes after alignment. TODO trim this
+  ]
+  true
+  (aesni_gcm_cipher_spec {{ 0 : [32] }} 3 314)
+  aesni_gcm_cipher_tactic;
+
+disable_what4_hash_consing;
+default_x86_preserved_reg;
+
