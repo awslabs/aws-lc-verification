@@ -36,8 +36,7 @@ let EVP_CipherInit_ex_spec enc = do {
 
   cipher_data_ptr <- crucible_alloc (llvm_struct "struct.EVP_AES_GCM_CTX");
 
-  let rd_key = {{ aes_key_bits_from_schedule' (ExpandKey (join key)) }};
-  let ctx = {{ { key = rd_key, iv = iv, Xi = zero, len = 0 } : AES_GCM_Ctx }};
+  let ctx = {{ { key = key, iv = iv, Xi = zero, len = 0 } : AES_GCM_Ctx }};
   points_to_EVP_AES_GCM_CTX cipher_data_ptr ctx 0 {{ 1 : [32] }} 0xffffffff;
 
   points_to_evp_cipher_ctx_st ctx_ptr cipher_ptr cipher_data_ptr enc;

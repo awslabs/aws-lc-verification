@@ -100,10 +100,10 @@ let points_to_evp_cipher_ctx_st ptr cipher_ptr cipher_data_ptr enc = do {
 };
 
 let fresh_aes_gcm_ctx len = do {
-  ks <- fresh_aes_key_st;
+  key <- fresh_aes_key_st;
   iv <- crucible_fresh_var "iv" (llvm_array aes_iv_len (llvm_int 8));
   Xi <- crucible_fresh_var "Xi" (llvm_array AES_BLOCK_SIZE (llvm_int 8));
-  return {{ { key = ks.rd_key, iv = iv, Xi = Xi, len = `len } : AES_GCM_Ctx }};
+  return {{ { key = key, iv = iv, Xi = Xi, len = `len } : AES_GCM_Ctx }};
 };
 
 let points_to_gcm128_key_st ptr ctx = do {
@@ -132,7 +132,7 @@ let points_to_GCM128_CONTEXT ptr ctx mres = do {
 
 let points_to_EVP_AES_GCM_CTX ptr ctx mres iv_set taglen = do {
   points_to_GCM128_CONTEXT (crucible_field ptr "gcm") ctx mres;
-  points_to_aes_key_st (crucible_field ptr "ks") {{ { rd_key = ctx.key } }};
+  points_to_aes_key_st (crucible_field ptr "ks") {{ ctx.key }};
   crucible_points_to (crucible_field ptr "key_set") (crucible_term {{ 1 : [32] }});
   crucible_points_to (crucible_field ptr "iv_set") (crucible_term iv_set);
   crucible_points_to (crucible_field ptr "ivlen") (crucible_term {{ `aes_iv_len : [32] }});

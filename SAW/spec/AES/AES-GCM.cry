@@ -9,25 +9,20 @@ import Primitive::Symmetric::Cipher::Block::AES
 import X86
 
 
-aes_hw_encrypt : [16][8] -> [(Nr + 1) * 4][32] -> [16][8]
-aes_hw_encrypt in key = split (aesEncryptWithKeySchedule (join in) key')
-  where
-    key' = aes_key_bits_to_schedule (map join (map reverse (split key)))
+aes_hw_encrypt : [16][8] -> [32][8] -> [16][8]
+aes_hw_encrypt in key = split (aesEncrypt ((join in), (join key)))
 
-aes_key_bits_to_schedule : [Nr + 1][128] -> KeySchedule
-aes_key_bits_to_schedule key = (key' @ 0, key' @@ [1 .. (Nr - 1)], key' @ `Nr)
+aes_key_to_schedule : [Nr + 1][128] -> KeySchedule
+aes_key_to_schedule key = (key' @ 0, key' @@ [1 .. (Nr - 1)], key' @ `Nr)
   where
     key' = map msgToState_x86 key
 
-aes_key_bits_from_schedule : KeySchedule -> [Nr + 1][128]
-aes_key_bits_from_schedule (init_key, middle_keys, final_key) = key'
+aes_key_from_schedule : KeySchedule -> [4 * (Nr + 1)][32]
+aes_key_from_schedule (init_key, middle_keys, final_key) = join (map reverse (map split key'))
   where
     key' = map stateToMsg_x86 ([init_key] # middle_keys # [final_key])
 
-aes_key_bits_from_schedule' : KeySchedule -> [(Nr + 1) * 4][32]
-aes_key_bits_from_schedule' key = join (map reverse (map split (aes_key_bits_from_schedule key)))
-
-aes_hw_ctr32_encrypt_blocks : [16][8] -> [(Nr + 1) * 4][32] -> [16][8] -> [16][8]
+aes_hw_ctr32_encrypt_blocks : [16][8] -> [32][8] -> [16][8] -> [16][8]
 aes_hw_ctr32_encrypt_blocks in key ivec = in ^ enc_ivec
   where
     enc_ivec = aes_hw_encrypt ivec key
@@ -135,7 +130,7 @@ gcm_ghash_block H Xi inp = split (gcm_polyval H ((join Xi) ^ (join inp)))
 
 
 type AES_GCM_Ctx =
-  { key : [(Nr + 1) * 4][32]
+  { key : [32][8]
   , iv : [12][8]
   , Xi : [16][8]
   , len : [64]

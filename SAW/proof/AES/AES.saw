@@ -13,14 +13,12 @@ let aes_key_len = 32;
 
 
 let fresh_aes_key_st = do {
-  let rd_key_sz = eval_size {| 4 * (AES_MAXNR + 1) |};
-  rd_key <- crucible_fresh_var "rd_key" (llvm_array rd_key_sz (llvm_int 32));
-  return {{ { rd_key = rd_key } }};
+  crucible_fresh_var "key" (llvm_array aes_key_len (llvm_int 8));
 };
 
 let points_to_aes_key_st ptr key = do {
   let nr = eval_size {| AES_MAXNR - 1 |};
-  crucible_points_to_untyped ptr (crucible_struct [(crucible_term {{ key.rd_key }}), (crucible_term {{ `nr : [32] }})]);
+  crucible_points_to_untyped ptr (crucible_struct [(crucible_term {{ key }}), crucible_term ({{ (join (map reverse (map split`{each=32} (aes_key_from_schedule (ExpandKey (join key)))))) @@ [8 .. 59] }}), (crucible_term {{ `nr : [32] }})]);
 };
 
 
@@ -35,9 +33,7 @@ let aes_hw_set_encrypt_key_spec = do {
 
   global_points_to "OPENSSL_ia32cap_P" {{ ia32cap }};
 
-  //let key = {{ { rd_key = map reverse (fromKS (ExpandKey (join user_key))) } }};
-  let key = {{ { rd_key = aes_key_bits_from_schedule' (ExpandKey (join user_key)) } }};
-  points_to_aes_key_st key_ptr key;
+  points_to_aes_key_st key_ptr user_key;
 
   crucible_return (crucible_term {{ 0 : [32] }});
 };
@@ -52,7 +48,7 @@ let aes_hw_encrypt_spec = do {
 
   crucible_execute_func [in_ptr, out_ptr, key_ptr];
 
-  crucible_points_to out_ptr (crucible_term {{ aes_hw_encrypt in_ key.rd_key }});
+  crucible_points_to out_ptr (crucible_term {{ aes_hw_encrypt in_ key }});
 };
 
 let aes_hw_encrypt_spec' = do {
@@ -63,7 +59,7 @@ let aes_hw_encrypt_spec' = do {
 
   crucible_execute_func [inout_ptr, inout_ptr, key_ptr];
 
-  crucible_points_to inout_ptr (crucible_term {{ aes_hw_encrypt in_ key.rd_key }});
+  crucible_points_to inout_ptr (crucible_term {{ aes_hw_encrypt in_ key }});
 };
 
 
@@ -79,7 +75,7 @@ let aes_hw_ctr32_encrypt_blocks_spec len = do {
 
   crucible_execute_func [in_ptr, out_ptr, (crucible_term {{ `len : [64] }}), key_ptr, ivec_ptr];
 
-  crucible_points_to out_ptr (crucible_term {{ aes_hw_ctr32_encrypt_blocks in_ key.rd_key ivec }});
+  crucible_points_to out_ptr (crucible_term {{ aes_hw_ctr32_encrypt_blocks in_ key ivec }});
 };
 
 
