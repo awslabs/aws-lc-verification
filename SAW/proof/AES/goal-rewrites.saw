@@ -3,6 +3,15 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 
+/*
+ * Rewrite rules proofs and goal tactics. This does not
+ * contain any specifications or assumtions, thus it does
+ * not require inspection in order to trust the
+ * verification result.
+ */
+
+import "../../spec/AES/AES-GCM-implementation.cry";
+
 
 let slice_0_64_64 = parse_core "\\(x : bitvector 128) -> slice Bool 0 64 64 x";
 let slice_64_64_0 = parse_core "\\(x : bitvector 128) -> slice Bool 64 64 0 x";
@@ -252,6 +261,9 @@ let concat_assoc_2_thms =
   ];
 
 
+gcm_pmult_pmod_thm <- prove_print rme (rewrite (cryptol_ss ()) {{ \x y -> gcm_pmult_pmod x y == gcm_polyval (gcm_init_H x) y }});
+
+
 polyval_avx_thm <- prove_print rme (rewrite (cryptol_ss ()) {{ \H Xi -> gcm_polyval H Xi == gcm_polyval_avx H Xi }});
 ghash_mul_thm <- prove_print rme (rewrite (cryptol_ss ()) {{ \(x : [128]) y -> gcm_polyval_mul x y == gcm_polyval_mul_pmult3 x y }});
 ghash_red_thm <- prove_print rme (rewrite (cryptol_ss ()) {{ \x -> gcm_polyval_red x == gcm_polyval_red_pmult x }});
@@ -280,31 +292,29 @@ let gcm_polyval_thms =
   , append_slice_thm
   ];
 
-let prove_cipher_ctr_stream_thm gcm_len len = prove_print
+let prove_ctr32_encrypt_thm gcm_len len = prove_print
   (do {
     w4_unint_yices ["aes_hw_encrypt"];
   })
-  (rewrite (cryptol_ss ()) {{ \key iv Xi (in : [len][8]) -> cipher_ctr_stream ({ key = key, iv = iv, Xi = Xi, len = `gcm_len } : AES_GCM_Ctx) in == join (map split (aesni_gcm_cipher_ctr_block ({ key = key, iv = iv, Xi = Xi, len = `gcm_len } : AES_GCM_Ctx) in)) }});
+  (rewrite (cryptol_ss ()) {{ \key iv Xi (in : [len][8]) -> ctr32_encrypt ({ key = key, iv = iv, Xi = Xi, len = `gcm_len } : AES_GCM_Ctx) in == join (map split (aesni_gcm_ctr32_encrypt_block ({ key = key, iv = iv, Xi = Xi, len = `gcm_len } : AES_GCM_Ctx) in)) }});
 
-cipher_ctr_stream_16_288_thm <- prove_cipher_ctr_stream_thm 16 288;
-let cipher_ctr_stream_thms =
-  [ cipher_ctr_stream_16_288_thm
-  ];
+ctr32_encrypt_thm <- prove_ctr32_encrypt_thm aesni_gcm_cipher_gcm_len evp_cipher_update_bulk;
 
 let prove_cipher_update_avx_thm enc gcm_len len = prove_print
   (do {
-    unfolding ["cipher_update"];
+    unfolding ["cipher_update", "cipher_update_byte"];
     simplify (cryptol_ss ());
-    simplify (addsimps cipher_ctr_stream_thms empty_ss);
-    goal_eval_unint ["pmult", "pmod", "gcm_polyval", "gcm_polyval_mul", "gcm_polyval_mul_pmult3", "gcm_polyval_mul_pmult4", "gcm_polyval_red", "gcm_polyval_red_pmult", "aes_hw_encrypt", "aesni_gcm_cipher_ctr_block"];
+    simplify (addsimp ctr32_encrypt_thm empty_ss);
+    simplify (addsimp gcm_pmult_pmod_thm empty_ss);
+    goal_eval_unint ["pmult", "pmod", "gcm_polyval", "gcm_polyval_mul", "gcm_polyval_mul_pmult3", "gcm_polyval_mul_pmult4", "gcm_polyval_red", "gcm_polyval_red_pmult", "aes_hw_encrypt", "aesni_gcm_ctr32_encrypt_block"];
     simplify (addsimps gcm_polyval_thms empty_ss);
     simplify (addsimps [concat_assoc_0_thm] empty_ss);
     w4_unint_yices ["pmult", "pmod", "gcm_polyval", "aes_hw_encrypt"];
   })
   (rewrite (cryptol_ss ()) {{ \key iv Xi (in : [len][8]) -> (cipher_update enc ({ key = key, iv = iv, Xi = Xi, len = `gcm_len } : AES_GCM_Ctx) in).Xi == aesni_gcm_cipher enc ({ key = key, iv = iv, Xi = Xi, len = `gcm_len } : AES_GCM_Ctx) in }});
 
-encrypt_update_avx_thm <- prove_cipher_update_avx_thm {{ 1 : [32] }} 16 288;
-decrypt_update_avx_thm <- prove_cipher_update_avx_thm {{ 0 : [32] }} 16 288;
+encrypt_update_avx_thm <- prove_cipher_update_avx_thm {{ 1 : [32] }} aesni_gcm_cipher_gcm_len evp_cipher_update_bulk;
+decrypt_update_avx_thm <- prove_cipher_update_avx_thm {{ 0 : [32] }} aesni_gcm_cipher_gcm_len evp_cipher_update_bulk;
 let cipher_update_avx_thms =
   [ encrypt_update_avx_thm
   , decrypt_update_avx_thm
@@ -337,4 +347,31 @@ aesenc_aesenclast_thm <- prove_print
 let bvult = parse_core "\\(x y : bitvector 64) -> bvult 64 x y";
 cmp_sub_thm <- prove_folding_theorem
   {{ \x y -> bvult x y == if (x @ 0 == y @ 0) then (x - y <$ 0) else (x @ 0 < y @ 0) }};
+
+
+/*
+ * Goal tactics.
+ */
+let aesni_gcm_cipher_tactic = do {
+  simplify (addsimps [aesenc_key0_0_thm, aesenc_key0_1_thm, aesenclast_thm] empty_ss);
+  simplify (addsimps [aesenc_aesenclast_thm] empty_ss);
+  simplify (cryptol_ss ());
+  simplify (addsimps cipher_update_avx_thms empty_ss);
+  simplify (addsimp ctr32_encrypt_thm empty_ss);
+  goal_eval_unint ["pmult", "pmod", "gcm_polyval", "aesEncryptWithKeySchedule"];
+  simplify (addsimps xor_slice_append_thms basic_ss);
+  simplify (addsimps slice_slice_thms empty_ss);
+  simplify (addsimps xor_slice_append_thms basic_ss);
+  simplify (addsimps concat_assoc_0_thms empty_ss);
+  simplify (addsimps concat_assoc_1_thms empty_ss);
+  simplify (addsimps concat_assoc_2_thms empty_ss);
+  simplify (addsimps [cmp_sub_thm] empty_ss);
+  w4_unint_yices ["pmult", "pmod", "gcm_polyval", "aesEncryptWithKeySchedule"];
+};
+
+let evp_cipher_tactic = do {
+  unfolding ["cipher_update", "cipher_update_byte", "cipher_final"];
+  simplify (addsimp gcm_pmult_pmod_thm empty_ss);
+  w4_unint_yices ["pmult", "pmod", "gcm_polyval", "aes_hw_encrypt"];
+};
 

@@ -71,7 +71,7 @@ gcm_ghash_avx_ov <- llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "gcm_
   [ ("gcm_ghash_avx", 1800)
   ]
   true
-  (gcm_ghash_avx_spec 16)
+  (gcm_ghash_avx_spec evp_cipher_update_len_blocks)
   (do {
     unfolding ["gcm_ghash", "gcm_ghash_block", "gcm_polyval"];
     simplify (addsimps [ghash_mul_thm, ghash_red_thm] empty_ss);

@@ -8,8 +8,8 @@
 // Specifications
 
 let AES_BLOCK_SIZE = 16;
-let AES_MAXNR = 14;
 let aes_key_len = 32;
+let aes_rounds = 13;
 
 
 let fresh_aes_key_st = do {
@@ -17,8 +17,7 @@ let fresh_aes_key_st = do {
 };
 
 let points_to_aes_key_st ptr key = do {
-  let nr = eval_size {| AES_MAXNR - 1 |};
-  crucible_points_to_untyped ptr (crucible_struct [(crucible_term {{ key }}), crucible_term ({{ (join (map reverse (map split`{each=32} (aes_key_from_schedule (ExpandKey (join key)))))) @@ [8 .. 59] }}), (crucible_term {{ `nr : [32] }})]);
+  crucible_points_to_untyped ptr (crucible_struct [(crucible_term {{ key }}), crucible_term ({{ aes_key_from_schedule (ExpandKey (join key)) }}), (crucible_term {{ `aes_rounds : [32] }})]);
 };
 
 
@@ -51,7 +50,7 @@ let aes_hw_encrypt_spec = do {
   crucible_points_to out_ptr (crucible_term {{ aes_hw_encrypt in_ key }});
 };
 
-let aes_hw_encrypt_spec' = do {
+let aes_hw_encrypt_in_place_spec = do {
   (in_, inout_ptr) <- ptr_to_fresh "in" (llvm_array AES_BLOCK_SIZE (llvm_int 8));
   key_ptr <- crucible_alloc_readonly (llvm_struct "struct.aes_key_st");
   key <- fresh_aes_key_st;
@@ -101,10 +100,10 @@ aes_hw_encrypt_ov <- llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "aes
     simplify (addsimps slice_384_thms basic_ss);
     w4_unint_yices ["AESRound", "AESFinalRound"];
   });
-aes_hw_encrypt_ov' <- llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "aes_hw_encrypt"
+aes_hw_encrypt_in_place_ov <- llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "aes_hw_encrypt"
   []
   true
-  aes_hw_encrypt_spec'
+  aes_hw_encrypt_in_place_spec
   (do {
     simplify (cryptol_ss ());
     simplify (addsimps slice_384_thms basic_ss);

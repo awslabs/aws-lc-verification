@@ -34,7 +34,7 @@ let EVP_CipherInit_ex_spec enc = do {
 
   global_points_to "OPENSSL_ia32cap_P" {{ ia32cap }};
 
-  cipher_data_ptr <- crucible_alloc (llvm_struct "struct.EVP_AES_GCM_CTX");
+  cipher_data_ptr <- crucible_alloc_aligned 16 (llvm_struct "struct.EVP_AES_GCM_CTX");
 
   let ctx = {{ { key = key, iv = iv, Xi = zero, len = 0 } : AES_GCM_Ctx }};
   points_to_EVP_AES_GCM_CTX cipher_data_ptr ctx 0 {{ 1 : [32] }} 0xffffffff;
@@ -64,7 +64,7 @@ let EVP_CipherUpdate_spec enc gcm_len len = do {
   let mres' = eval_size {| (gcm_len + len) % AES_BLOCK_SIZE |};
   points_to_EVP_AES_GCM_CTX cipher_data_ptr ctx' mres' {{ 1 : [32] }} 0xffffffff;
 
-  crucible_points_to out_ptr (crucible_term {{ cipher_ctr_stream ctx in_ }});
+  crucible_points_to out_ptr (crucible_term {{ ctr32_encrypt ctx in_ }});
 
   crucible_points_to out_len_ptr (crucible_term {{ `len : [32] }});
 

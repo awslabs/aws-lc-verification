@@ -6,28 +6,13 @@
 module AES_GCM where
 
 import Primitive::Symmetric::Cipher::Block::AES
+import Primitive::Symmetric::Cipher::Authenticated::AES_256_GCM
 import X86
 
 
-aes_hw_encrypt : [16][8] -> [32][8] -> [16][8]
-aes_hw_encrypt in key = split (aesEncrypt ((join in), (join key)))
-
-aes_key_to_schedule : [Nr + 1][128] -> KeySchedule
-aes_key_to_schedule key = (key' @ 0, key' @@ [1 .. (Nr - 1)], key' @ `Nr)
-  where
-    key' = map msgToState_x86 key
-
-aes_key_from_schedule : KeySchedule -> [4 * (Nr + 1)][32]
-aes_key_from_schedule (init_key, middle_keys, final_key) = join (map reverse (map split key'))
-  where
-    key' = map stateToMsg_x86 ([init_key] # middle_keys # [final_key])
-
-aes_hw_ctr32_encrypt_blocks : [16][8] -> [32][8] -> [16][8] -> [16][8]
-aes_hw_ctr32_encrypt_blocks in key ivec = in ^ enc_ivec
-  where
-    enc_ivec = aes_hw_encrypt ivec key
-
-
+/*
+ * Helpers.
+ */
 swap8 : {parts, a} (fin parts) => [parts * 8]a -> [parts * 8]a
 swap8 x = join`{each=8} (reverse (split`{each=8} x))
 
@@ -38,71 +23,30 @@ lo_bits : {n} (fin n) => [2 * n] -> [n]
 lo_bits = drop
 
 
-gcm_polyval_mul : {n} (fin n) => [2 * (1 + n)] -> [2 * (1 + n)] -> [4 * (1 + n)]
-gcm_polyval_mul X Y = (0 : [1]) # pmult X Y
-
-gcm_polyval_red : [256] -> [128]
-gcm_polyval_red X = reverse (pmod (reverse X) <| x^^128 + x^^7 + x^^2 + x + 1|>)
-
-gcm_polyval : [128] -> [128] -> [128]
-gcm_polyval X Y = gcm_polyval_red (gcm_polyval_mul X Y)
-
-
-gcm_polyval_mul_pmult3 : {n} (fin n) => [2 * (1 + n)] -> [2 * (1 + n)] -> [4 * (1 + n)]
-gcm_polyval_mul_pmult3 X Y = r3 # (r2 ^ r1 ^ r3 ^ m1) # (r1 ^ r0 ^ r2 ^ m0) # r0
+/*
+ * AES specifications.
+ */
+aes_key_to_schedule : [Nr + 1][128] -> KeySchedule
+aes_key_to_schedule key = (key' @ 0, key' @@ [1 .. (Nr - 1)], key' @ `Nr)
   where
-    [X_hi, X_lo] = split X
-    [Y_hi, Y_lo] = split Y
-    [r1, r0] = split ((0 : [1]) # (pmult X_lo Y_lo))
-    [r3, r2] = split ((0 : [1]) # (pmult X_hi Y_hi))
-    [m1, m0] = split ((0 : [1]) # (pmult (X_lo ^ X_hi) (Y_hi ^ Y_lo)))
+    key' = map msgToState_x86 key
 
-gcm_polyval_mul_pmult4 : {n} (fin n) => [2 * (1 + n)] -> [2 * (1 + n)] -> [4 * (1 + n)]
-gcm_polyval_mul_pmult4 X Y = (hi ^ (0 : [1 + n]) # (hi_bits (m0 ^ m1))) # (lo ^ ((lo_bits (m0 ^ m1)) # (0 : [1 + n])))
+aes_key_from_schedule : KeySchedule -> [4 * (Nr - 1)][32]
+aes_key_from_schedule (init_key, middle_keys, final_key) = join (map reverse (map split (key' @@ [2 .. Nr])))
   where
-    [X_hi, X_lo] = split X
-    [Y_hi, Y_lo] = split Y
-    lo = (0 : [1]) # (pmult X_lo Y_lo)
-    hi = (0 : [1]) # (pmult X_hi Y_hi)
-    m0 = (0 : [1]) # (pmult X_lo Y_hi)
-    m1 = (0 : [1]) # (pmult X_hi Y_lo)
+    key' = map stateToMsg_x86 ([init_key] # middle_keys # [final_key])
 
-gcm_polyval_red_pmult : [256] -> [128]
-gcm_polyval_red_pmult X = (d1 ^ x3) # (d0 ^ x2)
+aes_hw_ctr32_encrypt_blocks : [16][8] -> [32][8] -> [16][8] -> [16][8]
+aes_hw_ctr32_encrypt_blocks in key ivec = in ^ enc_ivec
   where
-    [x3, x2, x1, x0] = split X
-    [a1, a0] = split ((0 : [1]) # (pmult <| x^^63 + x^^62 + x^^57 |> x0))
-    b1 = x0 ^ a1
-    b0 = x1 ^ a0
-    [c1, c0] = split ((0 : [1]) # (pmult <| x^^63 + x^^62 + x^^57 |> b0))
-    d1 = b0 ^ c1
-    d0 = b1 ^ c0
-
-gcm_polyval_avx : [128] -> [128] -> [128]
-gcm_polyval_avx H X = x30
-  where
-    [H_hi, H_lo] = split H
-    [X_hi, X_lo] = split X
-    x17 = (0 : [1]) # (pmult H_lo X_lo)
-    x18 = ((0 : [1]) # (pmult H_hi X_hi)) ^ x17
-    x19 = x18 ^ ((0 : [1]) # (pmult (H_lo ^ H_hi) (X_lo ^ X_hi)))
-    x20 = (lo_bits x19) # (0 : [64])
-    x21 = x17 ^ x20
-    x22 = hi_bits x21
-    x23 = lo_bits x21
-    x25 = (take`{8} ((x23 << 57) ^ (x23 << 62) ^ (x23 << 63))) # (0 : [120])
-    x26 = x21 ^ x25
-    x27 = (hi_bits x26) >> 1
-    x28 = (lo_bits x26) >> 1
-    x29 = (x26 ^ (x27 # x28)) ^ ((x27 >> 5) # (x28 >> 5))
-    x30 = ((((x18 ^ x20) ^ ((0 : [64]) # (hi_bits x19))) ^ x25) ^ ((0 : [64]) # (take`{8} ((x22 << 57) ^ (x22 << 62) ^ (x22 << 63))) # (0 : [56]))) ^ (((hi_bits x29) >> 1) # ((lo_bits x29) >> 1))
+    enc_ivec = aes_hw_encrypt ivec key
 
 
+/*
+ * GCM specifications.
+ */
 gcm_init : [2][64] -> [12][128]
-gcm_init Xi = gcm_init_Htable (gcm_init_H Xi)
-
-gcm_init_H : [2][64] -> [128]
-gcm_init_H Xi = pmod (((0 : [1]) # (Xi @ 0) # (Xi @ 1)) << 1) <| 1 + x^^121 + x^^126 + x^^127 + x^^128 |>
+gcm_init Xi = gcm_init_Htable (gcm_init_H (join Xi))
 
 gcm_init_Htable : [128] -> [12][128]
 gcm_init_Htable h0 = [h0, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11]
@@ -129,117 +73,21 @@ gcm_ghash_block : [128] -> [16][8] -> [16][8] -> [16][8]
 gcm_ghash_block H Xi inp = split (gcm_polyval H ((join Xi) ^ (join inp)))
 
 
-type AES_GCM_Ctx =
-  { key : [32][8]
-  , iv : [12][8]
-  , Xi : [16][8]
-  , len : [64]
-  }
-
-get_H : AES_GCM_Ctx -> [2][64]
-get_H ctx = split (join (aes_hw_encrypt zero ctx.key))
-
-get_Htable0 : AES_GCM_Ctx -> [128]
-get_Htable0 ctx = gcm_init_H (get_H ctx)
-
+/*
+ * AES_GCM context specification helpers.
+ */
 get_Htable : AES_GCM_Ctx -> [12][128]
 get_Htable ctx = gcm_init (get_H ctx)
 
-get_ctr : AES_GCM_Ctx -> [32]
-get_ctr ctx = drop (((ctx.len + 15) / 16) + 2)
+get_i : AES_GCM_Ctx -> [32]
+get_i ctx = drop ((ctx.len + 15) / 16)
 
 get_Yi : AES_GCM_Ctx -> [16][8]
-get_Yi ctx = ctx.iv # (split (get_ctr ctx))
+get_Yi ctx = ctx.iv # (split ((get_i ctx) + 2))
 
 get_EKi : AES_GCM_Ctx -> [16][8]
-get_EKi ctx = EKi ctx ((get_ctr ctx) - 2)
+get_EKi ctx = EKi ctx (get_i ctx)
 
 get_EK0 : AES_GCM_Ctx -> [16][8]
 get_EK0 ctx = EKi ctx 0
-
-EKi : AES_GCM_Ctx -> [32] -> [16][8]
-EKi ctx i = aes_hw_encrypt (ctx.iv # (split (i + 1))) ctx.key
-
-EKij : AES_GCM_Ctx -> [32] -> [4] -> [8]
-EKij ctx i j = (EKi ctx i) @ j
-
-
-cipher_update : {n} (fin n) => [32] -> AES_GCM_Ctx -> [n][8] -> AES_GCM_Ctx
-cipher_update enc ctx in = ctx'
-  where
-    enc_bytes = if enc ! 0
-      then cipher_ctr_stream ctx in
-      else in
-    ctx' = foldl cipher_update_byte ctx enc_bytes
-
-cipher_ctr_stream : {n} (fin n) => AES_GCM_Ctx -> [n][8] -> [n][8]
-cipher_ctr_stream ctx in = out
-  where
-    out = [ byte ^ (EKij ctx ((take`{32} (drop`{28} i)) + 1) (drop`{60} i)) | byte <- in | i <- [ctx.len ...] ]
-
-cipher_update_byte : AES_GCM_Ctx -> [8] -> AES_GCM_Ctx
-cipher_update_byte ctx byte = ctx'
-  where
-    Htable0 = get_Htable0 ctx
-    n = ctx.len % 16
-    Xi' = update ctx.Xi n ((ctx.Xi @ n) ^ byte)
-    len' = ctx.len + 1
-    Xi'' = if (len' % 16) == 0
-      then split (gcm_polyval Htable0 (join Xi'))
-      else Xi'
-    ctx' =
-      { key = ctx.key
-      , iv = ctx.iv
-      , Xi = Xi''
-      , len = len'
-      }
-
-cipher_final : AES_GCM_Ctx -> [16][8]
-cipher_final ctx = (split (gcm_polyval Htable0 Xi'')) ^ (EKi ctx 0)
-  where
-    Htable0 = get_Htable0 ctx
-    Xi' = if (ctx.len % 16) != 0
-      then gcm_polyval Htable0 (join ctx.Xi)
-      else join ctx.Xi
-    Xi'' = Xi' ^ (0 # (ctx.len * 8))
-
-
-aesni_gcm_cipher : {n} (fin n) => [32] -> AES_GCM_Ctx -> [(3 + n) * 6 * 16][8] -> [16][8]
-aesni_gcm_cipher enc ctx in = ctx''.Xi
-  where
-    enc_blks = if enc ! 0
-      then split (aesni_gcm_cipher_ctr_block ctx in)
-      else split (map join (split in))
-    ctx' = aesni_gcm_cipher_block6 enc False ctx (enc_blks @ 0)
-    ctx'' = foldl (aesni_gcm_cipher_block6 enc (enc ! 0)) ctx' (enc_blks @@ [1 .. (2 + n)])
-
-aesni_gcm_cipher_ctr_block : {n} (fin n) => AES_GCM_Ctx -> [n * 16][8] -> [n][16 * 8]
-aesni_gcm_cipher_ctr_block ctx in = out
-  where
-    ctr = drop ((ctx.len / 16) + 1)
-    in' = split in
-    out = [ swap8 ((join (reverse blk)) ^ (join (reverse (EKi ctx (ctr + i))))) | blk <- in' | i <- [0 ...] ]
-
-aesni_gcm_cipher_block6 : [32] -> Bit -> AES_GCM_Ctx -> [6][128] -> AES_GCM_Ctx
-aesni_gcm_cipher_block6 enc karatsuba ctx blks = ctx'
-  where
-    gcm_polyval_mul_fun = if karatsuba
-      then gcm_polyval_mul_pmult3
-      else gcm_polyval_mul_pmult4
-    Htable = get_Htable ctx
-    Xi = join ctx.Xi
-    Xi_0 = gcm_polyval_mul_fun (Htable @ 0) (blks @ 5)
-    Xi_1 = gcm_polyval_mul_fun (Htable @ 1) (blks @ 4)
-    Xi_2 = gcm_polyval_mul_fun (Htable @ 3) (blks @ 3)
-    Xi_3 = gcm_polyval_mul_fun (Htable @ 4) (blks @ 2)
-    Xi_4 = gcm_polyval_mul_fun (Htable @ 6) (blks @ 1)
-    Xi_5 = gcm_polyval_mul_fun (Htable @ 7) (Xi ^ (blks @ 0))
-    Xi_6 = gcm_polyval_red_pmult (Xi_0 ^ Xi_1 ^ Xi_2 ^ Xi_3 ^ Xi_4 ^ Xi_5)
-    Xi' = split Xi_6
-    ctx' =
-      { key = ctx.key
-      , iv = ctx.iv
-      , Xi = Xi'
-      , len = ctx.len + 6 * 16
-      }
 
