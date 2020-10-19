@@ -47,19 +47,19 @@ let aesni_gcm_cipher_spec enc gcm_len len = do {
 ////////////////////////////////////////////////////////////////////////////////
 // Proof commands
 
-let do_prove = false;
+let do_prove = if quick_check then false else true;
 add_x86_preserved_reg "rax"; // help x86 code discovery
 enable_what4_hash_consing;
 
 aesni_gcm_encrypt_ov <- llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "aesni_gcm_encrypt"
-  [ ("aesni_gcm_encrypt", 1200) // we need .Lbswap_mask, which lives in .text after aesni_gcm_encrypt (1081 bytes itself). 1200 bytes is an arbitrary size that I guessed would be large enough to contain the right bytes after alignment. TODO trim this
+  [ ("aesni_gcm_encrypt", 1200) // we need .Lbswap_mask, which lives in .text after aesni_gcm_encrypt (1081 bytes itself). 1200 bytes is an arbitrary size that I guessed would be large enough to contain the right bytes after alignment.
   ]
   true
   (aesni_gcm_cipher_spec {{ 1 : [32] }} aesni_gcm_cipher_gcm_len aesni_gcm_cipher_len)
   aesni_gcm_cipher_tactic;
 
 aesni_gcm_decrypt_ov <- llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "aesni_gcm_decrypt"
-  [ ("aesni_gcm_encrypt", 1200) // we need .Lbswap_mask, which lives in .text after aesni_gcm_encrypt (1081 bytes itself). 1200 bytes is an arbitrary size that I guessed would be large enough to contain the right bytes after alignment. TODO trim this
+  [ ("aesni_gcm_encrypt", 1200) // we need .Lbswap_mask, which lives in .text after aesni_gcm_encrypt (1081 bytes itself). 1200 bytes is an arbitrary size that I guessed would be large enough to contain the right bytes after alignment.
   ]
   true
   (aesni_gcm_cipher_spec {{ 0 : [32] }} aesni_gcm_cipher_gcm_len aesni_gcm_cipher_len)

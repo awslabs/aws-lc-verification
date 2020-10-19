@@ -48,7 +48,7 @@ let gcm_ghash_avx_spec len = do {
 
 enable_what4_hash_consing;
 gcm_init_avx_ov <- llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "gcm_init_avx"
-  [ ("gcm_ghash_avx", 1800) // similar hack to the one in AES-GCM.saw to grab .L0x1c2_polynomial, we need a better way to handle this
+  [ ("gcm_ghash_avx", 1800) // similar hack to the one in AESNI-GCM.saw to grab .L0x1c2_polynomial, we need a better way to handle this
   ]
   true
   gcm_init_avx_spec

@@ -37,6 +37,7 @@ m <- llvm_load_module "../../build/llvm/crypto/crypto_test.bc";
 
 let NID_aes_256_gcm = 901;
 let aes_block_size = 1;
+// the IV for AES-GCM consists of 12 32-bit integers
 let aes_iv_len = 12;
 
 
@@ -160,7 +161,7 @@ let points_to_EVP_AES_GCM_CTX ptr ctx mres iv_set taglen = do {
 
 let aes_gcm_from_cipher_ctx_spec = do {
   ctx_ptr <- crucible_alloc_readonly (llvm_struct "struct.evp_cipher_ctx_st");
-  cipher_data_ptr <- crucible_fresh_pointer (llvm_struct "struct.EVP_AES_GCM_CTX");
+  cipher_data_ptr <- crucible_alloc_readonly_aligned 16 (llvm_struct "struct.EVP_AES_GCM_CTX");
   crucible_points_to (crucible_field ctx_ptr "cipher_data") cipher_data_ptr;
 
   crucible_execute_func [ctx_ptr];
