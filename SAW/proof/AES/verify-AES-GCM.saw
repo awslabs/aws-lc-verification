@@ -3,6 +3,5 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 
-let quick_check = true;
 include "AES-GCM.saw";
 

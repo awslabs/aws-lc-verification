@@ -47,8 +47,10 @@ let aesni_gcm_cipher_spec enc gcm_len len = do {
 ////////////////////////////////////////////////////////////////////////////////
 // Proof commands
 
-let do_prove = if quick_check then false else true;
-add_x86_preserved_reg "rax"; // help x86 code discovery
+// track %rax across function calls during x86 code discovery, resulting in
+// more accuracy and less performance. This is a proof hint, and does not
+// introduce any new assumptions.
+add_x86_preserved_reg "rax";
 enable_what4_hash_consing;
 
 aesni_gcm_encrypt_ov <- llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "aesni_gcm_encrypt"
@@ -67,5 +69,4 @@ aesni_gcm_decrypt_ov <- llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "
 
 disable_what4_hash_consing;
 default_x86_preserved_reg;
-let do_prove = true;
 
