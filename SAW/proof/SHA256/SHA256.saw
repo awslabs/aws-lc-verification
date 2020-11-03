@@ -182,6 +182,7 @@ let EVP_Digest_spec len = do {
   crucible_return (crucible_term {{ 1 : [32] }});
 };
 
+/*
 
 ////////////////////////////////////////////////////////////////////////////////
 // Proof commands
@@ -412,9 +413,11 @@ crucible_llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "sha256_block_da
   });
 
 disable_what4_hash_consing;
+*/
 
 sha256_block_data_order_spec <- crucible_llvm_unsafe_assume_spec m "sha256_block_data_order"
   (sha256_block_data_order_spec {{ [0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF] : [4][32] }} true);
+  /*
 
 
 crucible_llvm_verify m "EVP_sha256_init" [] true EVP_sha256_init_spec (w4_unint_yices []);
@@ -480,4 +483,4 @@ crucible_llvm_verify m "EVP_Digest"
   true
   (EVP_Digest_spec 120)
   (w4_unint_yices ["processBlock_Common"]);
-
+*/

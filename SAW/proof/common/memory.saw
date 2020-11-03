@@ -17,7 +17,8 @@
 let OPENSSL_malloc_spec = do {
   // Precondition: `size` is a non-zero 64-bit integer
   size <- crucible_fresh_var "size" i64;
-  crucible_precond {{ size != 0 }};
+  // TODO: Why does CRM need this line commented out?
+  //crucible_precond {{ size != 0 }};
 
   // Call function with argument `size`.
   // `crucible_term` converts `size` to a symbol so that SAW may reason about
@@ -27,6 +28,12 @@ let OPENSSL_malloc_spec = do {
   // Postcondition: returns a pointer to a 16 byte aligned array of `size`
   // bytes
   ptr <- crucible_symbolic_alloc false 16 size;
+  crucible_return ptr;
+};
+
+let OPENSSL_malloc_concrete_spec size = do {
+  crucible_execute_func [crucible_term {{ `size : [64] }}];
+  ptr <- crucible_alloc_aligned 128 (llvm_array size (llvm_int 8));
   crucible_return ptr;
 };
 
@@ -49,6 +56,13 @@ let OPENSSL_realloc_null_spec = do {
   ret <- crucible_symbolic_alloc false 16 size;
   crucible_return ret;
 };
+
+let OPENSSL_realloc_null_concrete_spec new_size = do {
+  crucible_execute_func [crucible_null, crucible_term {{ `new_size : [64] }}];
+  ptr <- crucible_alloc_aligned 128 (llvm_array new_size (llvm_int 8));
+  crucible_return ptr;
+};
+
 
 let OPENSSL_free_nonnull_spec size = do {
   // Precondition: `ptr` is a pointer to an array of `size` bytes

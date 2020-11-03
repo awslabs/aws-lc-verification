@@ -1,0 +1,780 @@
+// TODO: Copyright notice
+// TODO: Split into multiple files
+
+enable_experimental;
+
+m <- llvm_load_module "../../build/llvm/crypto/crypto_test.bc";
+
+import "../../../cryptol-specs/Primitive/Asymmetric/Scheme/RSAES_OAEP_SHA256.cry";
+import "../../../cryptol-specs/Primitive/Asymmetric/Cipher/RSA.cry";
+
+integerFromToBV <- prove_print
+  (do {
+    w4_unint_z3 [];
+  })
+  (rewrite (cryptol_ss ()) {{ \x1 x2 -> integerFromBV (integerToBV`{576} (EME_OAEP_encode_integer`{1, 6} x1 x2)) == (EME_OAEP_encode_integer`{1, 6} x1 x2) }});
+
+include "../SHA256/SHA256.saw";
+include "../common/internal.saw";
+include "../common/memory.saw";
+include "memory.saw";
+include "../BN/BN.saw";
+include "BN.saw";
+
+///////////////////////////////////////////////////////////////////////////////
+// Constants
+///////////////////////////////////////////////////////////////////////////////
+
+let EVP_PKEY_OP_ENCRYPT = 64;
+let EVP_PKEY_OP_DECRYPT = 128;
+let RSA_PKCS1_OAEP_PADDING = 4;
+// RSA_PKEY_CTX is a mix of 9 ints and pointers.  However, no two ints appear
+// consecutively in the struct, so the compiler must pad them out with an extra
+// 32 bits on the end.  This combined with little-endian encoding means we can
+// abstract over the struct as an array of 9 64-bit integers.
+let RSA_PKEY_CTX_WORDS = 9;
+let PAD_MODE_IDX = 2;
+let MD_IDX = 3;
+let MGF1MD_IDX = 4;
+let TBUF_IDX = 6;
+let OAEP_LABEL_IDX = 7;
+let OAEP_LABELLEN_IDX = 8;
+
+let RSA_FLAG_NO_BLINDING = 8;
+
+///////////////////////////////////////////////////////////////////////////////
+// Structure definitions
+///////////////////////////////////////////////////////////////////////////////
+
+let points_to_bn_blinding_st ptr Ai_ptr = do {
+  crucible_points_to (crucible_field ptr "Ai") Ai_ptr;
+};
+
+let points_to_evp_pkey_ctx_st ptr pmeth_ptr pkey_ptr operation data_ptr = do {
+  crucible_points_to (crucible_field ptr "pmeth") pmeth_ptr;
+  crucible_points_to (crucible_field ptr "pkey") pkey_ptr;
+  crucible_points_to (crucible_field ptr "operation")
+                     (crucible_term {{ `operation : [32] }});
+  crucible_points_to (crucible_field ptr "data") data_ptr;
+};
+
+let points_to_evp_pkey_method_st ptr = do {
+  crucible_points_to (crucible_field ptr "encrypt")
+                     (crucible_global "pkey_rsa_encrypt");
+  crucible_points_to (crucible_field ptr "decrypt")
+                     (crucible_global "pkey_rsa_decrypt");
+};
+
+let points_to_evp_pkey_st ptr rsa_ptr = do {
+  crucible_points_to (crucible_field ptr "pkey") rsa_ptr;
+  crucible_points_to (crucible_field ptr "ameth")
+                     (crucible_global "rsa_asn1_meth");
+};
+
+// TODO: This implements the default RSA_METHOD, which is all NULL.  Do we want
+// to support non-default RSA_METHOD structs?
+let points_to_rsa_meth_st ptr = do {
+  crucible_points_to (crucible_field ptr "size") crucible_null;
+  crucible_points_to (crucible_field ptr "decrypt") crucible_null;
+  crucible_points_to (crucible_field ptr "private_transform") crucible_null;
+};
+
+let points_to_rsa_st ptr
+                     meth_ptr
+                     n_ptr
+                     e_ptr
+                     d_ptr
+                     flags
+                     p_ptr
+                     q_ptr
+                     dmp1_ptr
+                     dmq1_ptr
+                     iqmp_ptr
+                     mont_n_ptr = do {
+  crucible_points_to (crucible_field ptr "meth") meth_ptr;
+  crucible_points_to (crucible_field ptr "n") n_ptr;
+  crucible_points_to (crucible_field ptr "e") e_ptr;
+  crucible_points_to (crucible_field ptr "d") d_ptr;
+  crucible_points_to (crucible_field ptr "flags")
+                     (crucible_term {{ `flags: [32] }});
+
+  // Fields for the p+q case
+  crucible_points_to (crucible_field ptr "p") p_ptr;
+  crucible_points_to (crucible_field ptr "q") q_ptr;
+  crucible_points_to (crucible_field ptr "dmp1") dmp1_ptr;
+  crucible_points_to (crucible_field ptr "dmq1") dmq1_ptr;
+  crucible_points_to (crucible_field ptr "iqmp") iqmp_ptr;
+  crucible_points_to (crucible_field ptr "mont_p") crucible_null;
+  crucible_points_to (crucible_field ptr "mont_q") crucible_null;
+  crucible_points_to (crucible_field ptr "dmp1_fixed") crucible_null;
+  crucible_points_to (crucible_field ptr "dmq1_fixed") crucible_null;
+  crucible_points_to (crucible_field ptr "inv_small_mod_large_mont") crucible_null;
+
+  crucible_points_to (crucible_field ptr "mont_n") mont_n_ptr;
+  // Must be null for ensure_fixed_copy
+  crucible_points_to (crucible_field ptr "d_fixed") crucible_null;
+
+  // TODO: Setting this to zero skips the blinding cache invalidation step for
+  // multithreaded decrypt on some (but not all) platforms.  Do we want to
+  // check that?  Setting this to 0 does not disable blinding, as the setup
+  // function sets it to 1 after the cache clear step if it is zero.
+  crucible_points_to (crucible_field ptr "num_blindings")
+                     (crucible_term {{ 0 : [32] }});
+  crucible_points_to (crucible_field ptr "blindings") crucible_null;
+  crucible_points_to (crucible_field ptr "blindings_inuse") crucible_null;
+  crucible_points_to (crucible_field ptr "blinding_fork_generation")
+                     (crucible_term {{ 0 : [64] }});
+
+  // private_key_frozen is a 1 bit bit-field of type `unsigned`, but the
+  // compiler allocates 8 bits for it
+  crucible_points_to (crucible_field ptr "private_key_frozen")
+                     (crucible_term {{ 0 : [8] }});
+};
+let points_to_rsa_pkey_ctx ptr pad_mode md_ptr oaep_label_ptr oaep_labellen = do {
+  // `pad_mode` is technically a 32 bit integer, but the compiler must pad the
+  // space to 64 bits as the following element in the struct is a pointer.
+  // We can treat this int like a 64-bit value as little-endian encoding
+  // ensures the low order bytes end up at the lower address and fit in the 32
+  // bits dedicated to the `pad_mode` field.
+  crucible_points_to (crucible_elem ptr PAD_MODE_IDX)
+                     (crucible_term {{ `pad_mode : [64] }});
+  crucible_points_to (crucible_elem ptr TBUF_IDX) crucible_null;
+  crucible_points_to (crucible_elem ptr MD_IDX) md_ptr;
+  crucible_points_to (crucible_elem ptr MGF1MD_IDX) crucible_null;
+  crucible_points_to (crucible_elem ptr OAEP_LABEL_IDX) oaep_label_ptr;
+  crucible_points_to (crucible_elem ptr OAEP_LABELLEN_IDX)
+                     (crucible_term {{ `oaep_labellen : [64] }});
+};
+
+///////////////////////////////////////////////////////////////////////////////
+// Function specifications
+///////////////////////////////////////////////////////////////////////////////
+
+let mod_exp_spec r0_words = do {
+  r0_ptr <- crucible_alloc (llvm_struct "struct.bignum_st");
+  I_ptr <- crucible_alloc_readonly (llvm_struct "struct.bignum_st");
+
+  // *rsa is not marked const in mod_exp, but in this instance it's not
+  // modified.  The only part of mod_exp that could mutate *rsa is
+  // freeze_private_key, but rsa_default_private_transform already calls
+  // freeze_private_key before mod_exp, so the subsequent freeze_private_key
+  // call has no effect, meaning *rsa is unmodified.
+  rsa_ptr <- crucible_alloc_readonly (llvm_struct "struct.rsa_st");
+
+  ctx_ptr <- crucible_alloc_readonly (llvm_struct "struct.bignum_ctx");
+  crucible_execute_func [r0_ptr, I_ptr, rsa_ptr, ctx_ptr];
+  (r0_d, r0_d_ptr) <- ptr_to_fresh "r0_d" (llvm_array r0_words i64);
+  points_to_bignum_st_same r0_ptr r0_d_ptr r0_words;
+  crucible_return (crucible_term {{ 1 : [32] }});
+};
+
+
+let constant_time_eq_w_spec = do {
+  a <- crucible_fresh_var "a" i64;
+  b <- crucible_fresh_var "b" i64;
+  crucible_execute_func [crucible_term a, crucible_term b];
+  crucible_return (crucible_term {{
+    if a == b then
+      ~(0 : [64])
+    else
+      0 : [64]
+  }});
+};
+
+oaep_random_out <- crucible_declare_ghost_state "oaep_random_out";
+let RAND_bytes_spec size = do {
+  k <- crucible_fresh_cryptol_var "k" {| [size][8] |};
+  crucible_ghost_value oaep_random_out k;
+
+  out_ptr <- crucible_alloc (llvm_array size i8);
+  crucible_execute_func [out_ptr, crucible_term {{ `size : [64] }}];
+
+  crucible_points_to out_ptr (crucible_term k);
+
+  // RAND_bytes always returns 1
+  crucible_return (crucible_term {{ 1 : [32] }});
+};
+
+// TODO: I overrode this for two reasons:
+// 1. It has an annoying random within a range for bignums call, which I would
+// have tried to override, if it weren't for:
+// 2. It can probabilistically fail!  If it randomly picks values that aren't
+// invertible it will fail.  In theory SAW should find this counterexample.  In
+// practice, this is equivalent to factoring mont->N, so I bet SAW will just
+// hang, but I haven't tried it.  The function calls into bn_blinding_update,
+// which does a whole sequence of operations.  I'm not sure which one(s) fail
+// in the failure case, but there may be a way to override just that function
+// to say it returns 1?  In any case, that will almost certainly require
+// knowing p and q, but a whole path through the decrypt function doesn't have
+// those factors, so I'm not sure it's even worth investigating that fix.
+//
+// At the end of the day, the postcondition for the decrypt w/ blinding proof
+// will be that if decrypt function returns 1, then the output vector is
+// correct.
+let BN_BLINDING_convert_spec words = do {
+  let num_bits = eval_size {| words * 64 |};
+  n_ptr <- crucible_alloc (llvm_struct "struct.bignum_st");
+  b_ptr <- crucible_alloc (llvm_struct "struct.bn_blinding_st");
+  e_ptr <- crucible_alloc_readonly (llvm_struct "struct.bignum_st");
+  (N_d, N_d_ptr) <- ptr_to_fresh_readonly "N_d" (llvm_int num_bits);
+  mont_ptr <- pointer_to_bn_mont_ctx_st words N_d_ptr N_d;
+
+  ctx_ptr <- crucible_alloc_readonly (llvm_struct "struct.bignum_ctx");
+
+  crucible_execute_func [n_ptr, b_ptr, e_ptr, mont_ptr, ctx_ptr];
+
+  // TODO: I almost certainly need to say something about n_ptr and b_ptr here
+  // TODO: Look at the comment on blinding.c:203.  Does this mean n is
+  // unchanged by the exit of the function?
+
+  (n_d, n_d_ptr) <- ptr_to_fresh "n_d" (llvm_array words i64);
+  points_to_bignum_st_same n_ptr n_d_ptr words;
+
+  Ai_ptr <- crucible_alloc (llvm_struct "struct.bignum_st");
+  points_to_bn_blinding_st b_ptr Ai_ptr;
+
+  crucible_return (crucible_term {{ 1 : [32] }});
+};
+
+let RSA_padding_add_PKCS1_OAEP_mgf1_spec to_len from_len param_len = do {
+  k <- crucible_fresh_cryptol_var "k" {| [SHA256_DIGEST_LENGTH][8] |};
+  crucible_ghost_value oaep_random_out k;
+
+  to_ptr <- crucible_alloc (llvm_array to_len i8);
+
+  (from, from_ptr) <- ptr_to_fresh_readonly "from" (llvm_array from_len i8);
+
+  (param, param_ptr) <- ptr_to_fresh_readonly "param" (llvm_array param_len i8);
+
+  md_ptr <- crucible_alloc_readonly (llvm_struct "struct.env_md_st");
+  points_to_env_md_st md_ptr;
+
+  crucible_execute_func [ to_ptr,
+                          crucible_term {{ `to_len : [64] }},
+                          from_ptr,
+                          crucible_term {{ `from_len : [64] }},
+                          param_ptr,
+                          crucible_term {{ `param_len : [64] }},
+                          md_ptr,
+                          crucible_null ];
+
+  let to = {{ split`{each=8} (integerToBV`{to_len * 8} (EME_OAEP_encode_integer`{param_len, from_len} k (integerFromBV (join from), integerFromBV (join param)))) }};
+
+  // to[0] is always 0
+  crucible_postcond {{ (to @ 0) == 0 }};
+
+  crucible_points_to to_ptr (crucible_term to);
+
+  crucible_return (crucible_term {{ 1 : [32] }});
+};
+
+let RSA_padding_check_PKCS1_OAEP_mgf1_spec out_len max_out from_len param_len = do {
+  (out, out_ptr) <- ptr_to_fresh "out" (llvm_array out_len i8);
+
+  out_len_ptr <- crucible_alloc i64;
+  crucible_points_to out_len_ptr (crucible_term {{ `out_len : [64] }});
+
+  (from, from_ptr) <- ptr_to_fresh_readonly "from" (llvm_array from_len i8);
+
+  (param, param_ptr) <- ptr_to_fresh_readonly "param" (llvm_array param_len i8);
+
+  md_ptr <- crucible_alloc_readonly (llvm_struct "struct.env_md_st");
+  points_to_env_md_st md_ptr;
+
+  crucible_execute_func [ out_ptr,
+                          out_len_ptr,
+                          crucible_term {{ `max_out : [64] }},
+                          from_ptr,
+                          crucible_term {{ `from_len : [64] }},
+                          param_ptr,
+                          crucible_term {{ `param_len : [64] }},
+                          md_ptr,
+                          crucible_null ];
+
+  ret <- crucible_fresh_var "ret" i32;
+  crucible_postcond {{ (ret == 0) || (ret == 1) }};
+
+  out' <- crucible_fresh_var "out" (llvm_array out_len i8);
+  crucible_conditional_points_to {{ ret == 1 }} out_ptr (crucible_term out');
+
+  // TODO: Use the functional postcondition below, instead of the memory safety
+  // postcondition above.  There are two problems to solve first though:
+  //
+  // 1. Uncommenting this results in SAW hanging on a check sat.  The
+  // performance issue comes from the loop on line 447 on
+  // src/crypto/fipsmodule/rsa/padding.c, which I can't find a way around.
+  // We've already overridden the functions within the function body, but it
+  // still results in a bunch of ITEs.
+  //
+  // 2. The integerToBV call ends up padding the result with leading zeros that
+  // don't exist in the function output.  The function simply fills the first
+  // `m` bytes of `out` (where `m` is the length of the message), leaving the
+  // rest of the buffer untouched.  It sets `out_len` to `m`.  Because of the
+  // performance issues, I haven't tried to address this problem.
+  /*
+  crucible_conditional_points_to {{ ret == 1 }} out_ptr (crucible_term {{
+      split`{each=8} (integerToBV`{out_len * 8}
+          (EME_OAEP_decode_integer`{param_len} (integerFromBV (join from), integerFromBV (join param))).1) }});
+          */
+
+  // TODO: With padding this out_len_ptr value may not be known, just that it
+  // must be less than or equal to out_len
+  //crucible_points_to out_len_ptr (crucible_term {{ `out_len : [64] }});
+
+  crucible_return (crucible_term {{ ret : [32] }});
+};
+
+
+let EVP_PKEY_encrypt_spec out_len in_len modulus_bytes pad_mode oaep_size = do {
+  k <- crucible_fresh_cryptol_var "k" {| [SHA256_DIGEST_LENGTH][8] |};
+  crucible_ghost_value oaep_random_out k;
+
+  ctx_ptr <- crucible_alloc (llvm_struct "struct.evp_pkey_ctx_st");
+  pmeth_ptr <- crucible_alloc (llvm_struct "struct.evp_pkey_method_st");
+  points_to_evp_pkey_method_st pmeth_ptr;
+  pkey_ptr <- crucible_alloc (llvm_struct "struct.evp_pkey_st");
+  rsa_ptr <- crucible_alloc (llvm_struct "struct.rsa_st");
+  meth_ptr <- crucible_alloc (llvm_struct "struct.rsa_meth_st");
+  points_to_rsa_meth_st meth_ptr;
+  n_ptr <- crucible_alloc (llvm_struct "struct.bignum_st");
+  let modulus_words = eval_int {{ ((`modulus_bytes + 7) / 8) : [64]}};
+  let modulus_bits = eval_size {| modulus_words * 64 |};
+  (n_d, n_d_ptr) <- ptr_to_fresh "n_d" (llvm_int modulus_bits);
+  points_to_bignum_st_same n_ptr n_d_ptr modulus_words;
+  // Force `n_d` to have the maximum number of bits
+  crucible_precond {{ (n_d ! 0) == 1 }};
+  // `n_d` must be odd
+  crucible_precond {{ (n_d @ 0) == 1 }};
+  // TODO: If `modulus_bytes` is not a multiple of the word
+  // size (8), then `n_d` must have all bytes above `modulus_bytes` zeroed
+  // out.
+  e_ptr <- crucible_alloc (llvm_struct "struct.bignum_st");
+  (e_d, e_d_ptr) <- ptr_to_fresh "e_d" i64;
+  // e_d must be 33 bits or fewer wide
+  crucible_precond {{ e_d <= (2 ^^ 33 - 1) }};
+  points_to_bignum_st_same e_ptr e_d_ptr 1;
+  mont_n_ptr <- pointer_to_bn_mont_ctx_st modulus_words n_d_ptr n_d;
+  points_to_rsa_st rsa_ptr meth_ptr n_ptr e_ptr crucible_null 0 crucible_null crucible_null crucible_null crucible_null crucible_null mont_n_ptr;
+
+  points_to_evp_pkey_st pkey_ptr rsa_ptr;
+  // data_ptr actully points to an RSA_PKEY_CTX struct.  Be *very careful* with
+  // getting the contents of this right.
+  data_ptr <- crucible_alloc (llvm_array RSA_PKEY_CTX_WORDS i64);
+  md_ptr <- crucible_alloc_readonly (llvm_struct "struct.env_md_st");
+  points_to_env_md_st md_ptr;
+  (oaep_label, oaep_label_ptr) <- ptr_to_fresh "oaep_label" (llvm_array oaep_size i8);
+  points_to_rsa_pkey_ctx data_ptr pad_mode md_ptr oaep_label_ptr oaep_size;
+  points_to_evp_pkey_ctx_st ctx_ptr pmeth_ptr pkey_ptr EVP_PKEY_OP_ENCRYPT data_ptr;
+
+  out_ptr <- crucible_alloc (llvm_array out_len i8);
+
+  out_len_ptr <- crucible_alloc i64;
+  crucible_points_to out_len_ptr (crucible_term {{ `out_len : [64] }});
+
+  (input, in_ptr) <- ptr_to_fresh_readonly "input" (llvm_array in_len i8);
+
+  crucible_execute_func
+    [ ctx_ptr
+    , out_ptr
+    , out_len_ptr
+    , in_ptr
+    , crucible_term {{ `in_len : [64] }}
+    ];
+
+  crucible_points_to out_ptr (crucible_term {{
+      split`{out_len, 8} (integerToBV`{out_len * 8}
+          (RSAES_OAEP_ENCRYPT_INTEGER`{oaep_size, in_len}
+             k
+             (integerFromBV (join input))
+             (integerFromBV (join oaep_label))
+             (integerFromBV n_d)
+             (integerFromBV e_d))) }});
+
+  crucible_points_to out_len_ptr (crucible_term {{ `out_len : [64] }});
+
+  crucible_return (crucible_term {{ 1 : [32] }});
+};
+
+let EVP_PKEY_decrypt_spec out_len in_len modulus_bytes d_words rsa_flags prime_words pad_mode oaep_size = do {
+  ctx_ptr <- crucible_alloc (llvm_struct "struct.evp_pkey_ctx_st");
+  pmeth_ptr <- crucible_alloc (llvm_struct "struct.evp_pkey_method_st");
+  points_to_evp_pkey_method_st pmeth_ptr;
+  pkey_ptr <- crucible_alloc (llvm_struct "struct.evp_pkey_st");
+  rsa_ptr <- crucible_alloc (llvm_struct "struct.rsa_st");
+  meth_ptr <- crucible_alloc (llvm_struct "struct.rsa_meth_st");
+  points_to_rsa_meth_st meth_ptr;
+  n_ptr <- crucible_alloc (llvm_struct "struct.bignum_st");
+  let modulus_words = eval_int {{ ((`modulus_bytes + 7) / 8) : [64]}};
+  (n_d, n_d_ptr) <- ptr_to_fresh "n_d" (llvm_array modulus_words i64);
+  points_to_bignum_st_same n_ptr n_d_ptr modulus_words;
+  // Make `n_d` have the maximum number of bits
+  // TODO: Handle case where modulus_bytes is not a multiple of 8
+  crucible_precond {{ (n_d ! 0) >= (2^^63) }};
+  // `n_d` must be odd
+  crucible_precond {{ ((n_d @ 0) && 1) == 1 }};
+  // TODO: If `modulus_bytes` is not a multiple of the word
+  // size (8), then `n_d` must have all bytes above `modulus_bytes` zeroed
+  // out.
+
+  e_ptr <- crucible_alloc (llvm_struct "struct.bignum_st");
+  (e_d, e_d_ptr) <- ptr_to_fresh "e_d" i64;
+  // e_d must be 33 bits or fewer wide
+  crucible_precond {{ e_d <= (2 ^^ 33 - 1) }};
+  points_to_bignum_st_same e_ptr e_d_ptr 1;
+
+  d_ptr <- crucible_alloc (llvm_struct "struct.bignum_st");
+  (d_d, d_d_ptr) <- ptr_to_fresh "d_d" (llvm_array d_words i64);
+  points_to_bignum_st_same d_ptr d_d_ptr d_words;
+
+  if eval_bool {{ `prime_words == 0 }} then do {
+    // No CRM.  Leave p+q (and related fields) null
+    points_to_rsa_st rsa_ptr
+                     meth_ptr
+                     n_ptr
+                     e_ptr
+                     d_ptr
+                     rsa_flags
+                     crucible_null
+                     crucible_null
+                     crucible_null
+                     crucible_null
+                     crucible_null
+                     crucible_null;
+  } else do {
+    // CRM case
+    // Fields for p+q case
+    p_ptr <- crucible_alloc (llvm_struct "struct.bignum_st");
+    (p_d, p_d_ptr) <- ptr_to_fresh "p_d" (llvm_array prime_words i64);
+    crucible_precond {{ ((p_d @ 0) && 1) == 1 }};  // p must be odd
+    points_to_bignum_st_same p_ptr p_d_ptr prime_words;
+    q_ptr <- crucible_alloc (llvm_struct "struct.bignum_st");
+    (q_d, q_d_ptr) <- ptr_to_fresh "q_d" (llvm_array prime_words i64);
+    crucible_precond {{ ((q_d @ 0) && 1) == 1 }};  // q must be odd
+    points_to_bignum_st_same q_ptr q_d_ptr prime_words;
+    dmp1_ptr <- crucible_alloc (llvm_struct "struct.bignum_st");
+    (dmp1_d, dmp1_d_ptr) <- ptr_to_fresh "dmp1_d" (llvm_array prime_words i64);
+    points_to_bignum_st_same dmp1_ptr dmp1_d_ptr prime_words;
+    dmq1_ptr <- crucible_alloc (llvm_struct "struct.bignum_st");
+    (dmq1_d, dmq1_d_ptr) <- ptr_to_fresh "dmq1_d" (llvm_array prime_words i64);
+    points_to_bignum_st_same dmq1_ptr dmq1_d_ptr prime_words;
+    iqmp_ptr <- crucible_alloc (llvm_struct "struct.bignum_st");
+    (iqmp_d, iqmp_d_ptr) <- ptr_to_fresh "iqmp_d" (llvm_array prime_words i64);
+    points_to_bignum_st_same iqmp_ptr iqmp_d_ptr prime_words;
+    points_to_rsa_st rsa_ptr
+                     meth_ptr
+                     n_ptr
+                     e_ptr
+                     d_ptr
+                     rsa_flags
+                     p_ptr
+                     q_ptr
+                     dmp1_ptr
+                     dmq1_ptr
+                     iqmp_ptr
+                     crucible_null;
+  };
+  points_to_evp_pkey_st pkey_ptr rsa_ptr;
+  // data_ptr actully points to an RSA_PKEY_CTX struct.  Be *very careful* with
+  // getting the contents of this right.
+  data_ptr <- crucible_alloc (llvm_array RSA_PKEY_CTX_WORDS i64);
+  md_ptr <- crucible_alloc_readonly (llvm_struct "struct.env_md_st");
+  points_to_env_md_st md_ptr;
+  (oaep_label, oaep_label_ptr) <- ptr_to_fresh "oaep_label" (llvm_array oaep_size i8);
+  points_to_rsa_pkey_ctx data_ptr pad_mode md_ptr oaep_label_ptr oaep_size;
+  points_to_evp_pkey_ctx_st ctx_ptr pmeth_ptr pkey_ptr EVP_PKEY_OP_DECRYPT data_ptr;
+
+  (out, out_ptr) <- ptr_to_fresh "out" (llvm_array out_len i8);
+
+  out_len_ptr <- crucible_alloc i64;
+  crucible_points_to out_len_ptr (crucible_term {{ `out_len : [64] }});
+
+  (input, in_ptr) <- ptr_to_fresh_readonly "input" (llvm_array in_len i8);
+
+  // TODO: This effectively makes `input < n_d` (which is required), but it
+  // does so in a hacky way.  This precondition should directly reference `n_d`
+  crucible_precond {{ (input @ 0) == 0 }};
+
+  crucible_execute_func
+    [ ctx_ptr
+    , out_ptr
+    , out_len_ptr
+    , in_ptr
+    , crucible_term {{ `in_len : [64] }}
+    ];
+
+  ret <- crucible_fresh_var "ret" i32;
+
+  out' <- crucible_fresh_var "out" (llvm_array out_len i8);
+  crucible_conditional_points_to {{ ret == 1 }} out_ptr (crucible_term out');
+
+  // TODO: With padding this out_len_ptr value may not be known, just that it
+  // must be less than or equal to out_len
+  //crucible_points_to out_len_ptr (crucible_term {{ `out_len : [64] }});
+
+  crucible_return (crucible_term {{ ret : [32] }});
+};
+
+
+///////////////////////////////////////////////////////////////////////////////
+// Assumptions
+///////////////////////////////////////////////////////////////////////////////
+
+BN_BLINDING_convert_ov <- crucible_llvm_unsafe_assume_spec
+  m
+  "BN_BLINDING_convert"
+  // TODO: Check the output size
+  (BN_BLINDING_convert_spec 9);
+
+RAND_bytes_ov <- crucible_llvm_unsafe_assume_spec
+  m
+  "RAND_bytes"
+  (RAND_bytes_spec 32);
+
+mod_exp_ov <- crucible_llvm_unsafe_assume_spec
+  m
+  "mod_exp"
+  (mod_exp_spec 9);
+
+constant_time_eq_w_ov <- crucible_llvm_unsafe_assume_spec
+  m
+  "constant_time_eq_w"
+  (constant_time_eq_w_spec);
+
+
+///////////////////////////////////////////////////////////////////////////////
+// Proofs
+///////////////////////////////////////////////////////////////////////////////
+
+
+// TODO: Probably don't need all of these overrides
+RSA_padding_add_PKCS1_OAEP_mgf1_ov <- crucible_llvm_verify
+  m
+  "RSA_padding_add_PKCS1_OAEP_mgf1"
+  (concat
+   OPENSSL_free_nonnull_ovs
+   (concat
+    OPENSSL_malloc_concrete_ovs
+    [value_barrier_w_ov,
+     OPENSSL_free_null_ov,
+     OPENSSL_malloc_ov,
+     OPENSSL_cleanse_ov,
+     CRYPTO_MUTEX_lock_read_ov,
+     CRYPTO_MUTEX_unlock_read_ov,
+     CRYPTO_MUTEX_lock_write_ov,
+     CRYPTO_MUTEX_unlock_write_ov,
+     RAND_bytes_ov,
+     OPENSSL_realloc_null_concrete_ov,
+     OPENSSL_realloc_nonnull_ov,
+     sha256_block_data_order_spec]))
+  true
+  (RSA_padding_add_PKCS1_OAEP_mgf1_spec 72 6 1)
+  do {
+    //(simplify basic_ss);
+    //(print_goal);
+    //(goal_eval_unint ["processBlock_Common"]);
+    //(print_goal);
+    (w4_unint_yices ["processBlock_Common"]);
+  };
+
+
+// Padding mode: RSA_PKCS1_OAEP_PADDING
+crucible_llvm_verify m "EVP_PKEY_encrypt"
+  (concat
+   OPENSSL_free_nonnull_ovs
+   (concat
+    OPENSSL_malloc_concrete_ovs
+    [value_barrier_w_ov,
+     OPENSSL_free_null_ov,
+     OPENSSL_malloc_ov,
+     CRYPTO_MUTEX_lock_read_ov,
+     CRYPTO_MUTEX_unlock_read_ov,
+     CRYPTO_MUTEX_lock_write_ov,
+     CRYPTO_MUTEX_unlock_write_ov,
+     OPENSSL_realloc_null_concrete_ov,
+     OPENSSL_realloc_nonnull_ov,
+     BN_mod_exp_mont_9_ov,
+     BN_bn2bin_padded_same_size_9_ov,
+     bn_mont_n0_9_ov,
+     OPENSSL_cleanse_ov,
+     BN_div_9_ov,
+     BN_bin2bn_9_ov,
+     BN_ucmp_lt_9_ov,
+     BN_ucmp_gt_9_1_ov,
+     RSA_padding_add_PKCS1_OAEP_mgf1_ov]))
+  true
+  (EVP_PKEY_encrypt_spec 72 6 72 RSA_PKCS1_OAEP_PADDING 1)
+  do {
+    //(simplify basic_ss);
+    //(print_goal);
+    (goal_eval_unint ["bn_mont_n0", "EME_OAEP_encode_integer", "integerToBV", "integerFromBV", "modexp"]);
+    simplify (addsimp integerFromToBV empty_ss);
+    //(print_goal);
+    (w4_unint_yices ["bn_mont_n0", "EME_OAEP_encode_integer", "integerToBV", "integerFromBV", "modexp"]);
+  };
+
+// TODO: Probably don't need all of these overrides (ex. CRYPTO_MUTEX*)
+RSA_padding_check_PKCS1_OAEP_mgf1_ov <- crucible_llvm_verify
+  m
+  "RSA_padding_check_PKCS1_OAEP_mgf1"
+  (concat
+   OPENSSL_free_nonnull_ovs
+   (concat
+    OPENSSL_malloc_concrete_ovs
+    [value_barrier_w_ov,
+     OPENSSL_free_null_ov,
+     OPENSSL_malloc_ov,
+     OPENSSL_cleanse_ov,
+     CRYPTO_MUTEX_lock_read_ov,
+     CRYPTO_MUTEX_unlock_read_ov,
+     CRYPTO_MUTEX_lock_write_ov,
+     CRYPTO_MUTEX_unlock_write_ov,
+     OPENSSL_realloc_null_concrete_ov,
+     OPENSSL_realloc_nonnull_ov,
+     sha256_block_data_order_spec,
+     constant_time_eq_w_ov,
+     constant_time_select_w_true_ov,
+     constant_time_select_w_false_ov,
+     ERR_put_error_ov]))
+  true
+  (RSA_padding_check_PKCS1_OAEP_mgf1_spec 72 72 72 1)
+  do {
+    //(simplify basic_ss);
+    //(print_goal);
+    (w4_unint_yices ["processBlock_Common"]);
+  };
+
+// -CRM -blinding
+crucible_llvm_verify m "EVP_PKEY_decrypt"
+  (concat
+   OPENSSL_free_nonnull_ovs
+   (concat
+    OPENSSL_malloc_concrete_ovs
+    [value_barrier_w_ov,
+     OPENSSL_free_null_ov,
+     OPENSSL_malloc_ov,
+     CRYPTO_MUTEX_lock_read_ov,
+     CRYPTO_MUTEX_unlock_read_ov,
+     CRYPTO_MUTEX_lock_write_ov,
+     CRYPTO_MUTEX_unlock_write_ov,
+     OPENSSL_realloc_null_concrete_ov,
+     OPENSSL_realloc_nonnull_ov,
+     BN_bn2bin_padded_same_size_9_ov,
+     BN_mod_exp_mont_consttime_9_ov,
+     BN_mod_exp_mont_9_ov,
+     BN_equal_consttime_ov,
+     bn_mont_n0_9_ov,
+     RSA_padding_check_PKCS1_OAEP_mgf1_ov,
+     BN_div_9_ov]))
+  true
+  (EVP_PKEY_decrypt_spec 72 72 72 8 RSA_FLAG_NO_BLINDING 0 RSA_PKCS1_OAEP_PADDING 1)
+  do {
+    //(simplify basic_ss);
+    //(print_goal);
+    (w4_unint_yices ["bn_mont_n0"]);
+  };
+
+// -CRM +blinding
+crucible_llvm_verify m "EVP_PKEY_decrypt"
+  (concat
+   OPENSSL_free_nonnull_ovs
+   (concat
+    OPENSSL_malloc_concrete_ovs
+    [value_barrier_w_ov,
+     OPENSSL_free_null_ov,
+     OPENSSL_malloc_ov,
+     CRYPTO_MUTEX_lock_read_ov,
+     CRYPTO_MUTEX_unlock_read_ov,
+     CRYPTO_MUTEX_lock_write_ov,
+     CRYPTO_MUTEX_unlock_write_ov,
+     OPENSSL_realloc_null_concrete_ov,
+     OPENSSL_realloc_nonnull_ov,
+     BN_bn2bin_padded_same_size_9_ov,
+     BN_mod_exp_mont_consttime_9_ov,
+     BN_mod_exp_mont_9_ov,
+     bn_mont_n0_9_ov,
+     CRYPTO_get_fork_generation_ov,
+     BN_BLINDING_convert_ov,
+     BN_equal_consttime_ov,
+     BN_mod_mul_montgomery_9_ov,
+     RSA_padding_check_PKCS1_OAEP_mgf1_ov,
+     BN_div_9_ov]))
+  true
+  (EVP_PKEY_decrypt_spec 72 72 72 8 0 0 RSA_PKCS1_OAEP_PADDING 1)
+  do {
+    //(simplify basic_ss);
+    //(print_goal);
+    (w4_unint_yices ["bn_mont_n0"]);
+  };
+
+// +CRM -blinding
+crucible_llvm_verify m "EVP_PKEY_decrypt"
+  (concat
+   OPENSSL_free_nonnull_ovs
+   (concat
+    OPENSSL_malloc_concrete_ovs
+    [value_barrier_w_ov,
+     OPENSSL_free_null_ov,
+     OPENSSL_malloc_ov,
+     CRYPTO_MUTEX_lock_read_ov,
+     CRYPTO_MUTEX_unlock_read_ov,
+     CRYPTO_MUTEX_lock_write_ov,
+     CRYPTO_MUTEX_unlock_write_ov,
+     OPENSSL_realloc_null_concrete_ov,
+     OPENSSL_realloc_nonnull_ov,
+     BN_bn2bin_padded_same_size_9_ov,
+     BN_mod_exp_mont_consttime_1_ov,
+     RSA_padding_check_PKCS1_OAEP_mgf1_ov,
+     BN_mod_exp_mont_9_ov,
+     BN_equal_consttime_ov,
+     bn_mont_n0_1_ov,
+     bn_mont_n0_9_ov,
+     bn_mod_exp_base_2_consttime_ov,
+     BN_mod_mul_montgomery_nonoverlap_1_ov,
+     mod_exp_ov,
+     BN_mod_mul_montgomery_1_ov,
+     BN_div_9_ov]))
+  true
+  (EVP_PKEY_decrypt_spec 72 72 72 8 RSA_FLAG_NO_BLINDING 1 RSA_PKCS1_OAEP_PADDING 1)
+  do {
+    //(simplify basic_ss);
+    //(print_goal);
+    (w4_unint_yices ["bn_mont_n0"]);
+  };
+
+// +CRM +blinding
+crucible_llvm_verify m "EVP_PKEY_decrypt"
+  (concat
+   OPENSSL_free_nonnull_ovs
+   (concat
+    OPENSSL_malloc_concrete_ovs
+    [value_barrier_w_ov,
+     OPENSSL_free_null_ov,
+     OPENSSL_malloc_ov,
+     CRYPTO_MUTEX_lock_read_ov,
+     CRYPTO_MUTEX_unlock_read_ov,
+     CRYPTO_MUTEX_lock_write_ov,
+     CRYPTO_MUTEX_unlock_write_ov,
+     OPENSSL_realloc_null_concrete_ov,
+     OPENSSL_realloc_nonnull_ov,
+     BN_bn2bin_padded_same_size_9_ov,
+     BN_mod_exp_mont_consttime_1_ov,
+     BN_mod_exp_mont_9_ov,
+     CRYPTO_get_fork_generation_ov,
+     BN_BLINDING_convert_ov,
+     BN_equal_consttime_ov,
+     bn_mont_n0_1_ov,
+     bn_mont_n0_9_ov,
+     bn_mod_exp_base_2_consttime_ov,
+     BN_mod_mul_montgomery_nonoverlap_1_ov,
+     mod_exp_ov,
+     RSA_padding_check_PKCS1_OAEP_mgf1_ov,
+     BN_mod_mul_montgomery_9_ov,
+     BN_mod_mul_montgomery_1_ov,
+     BN_div_9_ov]))
+  true
+  (EVP_PKEY_decrypt_spec 72 72 72 8 0 1 RSA_PKCS1_OAEP_PADDING 1)
+  do {
+    //(simplify basic_ss);
+    //(print_goal);
+    (w4_unint_yices ["bn_mont_n0"]);
+  };
