@@ -1,0 +1,211 @@
+
+enable_experimental;
+
+import "../../../cryptol-specs/Primitive/Symmetric/Cipher/Block/AESKeyWrap.cry";
+import "../../../cryptol-specs/Primitive/Symmetric/Cipher/Block/AESKeyWrapPadded.cry";
+import "../../../cryptol-specs/Primitive/Symmetric/Cipher/Block/AES.cry";
+import "../../../cryptol-specs/Primitive/Symmetric/Cipher/Authenticated/AES_256_GCM.cry";
+import "../../spec/AES/X86.cry";
+import "../../spec/AES/AES-GCM.cry";
+
+m <- llvm_load_module "../../build/llvm/crypto/crypto_test.bc";
+
+// Include helper functions
+include "../common/helpers.saw";
+
+let OPENSSL_malloc_spec size = do {
+  // Precondition: true
+
+  // Call function with argument `size`.
+  // `crucible_term` converts `size` to a symbol so that SAW may reason about
+  // it during symbolic execution.  This line also contains a type annotation
+  // on `size` to declare that it is a 64 bit integer.  This is necessary
+  // because SAW integers are unbounded, but the function expects a 64 bit
+  // value so the spec must explicitly convert the unbounded SAW integer to a
+  // 64 bit value.
+  crucible_execute_func [crucible_term {{ `size : [64] }}];
+
+  // Postcondition: returns a pointer to a 128 byte aligned array of `size`
+  // bytes
+  ptr <- crucible_alloc_aligned 128 (llvm_array size i8);
+  crucible_return ptr;
+};
+
+let OPENSSL_free_nonnull_spec size = do {
+  // Precondition: `ptr` is a pointer to an array of `size` bytes
+  ptr <- crucible_alloc (llvm_array size i8);
+
+  // Call function with argument `ptr`
+  crucible_execute_func [ptr];
+
+  // Postcondition: true
+};
+
+let OPENSSL_free_null_spec = do {
+  // Precondition: true
+
+  // Call function with NULL as the argument
+  crucible_execute_func [crucible_null];
+
+  // Postcondition: true
+};
+
+let OPENSSL_cleanse_spec len = do {
+  // Precondition: `ptr` is a pointer to an array of `len` bytes
+  ptr <- crucible_alloc (llvm_array len i8);
+
+  // Call function with arguments `ptr` and `len`
+  crucible_execute_func [ptr, crucible_term {{ `len : [64] }}];
+
+  // Postcondition: Data pointed to by `ptr` has been invalidated
+};
+
+let value_barrier_w_spec = do {
+  
+  a <- crucible_fresh_var "a" (llvm_int 64);
+
+  crucible_execute_func [crucible_term a];
+
+  crucible_return (crucible_term a);
+};
+
+value_barrier_w_ov <- llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "value_barrier_w"
+  []
+  true
+  value_barrier_w_spec
+  (do {
+    w4_unint_yices [];
+  });
+
+let {{ ia32cap = [0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff] : [4][32] }};
+include "../AES/goal-rewrites-AES.saw";
+let do_prove = false;
+include "../AES/AES.saw";
+let do_prove = true;
+
+let AES_wrap_key_spec len = do {
+  global_alloc_init "OPENSSL_ia32cap_P" {{ ia32cap }};
+  
+  key_ptr <- crucible_alloc_readonly (llvm_struct "struct.aes_key_st");
+  key <- fresh_aes_key_st;
+  points_to_aes_key_st key_ptr key;
+  (iv, iv_ptr) <- ptr_to_fresh_readonly "iv" (llvm_array 8 (llvm_int 8));
+  (indata, indata_ptr) <- ptr_to_fresh_readonly "in" (llvm_array len (llvm_int 8));
+  (out, out_ptr) <- ptr_to_fresh "out" (llvm_array (eval_size {|len+8|}) (llvm_int 8));
+
+  crucible_execute_func [key_ptr, iv_ptr, out_ptr, indata_ptr, crucible_term {{ `len : [64] }}];
+
+  crucible_points_to out_ptr (crucible_term {{aesWrapKey (join key) iv indata}});
+
+  crucible_return (crucible_term {{`len + 8 : [32]}});
+};
+
+let AES_unwrap_key_spec len = do {
+  global_alloc_init "OPENSSL_ia32cap_P" {{ ia32cap }};
+  
+  key_ptr <- crucible_alloc_readonly (llvm_struct "struct.aes_key_st");
+  key <- fresh_aes_key_st;
+  points_to_aes_key_st key_ptr key;
+  (iv, iv_ptr) <- ptr_to_fresh_readonly "iv" (llvm_array 8 (llvm_int 8));
+  (indata, indata_ptr) <- ptr_to_fresh_readonly "in" (llvm_array (eval_size {|len+8|}) (llvm_int 8));
+  (out, out_ptr) <- ptr_to_fresh "out" (llvm_array len (llvm_int 8));
+
+  crucible_execute_func [key_ptr, iv_ptr, out_ptr, indata_ptr, crucible_term {{ `len+8 : [64] }}];
+
+  unwrapped <- crucible_fresh_var "unwrapped" (llvm_array len (llvm_int 8));
+
+  crucible_conditional_points_to {{(aesUnwrapKey (join key) iv indata).0}} out_ptr (crucible_term unwrapped);
+
+  crucible_postcond {{(aesUnwrapKey (join key) iv indata).0 ==> (aesUnwrapKey (join key) iv indata).1 == unwrapped}};
+
+  crucible_return (crucible_term {{if (aesUnwrapKey (join key) iv indata).0 then (`len : [32]) else (-1:[32])}});
+};
+
+let {{ kwp_iv = [0xa6, 0x59, 0x59, 0xa6] : [4][8] }};
+
+let AES_wrap_key_padded_spec len pad = do {
+  global_alloc_init "OPENSSL_ia32cap_P" {{ ia32cap }};
+  
+  key_ptr <- crucible_alloc_readonly (llvm_struct "struct.aes_key_st");
+  key <- fresh_aes_key_st;
+  points_to_aes_key_st key_ptr key;
+  (indata, indata_ptr) <- ptr_to_fresh_readonly "in" (llvm_array len (llvm_int 8));
+  (out, out_ptr) <- ptr_to_fresh "out" (llvm_array (eval_size {|len + pad + 8|}) (llvm_int 8));
+  (out_len, out_len_ptr) <- ptr_to_fresh "out" (llvm_int 64);
+
+  crucible_execute_func [key_ptr, out_ptr, out_len_ptr, crucible_term {{ `len + `pad + 8 : [64] }}, indata_ptr, crucible_term {{ `len : [64] }}];
+
+  crucible_points_to out_ptr (crucible_term {{aesWrapKeyPadded`{len, pad} (join key) kwp_iv indata}});
+  crucible_points_to out_len_ptr (crucible_term {{`len + `pad + 8 : [64]}});
+
+  crucible_return (crucible_term {{1 : [32]}});
+};
+
+let AES_unwrap_key_padded_spec len pad = do {
+  global_alloc_init "OPENSSL_ia32cap_P" {{ ia32cap }};
+  
+  key_ptr <- crucible_alloc_readonly (llvm_struct "struct.aes_key_st");
+  key <- fresh_aes_key_st;
+  points_to_aes_key_st key_ptr key;
+  (indata, indata_ptr) <- ptr_to_fresh_readonly "in" (llvm_array (eval_size {|len + pad + 8|}) (llvm_int 8));
+  (out, out_ptr) <- ptr_to_fresh "out" (llvm_array (eval_size {|len + pad|}) (llvm_int 8));
+  (out_len_in, out_len_ptr) <- ptr_to_fresh "out" (llvm_int 64);
+
+  crucible_execute_func [key_ptr, out_ptr, out_len_ptr, crucible_term {{ `len + `pad : [64] }}, indata_ptr, crucible_term {{ `len + `pad + 8 : [64] }}];
+
+  unwrapped <- crucible_fresh_var "unwrapped" (llvm_array (eval_size {|len + pad|}) (llvm_int 8));
+  crucible_conditional_points_to {{(aesUnwrapKeyPadded (join key) kwp_iv indata).0}} out_ptr (crucible_term unwrapped);
+  crucible_postcond {{(aesUnwrapKeyPadded (join key) kwp_iv indata).0 ==> (aesUnwrapKeyPadded (join key) kwp_iv indata).2 == unwrapped}};
+
+  out_len_out <- crucible_fresh_var "out_len_out" (llvm_int 64);
+  crucible_conditional_points_to {{(aesUnwrapKeyPadded (join key) kwp_iv indata).0}} out_len_ptr (crucible_term out_len_out);
+  crucible_postcond {{(aesUnwrapKeyPadded (join key) kwp_iv indata).0 ==> 
+    out_len_out == (0:[32]) # (join (aesUnwrapKeyPadded`{len + pad + 8} (join key) kwp_iv indata).1)}};
+
+  crucible_return (crucible_term {{if (aesUnwrapKeyPadded`{len + pad + 8} (join key) kwp_iv indata).0 then (1 : [32]) else (0:[32])}});
+};
+
+
+AES_wrap_key_16_ov <- crucible_llvm_verify m "AES_wrap_key" [aes_hw_encrypt_in_place_ov] true (AES_wrap_key_spec 16) (do {w4_unint_yices ["aesEncrypt"];});
+
+OPENSSL_malloc_16_ov <- crucible_llvm_unsafe_assume_spec
+  m
+  "OPENSSL_malloc"
+  (OPENSSL_malloc_spec 16);
+
+OPENSSL_free_nonnull_16_ov <- crucible_llvm_unsafe_assume_spec
+  m
+  "OPENSSL_free"
+  (OPENSSL_free_nonnull_spec 16);
+
+// Assume `OPENSSL_free` satisfies `OPENSSL_free_null_spec`
+OPENSSL_free_null_ov <- crucible_llvm_unsafe_assume_spec
+  m
+  "OPENSSL_free"
+  OPENSSL_free_null_spec;
+
+crucible_llvm_verify m "AES_wrap_key_padded" [AES_wrap_key_16_ov, OPENSSL_malloc_16_ov, OPENSSL_free_nonnull_16_ov, OPENSSL_free_null_ov] true (AES_wrap_key_padded_spec 15 1) (do {w4_unint_yices ["aesEncrypt"];});
+
+crucible_llvm_verify m "AES_wrap_key_padded" [AES_wrap_key_16_ov, OPENSSL_malloc_16_ov, OPENSSL_free_nonnull_16_ov, OPENSSL_free_null_ov] true (AES_wrap_key_padded_spec 16 0) (do {w4_unint_yices ["aesEncrypt"];});
+
+crucible_llvm_verify m "AES_wrap_key_padded" [aes_hw_encrypt_ov, OPENSSL_malloc_16_ov, OPENSSL_free_nonnull_16_ov, OPENSSL_free_null_ov] true (AES_wrap_key_padded_spec 8 0) (do {w4_unint_yices ["aesEncrypt"];});
+
+
+
+AES_unwrap_key_16_ov <- crucible_llvm_verify m "AES_unwrap_key" [aes_hw_decrypt_in_place_ov] true (AES_unwrap_key_spec 16) (do {w4_unint_yices ["aesDecrypt"];});
+
+
+
+crucible_llvm_verify m "AES_unwrap_key_padded" [aes_hw_decrypt_in_place_ov, value_barrier_w_ov] true (AES_unwrap_key_padded_spec 15 1) (do {w4_unint_yices ["aesDecrypt"];});
+
+crucible_llvm_verify m "AES_unwrap_key_padded" [aes_hw_decrypt_in_place_ov, value_barrier_w_ov] true (AES_unwrap_key_padded_spec 16 0) (do {w4_unint_yices ["aesDecrypt"];});
+
+crucible_llvm_verify m "AES_unwrap_key_padded" [aes_hw_decrypt_ov, value_barrier_w_ov] true (AES_unwrap_key_padded_spec 8 0) (do {w4_unint_yices ["aesDecrypt"];});
+
+
+
+//crucible_llvm_verify m "AES_wrap_key" [aes_hw_encrypt_in_place_ov] true (AES_wrap_key_spec 24) (do {w4_unint_yices ["aesEncrypt"];});
+//crucible_llvm_verify m "AES_wrap_key" [aes_hw_encrypt_in_place_ov] true (AES_wrap_key_spec 32) (do {w4_unint_yices ["aesEncrypt"];});
+
+//crucible_llvm_verify m "AES_unwrap_key" [aes_hw_decrypt_in_place_ov] true (AES_unwrap_key_spec 16) (do {w4_unint_yices ["aesDecrypt"];});
+
