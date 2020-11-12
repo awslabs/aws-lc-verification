@@ -180,7 +180,7 @@ let AES_unwrap_key_padded_spec len = AES_unwrap_key_padded_size_spec len {|(len+
 let verify_wrap_iv withIv = do {
   // Testing at length 16 is sufficient to cover all "good" branches and boundary conditions.
   // Additional checks are for common key sizes (32), and for extra spot checking
-  wrap_lengths <- for (eval_list {{ [16, 24 .. 64] : [7][32] }})
+  wrap_lengths <- for (eval_list {{ [16, 24, 32, 40] : [4][32] }})
     (\x -> (return (eval_int x)) : (TopLevel Int));
   // Wrap and unwrap (no padding) proof commands
   let verify_wrap length = do {
@@ -241,7 +241,7 @@ OPENSSL_free_nonnull_32_ov <- crucible_llvm_unsafe_assume_spec
 // Up to 8 bytes, the code uses a simpler branch that only performs a single encrypt.
 // After 16 bytes, all code and boundary conditions are covered.
 // Length 32 is also included because it is a common key size.
-wrap_padded_lengths <- for (eval_list {{ ([1 .. 16]#[32]) : [19][32] }})
+wrap_padded_lengths <- for (eval_list {{ ([1 .. 16]#[32]) : [18][32] }})
   (\x -> (return (eval_int x)) : (TopLevel Int));
 
 let verify_wrap_padded length = do {
