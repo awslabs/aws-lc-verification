@@ -39,7 +39,6 @@ value_barrier_w_ov <- llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "va
 
 
 let {{ ia32cap = [0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff] : [4][32] }};
-let do_prove = false;
 include "../AES/goal-rewrites-AES.saw";
 include "../AES/AES.saw";
 
@@ -241,7 +240,7 @@ OPENSSL_free_nonnull_32_ov <- crucible_llvm_unsafe_assume_spec
 // Up to 8 bytes, the code uses a simpler branch that only performs a single encrypt.
 // After 16 bytes, all code and boundary conditions are covered.
 // Length 32 is also included because it is a common key size.
-wrap_padded_lengths <- for (eval_list {{ ([1 .. 16]#[32]) : [18][32] }})
+wrap_padded_lengths <- for (eval_list {{ ([1 .. 16]#[32]) : [17][32] }})
   (\x -> (return (eval_int x)) : (TopLevel Int));
 
 let verify_wrap_padded length = do {
