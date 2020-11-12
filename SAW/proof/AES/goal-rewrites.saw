@@ -11,7 +11,7 @@
  */
 
 import "../../spec/AES/AES-GCM-implementation.cry";
-include "goal-rewrites-AES.saw"
+include "goal-rewrites-AES.saw";
 
 bar0 <- prove_folding_theorem {{ \(x : [128]) -> \y -> (x ^ y) ^ y == x }};
 bar1 <- prove_folding_theorem {{ \(x : [128]) -> \y -> (y ^ x) ^ y == x }};

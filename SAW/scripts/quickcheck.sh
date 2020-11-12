@@ -10,4 +10,4 @@ saw proof/SHA512/verify-SHA512-384-quickcheck.saw
 saw proof/SHA512/verify-SHA512-512-quickcheck.saw
 saw proof/HMAC/verify-HMAC-SHA384-quickcheck.saw
 saw proof/AES/verify-AES-GCM.saw
-
+saw proof/AES_KW/verify-AES_KW.saw
