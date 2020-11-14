@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 
+let HMAC_quick_check = HMAC_QUICK_CEHCK_PLACEHOLDER;
+
 // Import HMAC cryptol spec
 import "../../../cryptol-specs/Primitive/Keyless/Hash/HMAC.cry";
 
