@@ -1,0 +1,56 @@
+/* 
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+*/
+
+enable_experimental;
+
+// Recursively specify that the fields of an `hmac_ctx_st` are null
+let zeroed_hmac_ctx_st ptr = do {
+  crucible_points_to (crucible_field ptr "md") crucible_null;
+  points_to_env_md_ctx_st (crucible_field ptr "i_ctx") crucible_null crucible_null;
+  points_to_env_md_ctx_st (crucible_field ptr "o_ctx") crucible_null crucible_null;
+  points_to_env_md_ctx_st (crucible_field ptr "md_ctx") crucible_null crucible_null;
+};
+
+// Allocate state structs for `i_ctx`, `o_ctx`, and `md_ctx` fields in an
+// `hmac_ctx_st`
+let alloc_sha512_state_sts = do {
+  i_ctx_ptr <- crucible_alloc (llvm_struct "struct.sha512_state_st");
+  o_ctx_ptr <- crucible_alloc (llvm_struct "struct.sha512_state_st");
+  md_ctx_ptr <- crucible_alloc (llvm_struct "struct.sha512_state_st");
+  return (i_ctx_ptr, o_ctx_ptr, md_ctx_ptr);
+};
+
+// Specify the relation between  hmac_ctx_st and HMACState
+let points_to_hmac_ctx_st ptr md_ptr context num i_ctx_ptr o_ctx_ptr md_ctx_ptr = do {
+  // Check that `i_ctx`, `o_ctx`, and `md_ctx` match the spec.  We set the
+  // `num` argument for `i_ctx` and `o_ctx` to 0 because HMAC_Init_ex pads or
+  // hashes the key to make it exactly 128 bytes, so the `block` field of these
+  // structs is uninitialized by the SHA384 update function.  No other function
+  // modifies `i_ctx` or `o_ctx`.
+  points_to_sha512_state_st i_ctx_ptr {{ context.i_ctx }} 0;
+  points_to_sha512_state_st o_ctx_ptr {{ context.o_ctx }} 0;
+  points_to_sha512_state_st md_ctx_ptr {{ context.md_ctx }} num;
+
+  // Specify that the struct pointed by `ptr` references `i_ctx`, `o_ctx`, and
+  // `md_ctx`.  The `md_data` field of these structs are all the same.
+  points_to_env_md_ctx_st (crucible_field ptr "i_ctx") md_ptr i_ctx_ptr;
+  points_to_env_md_ctx_st (crucible_field ptr "o_ctx") md_ptr o_ctx_ptr;
+  points_to_env_md_ctx_st (crucible_field ptr "md_ctx") md_ptr md_ctx_ptr;
+
+  // Specify that `ptr.md` matches `md_ptr`
+  crucible_points_to (crucible_field ptr "md") md_ptr;
+};
+
+// Create a Cryptol HMACState
+let fresh_hmac_state_st name num = do {
+  // Create Cryptol SHAStates.  We set `n` to 0 for `i_ctx` and `o_ctx`
+  // because the init function always sets `n` to 0.
+  i_ctx <- fresh_sha512_state_st (str_concat name ".i_ctx") 0;
+  o_ctx <- fresh_sha512_state_st (str_concat name ".o_ctx") 0;
+  md_ctx <- fresh_sha512_state_st (str_concat name ".md_ctx") num;
+
+  // Build the HMACState record
+  return {{ { i_ctx = i_ctx, o_ctx = o_ctx, md_ctx = md_ctx } }};
+};

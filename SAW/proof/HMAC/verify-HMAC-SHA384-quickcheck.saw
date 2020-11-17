@@ -3,7 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 
-let HMAC_quick_check = HMAC_QUICK_CEHCK_PLACEHOLDER;
+let HMAC_quick_check = true;
+let HMAC_target_key_len = 0;
+let HMAC_target_num = 0;
 
 // Import HMAC cryptol spec
 import "../../../cryptol-specs/Primitive/Keyless/Hash/HMAC.cry";
@@ -12,4 +14,8 @@ import "../../../cryptol-specs/Primitive/Keyless/Hash/HMAC.cry";
 include "../SHA512/verify-SHA512-384-quickcheck.saw";
 
 // Include HMAC proof
-include "HMAC.saw";
+include "verify-HMAC-CTX-init.saw";
+include "verify-HMAC-Init-ex.saw";
+include "verify-HMAC-Update.saw";
+include "verify-HMAC-Final.saw";
+include "verify-HMAC-spec.saw";

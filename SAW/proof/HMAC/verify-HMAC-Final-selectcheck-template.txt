@@ -1,0 +1,19 @@
+/* 
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+*/
+
+let HMAC_quick_check = false;
+let HMAC_target_num = HMAC_TARGET_NUM_PLACEHOLDER;
+
+// Import HMAC cryptol spec
+import "../../../cryptol-specs/Primitive/Keyless/Hash/HMAC.cry";
+
+// Include SHA512 helper functions
+include "../SHA512/SHA512-common.saw";
+
+// Include SHA384 defines
+include "../SHA512/SHA512-384.saw";
+
+// Include HMAC proof
+include "verify-HMAC-Final.saw";

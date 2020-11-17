@@ -55,7 +55,7 @@ func runSawScript(path_to_saw_file string) {
 }
 
 func main() {
-	log.Printf("Starting SHA512-384 check.")
+	log.Printf("Started SHA512-384 check.")
 	// When 'SHA512_384_SELECTCHECK' is undefined, quickcheck is executed.
 	env_var := os.Getenv("SHA512_384_SELECTCHECK")
 	if len(env_var) == 0 {

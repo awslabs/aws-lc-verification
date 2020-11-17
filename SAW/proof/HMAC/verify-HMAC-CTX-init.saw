@@ -1,0 +1,27 @@
+/* 
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+*/
+
+// Include HMAC helper functions.
+include "HMAC-common.saw";
+
+// Specification of the HMAC_CTX_init function
+let HMAC_CTX_init_spec = do {
+  // Precondition: `hmac_ctx_ptr` points to an `hmac_ctx_st` struct
+  hmac_ctx_ptr <- crucible_alloc (llvm_struct "struct.hmac_ctx_st");
+
+  // Call function with `hmac_ctx_ptr`
+  crucible_execute_func [hmac_ctx_ptr];
+
+  // Postcondition: The struct pointed to by `hmac_ctx_ptr` has been zeroed out
+  zeroed_hmac_ctx_st hmac_ctx_ptr;
+};
+
+// Verify the `HMAC_CTX_init` C function satisfies the `HMAC_CTX_init_spec`
+// specification
+crucible_llvm_verify m "HMAC_CTX_init"
+  []
+  true
+  HMAC_CTX_init_spec
+  (w4_unint_yices []);

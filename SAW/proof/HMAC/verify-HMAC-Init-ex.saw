@@ -1,0 +1,82 @@
+/* 
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+*/
+
+// Include HMAC helper functions.
+include "HMAC-common.saw";
+
+// Specification of the HMAC_Init_ex function
+let HMAC_Init_ex_spec key_len = do {
+  // Precondition: The function uses the AVX+shrd code path
+  global_alloc_init "OPENSSL_ia32cap_P" {{ ia32cap }};
+
+  // Precondition: `hmac_ctx_ptr` points to a zeroed out `hmac_ctx_st`
+  hmac_ctx_ptr <- crucible_alloc (llvm_struct "struct.hmac_ctx_st");
+  zeroed_hmac_ctx_st hmac_ctx_ptr;
+
+  // Precondition: `key` is an array of `key_len` bytes.  `key_ptr` points to
+  // `key`.
+  (key, key_ptr) <- ptr_to_fresh_readonly "key" (llvm_array key_len (llvm_int 8));
+
+  // Precondition: `md_ptr` points to a const `env_md_st` struct satisfying the
+  // `env_md_st` specification.
+  md_ptr <- crucible_alloc_readonly (llvm_struct "struct.env_md_st");
+  points_to_env_md_st md_ptr;
+
+  // Call function with `hmac_ctx_ptr`, `key_ptr`, `key_len`, `md_ptr`, and NULL
+  crucible_execute_func
+    [ hmac_ctx_ptr
+    , key_ptr
+    , crucible_term {{ `key_len : [64] }}
+    , md_ptr
+    , crucible_null
+    ];
+
+  // Postcondition: The function has not changed the variable that decides the
+  // AVX+shrd code path
+  global_points_to "OPENSSL_ia32cap_P" {{ ia32cap }};
+
+  // Postcondition: `i_ctx_ptr`, `o_ctx_ptr`, and `md_ctx_ptr` are
+  // `sha512_state_st` structs
+  (i_ctx_ptr, o_ctx_ptr, md_ctx_ptr) <- alloc_sha512_state_sts;
+  // Postcondition: The data pointed to by `hmac_ctx_ptr` matches the context
+  // returned by the cryptol function `HMACInit` when applied to `key`.
+  points_to_hmac_ctx_st hmac_ctx_ptr md_ptr {{ HMACInit key }} 0 i_ctx_ptr o_ctx_ptr md_ctx_ptr;
+
+  // Postcondition: The function returns 1
+  crucible_return (crucible_term {{ 1 : [32] }});
+};
+
+let verify_HMAC_Init_ex_spec key_len = do {
+  print (str_concat "Verifying HMAC_Init_ex_spec at key_len=" (show key_len));
+  crucible_llvm_verify m "HMAC_Init_ex"
+    [ sha512_block_data_order_spec
+    , OPENSSL_malloc_ov
+    , OPENSSL_free_nonnull_ov
+    , OPENSSL_free_null_ov
+    , OPENSSL_cleanse_ov
+    ]
+    true
+    (HMAC_Init_ex_spec key_len)
+    (w4_unint_yices []);
+};
+
+// Verify the `HMAC_Init_ex` C function satisfies the `HMAC_Init_ex_spec` specification.  
+if HMAC_quick_check then do {
+  // There are two cases to consider.
+  // Case 1: key_len=128 covers the case where the key is less than or equal to 128
+  // bytes long and will be used as-is when XORed to create the pad inputs to
+  // the SHA384 update function calls
+  // Case 2: key_len=129 covers the case where the key is greater than 128 bytes long
+  // and will be hashed before being XORed to create the pad inputs to the
+  // SHA384 update function calls
+  for [128, 129] verify_HMAC_Init_ex_spec;
+  return ();
+} else do {
+  // key_lens <- for (eval_list {{ [0 .. (SHA512_CBLOCK + 1)] : [SHA512_CBLOCK + 2][64] }})
+  //   (\x -> (return (eval_int x)) : (TopLevel Int));
+  // for key_lens verify_HMAC_Init_ex_spec;
+  verify_HMAC_Init_ex_spec HMAC_target_key_len;
+  return ();
+};
