@@ -3,8 +3,6 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 
-enable_experimental;
-
 import "../../../cryptol-specs/Primitive/Symmetric/Cipher/Block/AESKeyWrap.cry";
 import "../../../cryptol-specs/Primitive/Symmetric/Cipher/Block/AES.cry";
 import "../../../cryptol-specs/Primitive/Symmetric/Cipher/Authenticated/AES_256_GCM.cry";
@@ -20,16 +18,18 @@ let {{ ia32cap = [0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff] : [4][32] }};
 include "../AES/goal-rewrites-AES.saw";
 include "../AES/AES.saw";
 
-let {{ kw_iv = [0xa6, 0xa6, 0xa6, 0xa6, 0xa6, 0xa6, 0xa6, 0xa6] : [8][8] }};
+let {{ kw_default_iv = [0xa6, 0xa6, 0xa6, 0xa6, 0xa6, 0xa6, 0xa6, 0xa6] : [8][8] }};
 
 let ivPre withIv = do {
   if withIv then do {
     ptr_to_fresh_readonly "iv" (llvm_array 8 (llvm_int 8));
   } else do {
-    return ({{kw_iv}}, crucible_null);
+    return ({{kw_default_iv}}, crucible_null);
   };
 };
 
+// Spec for wrap function when the plaintext length is valid (at least 16 and a multiple of 8).
+// The withLen parameter determines whether the IV pointer is non-null.
 let AES_wrap_key_spec withIv len = do {
   global_alloc_init "OPENSSL_ia32cap_P" {{ ia32cap }};
   
@@ -46,6 +46,8 @@ let AES_wrap_key_spec withIv len = do {
   crucible_return (crucible_term {{`len+8 : [32]}});
 };
 
+// Spec for unwrap function when the plaintext length is valid (at least 16 and a multiple of 8).
+// The withLen parameter determines whether the IV pointer is non-null.
 let AES_unwrap_key_spec withIv len = do {
   global_alloc_init "OPENSSL_ia32cap_P" {{ia32cap}};
   
@@ -67,6 +69,9 @@ let AES_unwrap_key_spec withIv len = do {
   crucible_return (crucible_term {{if (aesUnwrapKey (join (key_low#key_high)) iv indata).0 then (`len : [32]) else (-1 : [32])}});
 };
 
+// Spec for wrap function when the plaintext length is invalid (less than 16 or not a multiple of 8).
+// In this case, the function will return -1 to indicate an error.
+// The withLen parameter determines whether the IV pointer is non-null.
 let AES_wrap_key_bad_length_spec withIv len = do {
   global_alloc_init "OPENSSL_ia32cap_P" {{ ia32cap }};
   
@@ -82,6 +87,9 @@ let AES_wrap_key_bad_length_spec withIv len = do {
   crucible_return (crucible_term {{-1 : [32]}});
 };
 
+// Spec for unwrap function when the plaintext length is invalid (less than 16 or not a multiple of 8).
+// In this case, the function will return -1 to indicate an error.
+// The withLen parameter determines whether the IV pointer is non-null.
 let AES_unwrap_key_bad_length_spec withIv len = do {
   global_alloc_init "OPENSSL_ia32cap_P" {{ia32cap}};
   

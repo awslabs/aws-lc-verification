@@ -3,8 +3,6 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 
-enable_experimental;
-
 import "../../../cryptol-specs/Primitive/Symmetric/Cipher/Block/AESKeyWrapPadded.cry";
 import "../../../cryptol-specs/Primitive/Symmetric/Cipher/Block/AES.cry";
 import "../../../cryptol-specs/Primitive/Symmetric/Cipher/Authenticated/AES_256_GCM.cry";
@@ -17,30 +15,14 @@ m <- llvm_load_module "../../build/llvm/crypto/crypto_test.bc";
 include "../common/helpers.saw";
 // Include memory management specs
 include "../common/memory.saw";
+// Include override for value_barrier_w
+include "../common/internal.saw";
 
 let {{ ia32cap = [0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff] : [4][32] }};
 include "../AES/goal-rewrites-AES.saw";
 include "../AES/AES.saw";
 
-// The value_barrier_w function is used to prevent compiler optimizations that might
-// break constant-time implementations. The functional spec is that it takes a value
-// and returns it with no side effects.
-let value_barrier_w_spec = do {
-  
-  a <- crucible_fresh_var "a" (llvm_int 64);
-  crucible_execute_func [crucible_term a];
-  crucible_return (crucible_term a);
-};
-
-value_barrier_w_ov <- llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "value_barrier_w"
-  []
-  true
-  value_barrier_w_spec
-  (do {
-    w4_unint_yices [];
-  });
-
-let {{kwp_iv = [0xa6, 0x59, 0x59, 0xa6] : [4][8]}};
+let {{kwp_default_iv = [0xa6, 0x59, 0x59, 0xa6] : [4][8]}};
 
 // The core spec for (un)wrap padded accepts a plaintext length and pad length.
 // The correct pad length is calculated by the top-level spec.
@@ -56,7 +38,7 @@ let AES_wrap_key_padded_size_spec len pad = do {
 
   crucible_execute_func [key_ptr, out_ptr, out_len_ptr, crucible_term {{`len+`pad+8 : [64]}}, indata_ptr, crucible_term {{`len : [64]}}];
 
-  crucible_points_to out_ptr (crucible_term {{aesWrapKeyPadded`{len, pad} (join key) kwp_iv indata}});
+  crucible_points_to out_ptr (crucible_term {{aesWrapKeyPadded`{len, pad} (join key) kwp_default_iv indata}});
   crucible_points_to out_len_ptr (crucible_term {{`len+`pad+8 : [64]}});
   crucible_return (crucible_term {{1 : [32]}});
 };
@@ -79,16 +61,16 @@ let AES_unwrap_key_padded_size_spec len pad = do {
   // Use a new symbolic variable to represent the value stored in the output buffer.
   unwrapped <- crucible_fresh_var "unwrapped" (llvm_array (eval_size {|len + pad|}) (llvm_int 8));
   // If the unwrap succeeds, the output buffer holds this symbolic value, and this value is equal to the result of unwrap.
-  crucible_conditional_points_to {{(aesUnwrapKeyPadded (join (key_low#key_high)) kwp_iv indata).0}} out_ptr (crucible_term unwrapped);
-  crucible_postcond {{(aesUnwrapKeyPadded (join (key_low#key_high)) kwp_iv indata).0 ==> (aesUnwrapKeyPadded (join (key_low#key_high)) kwp_iv indata).2 == unwrapped}};
+  crucible_conditional_points_to {{(aesUnwrapKeyPadded (join (key_low#key_high)) kwp_default_iv indata).0}} out_ptr (crucible_term unwrapped);
+  crucible_postcond {{(aesUnwrapKeyPadded (join (key_low#key_high)) kwp_default_iv indata).0 ==> (aesUnwrapKeyPadded (join (key_low#key_high)) kwp_default_iv indata).2 == unwrapped}};
 
   // Similarly, the output length is only correct when unwrap succeeds.
   out_len_out <- crucible_fresh_var "out_len_out" (llvm_int 64);
-  crucible_conditional_points_to {{(aesUnwrapKeyPadded (join (key_low#key_high)) kwp_iv indata).0}} out_len_ptr (crucible_term out_len_out);
-  crucible_postcond {{(aesUnwrapKeyPadded (join (key_low#key_high)) kwp_iv indata).0 ==> 
-    out_len_out == (0 : [32]) # (join (aesUnwrapKeyPadded`{len+pad+8} (join (key_low#key_high)) kwp_iv indata).1)}};
+  crucible_conditional_points_to {{(aesUnwrapKeyPadded (join (key_low#key_high)) kwp_default_iv indata).0}} out_len_ptr (crucible_term out_len_out);
+  crucible_postcond {{(aesUnwrapKeyPadded (join (key_low#key_high)) kwp_default_iv indata).0 ==> 
+    out_len_out == (0 : [32]) # (join (aesUnwrapKeyPadded`{len+pad+8} (join (key_low#key_high)) kwp_default_iv indata).1)}};
 
-  crucible_return (crucible_term {{if (aesUnwrapKeyPadded`{len+pad+8} (join (key_low#key_high)) kwp_iv indata).0 then (1 : [32]) else (0 : [32])}});
+  crucible_return (crucible_term {{if (aesUnwrapKeyPadded`{len+pad+8} (join (key_low#key_high)) kwp_default_iv indata).0 then (1 : [32]) else (0 : [32])}});
 };
 
 let AES_unwrap_key_padded_spec len = AES_unwrap_key_padded_size_spec len {|(len+7)/8*8-len|};
