@@ -6,33 +6,28 @@ FROM ubuntu:20.04
 RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections
 RUN set -ex && \
     apt-get update && \
-    apt-get -y --no-install-recommends upgrade && \
-    apt-get -y --no-install-recommends install software-properties-common && \
-    add-apt-repository ppa:longsleep/golang-backports && \
-    apt-get -y --no-install-recommends install \
-    build-essential \
-    wget \
+    apt-get install -y wget \
     unzip \
     git \
     cmake \
     clang \
     llvm \
-    golang-go \
     python3-pip \
+    ca-certificates \
     libncurses5 \
     quilt && \
-    pip3 install wllvm && \
-    apt-get autoremove --purge -y && \
-    apt-get clean && \
-    apt-get autoclean && \
-    rm -rf /var/lib/apt/lists/* && \
-    rm -rf /tmp/*
+    cd /tmp && \
+    wget https://dl.google.com/go/go1.15.5.linux-amd64.tar.gz && \
+    tar -xvf go1.15.5.linux-amd64.tar.gz && \
+    mv go /usr/local
+
+RUN pip3 install wllvm
 
 ADD ./SAW/scripts /lc/scripts
 RUN /lc/scripts/install.sh
 ENV CRYPTOLPATH=../../../cryptol-specs
-# ENV GOROOT=/usr/local/go
-# ENV PATH="$GOROOT/bin:$PATH"
+ENV GOROOT=/usr/local/go
+ENV PATH="$GOROOT/bin:$PATH"
 
 # This container expects all files in the directory to be mounted or copied. 
 # The GitHub action will mount the workspace and set the working directory of the container.
