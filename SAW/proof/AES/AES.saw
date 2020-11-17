@@ -26,8 +26,8 @@ let points_to_aes_key_st ptr key = do {
 
 // Some specs manipulate the blocks of the key, it is useful to represent the key as a pair of blocks.
 let fresh_aes_key_256_parts = do {
-  low <- crucible_fresh_var "inv_key_low" (llvm_array (eval_size {|aes_key_len/2|}) (llvm_int 8));
-  high <- crucible_fresh_var "inv_key_high" (llvm_array (eval_size {|aes_key_len/2|}) (llvm_int 8));
+  low <- crucible_fresh_var "key_low" (llvm_array (eval_size {|aes_key_len/2|}) (llvm_int 8));
+  high <- crucible_fresh_var "key_high" (llvm_array (eval_size {|aes_key_len/2|}) (llvm_int 8));
   return (low,high);
 };
 

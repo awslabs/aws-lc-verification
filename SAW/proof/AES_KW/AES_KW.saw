@@ -28,7 +28,7 @@ let ivPre withIv = do {
   };
 };
 
-// Spec for wrap function when the plaintext length is valid (at least 16 and a multiple of 8).
+// Spec for wrap function.
 // The withLen parameter determines whether the IV pointer is non-null.
 let AES_wrap_key_spec withIv len = do {
   global_alloc_init "OPENSSL_ia32cap_P" {{ ia32cap }};
@@ -38,15 +38,19 @@ let AES_wrap_key_spec withIv len = do {
   points_to_aes_key_st key_ptr key;
   (iv, iv_ptr) <- ivPre withIv;
   (indata, indata_ptr) <- ptr_to_fresh_readonly "in" (llvm_array len (llvm_int 8));
-  (out, out_ptr) <- ptr_to_fresh "out" (llvm_array (eval_size {|len+8|}) (llvm_int 8));
+  out_ptr <- crucible_alloc (llvm_array (eval_size {|len+8|}) (llvm_int 8));
 
   crucible_execute_func [key_ptr, iv_ptr, out_ptr, indata_ptr, crucible_term {{`len : [64]}}];
 
-  crucible_points_to out_ptr (crucible_term {{aesWrapKey (join key) iv indata}});
-  crucible_return (crucible_term {{`len+8 : [32]}});
+  if eval_bool {{ `len >= 16 /\ `len % 8 == 0 }} then do {
+    crucible_points_to out_ptr (crucible_term {{aesWrapKey (join key) iv indata}});
+    crucible_return (crucible_term {{`len+8 : [32]}});
+  } else do {
+    crucible_return (crucible_term {{-1 : [32]}});
+  };
 };
 
-// Spec for unwrap function when the plaintext length is valid (at least 16 and a multiple of 8).
+// Spec for unwrap function.
 // The withLen parameter determines whether the IV pointer is non-null.
 let AES_unwrap_key_spec withIv len = do {
   global_alloc_init "OPENSSL_ia32cap_P" {{ia32cap}};
@@ -56,55 +60,22 @@ let AES_unwrap_key_spec withIv len = do {
   points_to_inv_aes_key_st key_ptr (key_low, key_high);
   (iv, iv_ptr) <- ivPre withIv;
   (indata, indata_ptr) <- ptr_to_fresh_readonly "in" (llvm_array (eval_size {|len+8|}) (llvm_int 8));
-  (out, out_ptr) <- ptr_to_fresh "out" (llvm_array len (llvm_int 8));
+  out_ptr <- crucible_alloc (llvm_array len (llvm_int 8));
 
   crucible_execute_func [key_ptr, iv_ptr, out_ptr, indata_ptr, crucible_term {{`len+8 : [64]}}];
 
-  // The cryptol spec only produces the plaintext when unwrap succeeds. So this part is only checked conditionally.
-  // Use a new symbolic variable to represent the value stored in the output buffer.
-  unwrapped <- crucible_fresh_var "unwrapped" (llvm_array len (llvm_int 8));
-  // If the unwrap succeeds, the output buffer holds this symbolic value, and this value is equal to the result of unwrap.
-  crucible_conditional_points_to {{(aesUnwrapKey (join (key_low#key_high)) iv indata).0}} out_ptr (crucible_term unwrapped);
-  crucible_postcond {{(aesUnwrapKey (join (key_low#key_high)) iv indata).0 ==> (aesUnwrapKey (join (key_low#key_high)) iv indata).1 == unwrapped}};
-  crucible_return (crucible_term {{if (aesUnwrapKey (join (key_low#key_high)) iv indata).0 then (`len : [32]) else (-1 : [32])}});
+  if eval_bool {{ `len >= 16 /\ `len % 8 == 0 }} then do {
+    // The cryptol spec only produces the plaintext when unwrap succeeds. So this part is only checked conditionally.
+    // Use a new symbolic variable to represent the value stored in the output buffer.
+    unwrapped <- crucible_fresh_var "unwrapped" (llvm_array len (llvm_int 8));
+    // If the unwrap succeeds, the output buffer holds this symbolic value, and this value is equal to the result of unwrap.
+    crucible_conditional_points_to {{(aesUnwrapKey (join (key_low#key_high)) iv indata).0}} out_ptr (crucible_term unwrapped);
+    crucible_postcond {{(aesUnwrapKey (join (key_low#key_high)) iv indata).0 ==> (aesUnwrapKey (join (key_low#key_high)) iv indata).1 == unwrapped}};
+    crucible_return (crucible_term {{if (aesUnwrapKey (join (key_low#key_high)) iv indata).0 then (`len : [32]) else (-1 : [32])}});
+  } else do {
+    crucible_return (crucible_term {{-1 : [32]}});
+  };
 };
-
-// Spec for wrap function when the plaintext length is invalid (less than 16 or not a multiple of 8).
-// In this case, the function will return -1 to indicate an error.
-// The withLen parameter determines whether the IV pointer is non-null.
-let AES_wrap_key_bad_length_spec withIv len = do {
-  global_alloc_init "OPENSSL_ia32cap_P" {{ ia32cap }};
-  
-  key_ptr <- crucible_alloc_readonly (llvm_struct "struct.aes_key_st");
-  key <- fresh_aes_key_st;
-  points_to_aes_key_st key_ptr key;
-  (iv, iv_ptr) <- ivPre withIv;
-  (indata, indata_ptr) <- ptr_to_fresh_readonly "in" (llvm_array len (llvm_int 8));
-  (out, out_ptr) <- ptr_to_fresh "out" (llvm_array (eval_size {|len+8|}) (llvm_int 8));
-
-  crucible_execute_func [key_ptr, iv_ptr, out_ptr, indata_ptr, crucible_term {{`len : [64]}}];
-
-  crucible_return (crucible_term {{-1 : [32]}});
-};
-
-// Spec for unwrap function when the plaintext length is invalid (less than 16 or not a multiple of 8).
-// In this case, the function will return -1 to indicate an error.
-// The withLen parameter determines whether the IV pointer is non-null.
-let AES_unwrap_key_bad_length_spec withIv len = do {
-  global_alloc_init "OPENSSL_ia32cap_P" {{ia32cap}};
-  
-  key_ptr <- crucible_alloc_readonly (llvm_struct "struct.aes_key_st");
-  (key_low, key_high) <- fresh_aes_key_256_parts;
-  points_to_inv_aes_key_st key_ptr (key_low, key_high);
-  (iv, iv_ptr) <- ivPre withIv;
-  (indata, indata_ptr) <- ptr_to_fresh_readonly "in" (llvm_array (eval_size {|len+8|}) (llvm_int 8));
-  (out, out_ptr) <- ptr_to_fresh "out" (llvm_array len (llvm_int 8));
-
-  crucible_execute_func [key_ptr, iv_ptr, out_ptr, indata_ptr, crucible_term {{`len+8 : [64]}}];
-
-  crucible_return (crucible_term {{-1 : [32]}});
-};
-
 
 // Wrap and unwrap (unpadded) proof commands
 
@@ -112,7 +83,7 @@ let AES_unwrap_key_bad_length_spec withIv len = do {
 let verify_wrap_iv withIv = do {
   // Testing at length 16 is sufficient to cover all "good" branches and boundary conditions.
   // Additional checks are for common key sizes (32), and for extra spot checking
-  wrap_lengths <- for (eval_list {{ ([16, 24 .. 40]): [4][32] }})
+  wrap_lengths <- for (eval_list {{ ([0 .. 17] # [24, 32, 40]): [21][32] }})
     (\x -> (return (eval_int x)) : (TopLevel Int));
   // Wrap and unwrap (no padding) proof commands
   let verify_wrap length = do {
@@ -122,17 +93,6 @@ let verify_wrap_iv withIv = do {
     crucible_llvm_verify m "AES_unwrap_key" [aes_hw_decrypt_in_place_ov] true (AES_unwrap_key_spec withIv length) (do {w4_unint_yices ["aesDecrypt"];});
   };
   for wrap_lengths verify_wrap;
-
-  // Remaining cases cover wrap/unwrap failure due to bad size
-  wrap_bad_lengths <- for (eval_list {{ ([0 .. 15]#[17]): [17][32] }})
-    (\x -> (return (eval_int x)) : (TopLevel Int));
-  // Wrap and unwrap (no padding) proof commands
-  let verify_bad_wrap length = do {
-    print (str_concat (str_concat (str_concat "Verifying wrap and uwrap withIv=" (show withIv)) " at length=") (show length));
-    crucible_llvm_verify m "AES_wrap_key" [] false (AES_wrap_key_bad_length_spec withIv length) (do {w4_unint_yices [];});
-    crucible_llvm_verify m "AES_unwrap_key" [] false (AES_unwrap_key_bad_length_spec withIv length) (do {w4_unint_yices [];});
-  };
-  for wrap_bad_lengths verify_bad_wrap;
 };
 for [false, true] verify_wrap_iv;
 
