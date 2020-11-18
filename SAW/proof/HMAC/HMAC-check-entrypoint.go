@@ -29,7 +29,7 @@ func main() {
 		saw_template := "verify-HMAC-Init-ex-selectcheck-template.txt"
 		placeholder_name := "HMAC_TARGET_KEY_LEN_PLACEHOLDER"
 		go utility.CreateAndRunSawScript(saw_template, placeholder_name, num, &wg)
-		utility.Wait(&count, utility.PROCESS_LIMIT, &wg)
+		utility.Wait(&count, utility.HMAC_PROCESS_LIMIT, &wg)
 		count++
 	}
 	wg.Wait()
@@ -41,7 +41,7 @@ func main() {
 		saw_template := "verify-HMAC-Final-selectcheck-template.txt"
 		placeholder_name := "HMAC_TARGET_NUM_PLACEHOLDER"
 		go utility.CreateAndRunSawScript(saw_template, placeholder_name, num, &wg)
-		utility.Wait(&count, utility.PROCESS_LIMIT, &wg)
+		utility.Wait(&count, utility.HMAC_PROCESS_LIMIT, &wg)
 		count++
 	}
 
