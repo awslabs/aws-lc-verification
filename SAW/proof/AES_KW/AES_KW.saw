@@ -64,8 +64,8 @@ let AES_unwrap_key_spec withIv len = do {
 
   crucible_execute_func [key_ptr, iv_ptr, out_ptr, indata_ptr, crucible_term {{`len+8 : [64]}}];
 
-  let unwrap_res = {{ aesUnwrapKey (join (key_low#key_high)) iv indata }};
   if eval_bool {{ `len >= 16 /\ `len % 8 == 0 }} then do {
+    let unwrap_res = {{ aesUnwrapKey (join (key_low#key_high)) iv indata }};
     // The cryptol spec only produces the plaintext when unwrap succeeds. So this part is only checked conditionally.
     // Use a new symbolic variable to represent the value stored in the output buffer.
     unwrapped <- crucible_fresh_var "unwrapped" (llvm_array len (llvm_int 8));
