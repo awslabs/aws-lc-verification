@@ -12,6 +12,8 @@ import (
 	"sync"
 )
 
+const sha_process_limit int = 20
+
 func main() {
 	log.Printf("Started SHA512-384 check.")
 	// When 'SHA512_384_SELECTCHECK' is undefined, quickcheck is executed.
@@ -28,11 +30,13 @@ func main() {
 
 	// Generate saw scripts based on above verification template and target num ranges.
 	var wg sync.WaitGroup
+	process_count := 0
 	for _, num := range target_nums {
 		wg.Add(1)
 		saw_template := "verify-SHA512-384-selectcheck-template.txt"
 		placeholder_name := "TARGET_NUM_PLACEHOLDER"
 		go utility.CreateAndRunSawScript(saw_template, placeholder_name, num, &wg)
+		utility.Wait(&process_count, sha_process_limit, &wg)
 	}
 
 	wg.Wait()

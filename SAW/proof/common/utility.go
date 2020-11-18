@@ -16,8 +16,6 @@ import (
 	"sync"
 )
 
-const HMAC_PROCESS_LIMIT int = 60
-
 // A utility function to terminate this program when err exists.
 func CheckError(e error) {
 	if e != nil {
@@ -56,10 +54,13 @@ func RunSawScript(path_to_saw_file string) {
 	CheckError(err)
 }
 
-func Wait(count *int, limit int, wg *sync.WaitGroup) {
-	if *count >= limit {
-		log.Printf("Count [%d] reached process limit [%d].", *count, limit)
+// A function to limit number of concurrent processes.
+func Wait(process_count *int, limit int, wg *sync.WaitGroup) {
+	if *process_count >= limit {
+		log.Printf("Count [%d] reached process limit [%d].", *process_count, limit)
 		wg.Wait()
-		*count = 0
+		*process_count = 0
+	} else {
+		*process_count = (*process_count) + 1
 	}
 }

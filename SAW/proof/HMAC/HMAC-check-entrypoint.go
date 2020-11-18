@@ -12,6 +12,11 @@ import (
 	"sync"
 )
 
+// Only allow at most 20 processes concurrently executing the HMAC select check.
+// More than 20 will let container (with 145 GB memory, 72 vCPUs) killing the test.
+// See CryptoAlg-588 for details.
+const hmac_process_limit int = 20
+
 func main() {
 	log.Printf("Started HMAC check.")
 	// When 'HMAC_SELECTCHECK' is undefined, quickcheck is executed.
@@ -23,26 +28,24 @@ func main() {
 
 	// When 'HMAC_SELECTCHECK' is defined, run 'HMAC-Init-ex' with diff parameters concurrently.
 	var wg sync.WaitGroup
-	count := 0
+	process_count := 0
 	for num := 0; num <= 129; num++ {
 		wg.Add(1)
 		saw_template := "verify-HMAC-Init-ex-selectcheck-template.txt"
 		placeholder_name := "HMAC_TARGET_KEY_LEN_PLACEHOLDER"
 		go utility.CreateAndRunSawScript(saw_template, placeholder_name, num, &wg)
-		count++
-		utility.Wait(&count, utility.HMAC_PROCESS_LIMIT, &wg)
+		utility.Wait(&process_count, hmac_process_limit, &wg)
 	}
 	wg.Wait()
 
 	// When 'HMAC_SELECTCHECK' is defined, run 'HMAC-Final' with diff parameters concurrently.
-	count = 0
+	process_count = 0
 	for num := 0; num <= 127; num++ {
 		wg.Add(1)
 		saw_template := "verify-HMAC-Final-selectcheck-template.txt"
 		placeholder_name := "HMAC_TARGET_NUM_PLACEHOLDER"
 		go utility.CreateAndRunSawScript(saw_template, placeholder_name, num, &wg)
-		count++
-		utility.Wait(&count, utility.HMAC_PROCESS_LIMIT, &wg)
+		utility.Wait(&process_count, hmac_process_limit, &wg)
 	}
 	wg.Wait()
 
