@@ -55,3 +55,11 @@ func RunSawScript(path_to_saw_file string) {
 	err := cmd.Run()
 	CheckError(err)
 }
+
+func Wait(count *int, limit int, wg *sync.WaitGroup) {
+	if *count >= limit {
+		log.Printf("Count [%d] reached process limit [%d].", *count, limit)
+		wg.Wait()
+		*count = 0
+	}
+}

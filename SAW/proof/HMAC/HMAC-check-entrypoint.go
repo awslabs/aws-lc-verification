@@ -29,26 +29,19 @@ func main() {
 		saw_template := "verify-HMAC-Init-ex-selectcheck-template.txt"
 		placeholder_name := "HMAC_TARGET_KEY_LEN_PLACEHOLDER"
 		go utility.CreateAndRunSawScript(saw_template, placeholder_name, num, &wg)
-		if count >= utility.PROCESS_LIMIT {
-			log.Printf("Reached process limit.")
-			wg.Wait()
-			count = 0
-		}
+		utility.Wait(&count, utility.PROCESS_LIMIT, &wg)
 		count++
 	}
 	wg.Wait()
 
 	// When 'HMAC_SELECTCHECK' is defined, run 'HMAC-Final' with diff parameters concurrently.
+	count = 0
 	for num := 0; num <= 127; num++ {
 		wg.Add(1)
 		saw_template := "verify-HMAC-Final-selectcheck-template.txt"
 		placeholder_name := "HMAC_TARGET_NUM_PLACEHOLDER"
 		go utility.CreateAndRunSawScript(saw_template, placeholder_name, num, &wg)
-		if count >= utility.PROCESS_LIMIT {
-			log.Printf("Reached process limit.")
-			wg.Wait()
-			count = 0
-		}
+		utility.Wait(&count, utility.PROCESS_LIMIT, &wg)
 		count++
 	}
 
