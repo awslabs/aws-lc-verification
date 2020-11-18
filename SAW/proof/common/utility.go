@@ -16,7 +16,7 @@ import (
 	"sync"
 )
 
-const HMAC_PROCESS_LIMIT int = 40
+const HMAC_PROCESS_LIMIT int = 60
 
 // A utility function to terminate this program when err exists.
 func CheckError(e error) {
