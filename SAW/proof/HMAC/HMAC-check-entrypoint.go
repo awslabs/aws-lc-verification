@@ -23,11 +23,18 @@ func main() {
 
 	// When 'HMAC_SELECTCHECK' is defined, run 'HMAC-Init-ex' with diff parameters concurrently.
 	var wg sync.WaitGroup
+	count := 0
 	for num := 0; num <= 129; num++ {
 		wg.Add(1)
 		saw_template := "verify-HMAC-Init-ex-selectcheck-template.txt"
 		placeholder_name := "HMAC_TARGET_KEY_LEN_PLACEHOLDER"
 		go utility.CreateAndRunSawScript(saw_template, placeholder_name, num, &wg)
+		if count >= utility.PROCESS_LIMIT {
+			log.Printf("Reached process limit.")
+			wg.Wait()
+			count = 0
+		}
+		count++
 	}
 	wg.Wait()
 
@@ -37,6 +44,12 @@ func main() {
 		saw_template := "verify-HMAC-Final-selectcheck-template.txt"
 		placeholder_name := "HMAC_TARGET_NUM_PLACEHOLDER"
 		go utility.CreateAndRunSawScript(saw_template, placeholder_name, num, &wg)
+		if count >= utility.PROCESS_LIMIT {
+			log.Printf("Reached process limit.")
+			wg.Wait()
+			count = 0
+		}
+		count++
 	}
 
 	wg.Wait()

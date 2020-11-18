@@ -16,6 +16,8 @@ import (
 	"sync"
 )
 
+const PROCESS_LIMIT int = 10
+
 // A utility function to terminate this program when err exists.
 func CheckError(e error) {
 	if e != nil {
