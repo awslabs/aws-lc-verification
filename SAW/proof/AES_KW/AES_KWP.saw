@@ -35,7 +35,7 @@ let AES_wrap_key_padded_spec len = do {
   points_to_aes_key_st key_ptr key;
   (indata, indata_ptr) <- ptr_to_fresh_readonly "in" (llvm_array len (llvm_int 8));
   out_ptr <- crucible_alloc (llvm_array (eval_size {|len+pad+8|}) (llvm_int 8));
-  (out_len, out_len_ptr) <- ptr_to_fresh "out" (llvm_int 64);
+  out_len_ptr <- crucible_alloc (llvm_int 64);
 
   crucible_execute_func [key_ptr, out_ptr, out_len_ptr, crucible_term {{`len+`pad+8 : [64]}}, indata_ptr, crucible_term {{`len : [64]}}];
 
@@ -53,7 +53,7 @@ let AES_unwrap_key_padded_spec len = do {
   points_to_inv_aes_key_st key_ptr (key_low, key_high);
   (indata, indata_ptr) <- ptr_to_fresh_readonly "in" (llvm_array (eval_size {|len+pad+8|}) (llvm_int 8));
   out_ptr <- crucible_alloc (llvm_array (eval_size {|len + pad|}) (llvm_int 8));
-  (out_len_in, out_len_ptr) <- ptr_to_fresh "out" (llvm_int 64);
+  out_len_ptr <- crucible_alloc (llvm_int 64);
 
   crucible_execute_func [key_ptr, out_ptr, out_len_ptr, crucible_term {{`len+`pad : [64]}}, indata_ptr, crucible_term {{`len+`pad+8 : [64]}}];
 
@@ -66,10 +66,10 @@ let AES_unwrap_key_padded_spec len = do {
   crucible_postcond {{unwrap_res.0 ==> (unwrap_res.2 == unwrapped)}};
 
   // Similarly, the output length is only correct when unwrap succeeds.
-  out_len_out <- crucible_fresh_var "out_len_out" (llvm_int 64);
-  crucible_conditional_points_to {{unwrap_res.0}} out_len_ptr (crucible_term out_len_out);
+  out_len <- crucible_fresh_var "out_len_out" (llvm_int 64);
+  crucible_conditional_points_to {{unwrap_res.0}} out_len_ptr (crucible_term out_len);
   crucible_postcond {{unwrap_res.0 ==> 
-    out_len_out == (0 : [32]) # (join unwrap_res.1)}};
+    out_len == (0 : [32]) # (join unwrap_res.1)}};
 
   crucible_return (crucible_term {{if unwrap_res.0 then (1 : [32]) else (0 : [32])}});
 };
