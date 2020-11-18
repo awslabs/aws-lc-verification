@@ -4,7 +4,6 @@
 */
 
 let HMAC_quick_check = false;
-let HMAC_target_key_len = HMAC_TARGET_KEY_LEN_PLACEHOLDER;
 
 // Import HMAC cryptol spec
 import "../../../cryptol-specs/Primitive/Keyless/Hash/HMAC.cry";
@@ -13,4 +12,4 @@ import "../../../cryptol-specs/Primitive/Keyless/Hash/HMAC.cry";
 include "../SHA512/SHA512-384-common.saw";
 
 // Include HMAC proof
-include "verify-HMAC-Init-ex.saw";
+include "HMAC.saw";
