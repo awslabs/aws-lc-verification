@@ -74,9 +74,6 @@ if HMAC_quick_check then do {
   for [128, 129] verify_HMAC_Init_ex_spec;
   return ();
 } else do {
-  // key_lens <- for (eval_list {{ [0 .. (SHA512_CBLOCK + 1)] : [SHA512_CBLOCK + 2][64] }})
-  //   (\x -> (return (eval_int x)) : (TopLevel Int));
-  // for key_lens verify_HMAC_Init_ex_spec;
   verify_HMAC_Init_ex_spec HMAC_target_key_len;
   return ();
 };

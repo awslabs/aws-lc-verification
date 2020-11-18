@@ -83,10 +83,6 @@ if HMAC_quick_check then do {
   for [false, true] verify_final_with_length;
   return();
 } else do {
-  // range of valid indices in the internal block ([0 .. (SHA512_CBLOCK - 1)])
-  // nums <- for (eval_list {{ [0 .. (SHA512_CBLOCK - 1)] : [SHA512_CBLOCK][64] }})
-  //  (\x -> (return (eval_int x)) : (TopLevel Int));
-  // for nums verify_final_with_num;
   verify_final_with_num HMAC_target_num;
   return();
 };
