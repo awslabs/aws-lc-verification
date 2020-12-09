@@ -1,0 +1,50 @@
+/*
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+*/
+
+OPENSSL_realloc_0x1_0x2_ov <- crucible_llvm_unsafe_assume_spec
+  m
+  "OPENSSL_realloc"
+  (OPENSSL_realloc_spec 0x1 0x2);
+
+OPENSSL_realloc_0x2_0x4_ov <- crucible_llvm_unsafe_assume_spec
+  m
+  "OPENSSL_realloc"
+  (OPENSSL_realloc_spec 0x2 0x4);
+
+OPENSSL_realloc_0x4_0x34_ov <- crucible_llvm_unsafe_assume_spec
+  m
+  "OPENSSL_realloc"
+  (OPENSSL_realloc_spec 0x4 0x34);
+
+OPENSSL_realloc_0x34_0x68_ov <- crucible_llvm_unsafe_assume_spec
+  m
+  "OPENSSL_realloc"
+  (OPENSSL_realloc_spec 0x34 0x68);
+
+OPENSSL_free_nonnull_0x10_ov <- crucible_llvm_unsafe_assume_spec
+  m
+  "OPENSSL_free"
+  (OPENSSL_free_nonnull_spec 0x10);
+
+OPENSSL_free_nonnull_0x18_ov <- crucible_llvm_unsafe_assume_spec
+  m
+  "OPENSSL_free"
+  (OPENSSL_free_nonnull_spec 0x18);
+
+OPENSSL_free_nonnull_0x20_ov <- crucible_llvm_unsafe_assume_spec
+  m
+  "OPENSSL_free"
+  (OPENSSL_free_nonnull_spec 0x20);
+
+OPENSSL_free_nonnull_0x30_ov <- crucible_llvm_unsafe_assume_spec
+  m
+  "OPENSSL_free"
+  (OPENSSL_free_nonnull_spec 0x30);
+
+memcmp_ov <- crucible_llvm_unsafe_assume_spec
+  m
+  "memcmp"
+  (memcmp_spec 102);
+
