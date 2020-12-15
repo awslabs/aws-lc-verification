@@ -16,7 +16,7 @@ let ec_group_new_from_data_spec = do {
 };
 
 
-let EVP_DigestInit_spec op = do {
+let EVP_DigestSignVerifyInit_spec op = do {
   ctx_ptr <- crucible_alloc (llvm_struct "struct.env_md_ctx_st");
   points_to_env_md_ctx_st ctx_ptr crucible_null crucible_null;
 
@@ -24,8 +24,7 @@ let EVP_DigestInit_spec op = do {
   points_to_env_md_st type_ptr;
 
   pkey_ptr <- crucible_alloc (llvm_struct "struct.evp_pkey_st");
-  //(ec_key_ptr, _pub_key, _priv_key) <- pointer_to_fresh_ec_key_st op;
-  ec_key_ptr <- crucible_fresh_pointer (llvm_struct "struct.ec_key_st");
+  (ec_key_ptr, _pub_key, _priv_key) <- pointer_to_fresh_ec_key_st op;
   points_to_evp_pkey_st pkey_ptr ec_key_ptr;
 
   crucible_execute_func [ctx_ptr, crucible_null, type_ptr, crucible_null, pkey_ptr];
@@ -36,12 +35,12 @@ let EVP_DigestInit_spec op = do {
   ec_pkey_ctx_ptr <- crucible_alloc (llvm_struct "struct.EC_PKEY_CTX");
   points_to_EC_PKEY_CTX ec_pkey_ctx_ptr type_ptr;
   points_to_evp_pkey_ctx_st evp_pkey_ctx_ptr pkey_ptr op ec_pkey_ctx_ptr;
-  points_to_env_md_ctx_st' ctx_ptr type_ptr sha512_state_ptr evp_pkey_ctx_ptr;
+  points_to_env_md_ctx_st_with_pctx ctx_ptr type_ptr sha512_state_ptr evp_pkey_ctx_ptr;
 
   crucible_return (crucible_term {{ 1 : [32] }});
 };
 
-let EVP_DigestUpdate_spec op num len = do {
+let EVP_DigestSignVerifyUpdate_spec op num len = do {
   global_alloc_init "OPENSSL_ia32cap_P" {{ ia32cap }};
 
   ctx_ptr <- crucible_alloc_readonly (llvm_struct "struct.env_md_ctx_st");
@@ -54,16 +53,14 @@ let EVP_DigestUpdate_spec op num len = do {
   points_to_sha512_state_st sha512_state_ptr sha512_state num;
 
   evp_pkey_ctx_ptr <- crucible_alloc_readonly (llvm_struct "struct.evp_pkey_ctx_st");
-  //pkey_ptr <- crucible_alloc_readonly (llvm_struct "struct.evp_pkey_st");
-  //(ec_key_ptr, _pub_key, _priv_key) <- pointer_to_fresh_ec_key_st op;
-  //points_to_evp_pkey_st pkey_ptr ec_key_ptr;
-  //ec_pkey_ctx_ptr <- crucible_alloc_readonly (llvm_struct "struct.EC_PKEY_CTX");
-  //points_to_EC_PKEY_CTX ec_pkey_ctx_ptr digest_ptr;
-  pkey_ptr <- crucible_fresh_pointer (llvm_struct "struct.evp_pkey_st");
-  ec_pkey_ctx_ptr <- crucible_fresh_pointer (llvm_struct "struct.EC_PKEY_CTX");
+  pkey_ptr <- crucible_alloc_readonly (llvm_struct "struct.evp_pkey_st");
+  (ec_key_ptr, _pub_key, _priv_key) <- pointer_to_fresh_ec_key_st op;
+  points_to_evp_pkey_st pkey_ptr ec_key_ptr;
+  ec_pkey_ctx_ptr <- crucible_alloc_readonly (llvm_struct "struct.EC_PKEY_CTX");
+  points_to_EC_PKEY_CTX ec_pkey_ctx_ptr digest_ptr;
   points_to_evp_pkey_ctx_st evp_pkey_ctx_ptr pkey_ptr op ec_pkey_ctx_ptr;
 
-  points_to_env_md_ctx_st' ctx_ptr digest_ptr sha512_state_ptr evp_pkey_ctx_ptr;
+  points_to_env_md_ctx_st_with_pctx ctx_ptr digest_ptr sha512_state_ptr evp_pkey_ctx_ptr;
 
   (data, data_ptr) <- ptr_to_fresh_readonly "data" (llvm_array len i8);
 
@@ -97,31 +94,21 @@ let EVP_DigestSignFinal_spec num = do {
   points_to_EC_PKEY_CTX ec_pkey_ctx_ptr digest_ptr;
   points_to_evp_pkey_ctx_st evp_pkey_ctx_ptr pkey_ptr true ec_pkey_ctx_ptr;
 
-  points_to_env_md_ctx_st' ctx_ptr digest_ptr sha512_state_ptr evp_pkey_ctx_ptr;
+  points_to_env_md_ctx_st_with_pctx ctx_ptr digest_ptr sha512_state_ptr evp_pkey_ctx_ptr;
 
-  out_sig_ptr <- crucible_alloc (llvm_array 104 i8);
+  out_sig_ptr <- crucible_alloc (llvm_array max_sig_len i8);
   out_sig_len_ptr <- crucible_alloc i64;
-  crucible_points_to out_sig_len_ptr (crucible_term {{ 104 : [64] }});
+  crucible_points_to out_sig_len_ptr (crucible_term {{ `max_sig_len : [64] }});
 
-  k <- fixed_k priv_key {{ split`{SHA_DIGEST_LENGTH} (SHAFinal sha512_state) }};
+  // the symbolic integer to be used as the random integer `k` by the sign
+  // operation
+  k <- nondeterministic_valid_k priv_key {{ split`{SHA_DIGEST_LENGTH} (SHAFinal sha512_state) }};
 
   crucible_execute_func [ctx_ptr, out_sig_ptr, out_sig_len_ptr];
 
   global_points_to "OPENSSL_ia32cap_P" {{ ia32cap }};
 
-  r <- crucible_fresh_var "r" (llvm_array 48 i8);
-  s <- crucible_fresh_var "s" (llvm_array 48 i8);
-  crucible_points_to_untyped out_sig_ptr
-    (crucible_struct
-      [ crucible_term {{ 0x30 : [8] }}
-      , crucible_term {{ 100 : [8] }}
-      , crucible_term {{ 0x02 : [8] }}
-      , crucible_term {{ `r_bytes : [8] }}
-      , crucible_term r
-      , crucible_term {{ 0x02 : [8] }}
-      , crucible_term {{ `s_bytes : [8] }}
-      , crucible_term s
-      ]);
+  (r, s) <- points_to_fresh_asn1_sig out_sig_ptr;
 
   crucible_points_to out_sig_len_ptr (crucible_term {{ `sig_len : [64] }});
 
@@ -153,22 +140,10 @@ let EVP_DigestVerifyFinal_spec num = do {
   points_to_EC_PKEY_CTX ec_pkey_ctx_ptr digest_ptr;
   points_to_evp_pkey_ctx_st evp_pkey_ctx_ptr pkey_ptr false ec_pkey_ctx_ptr;
 
-  points_to_env_md_ctx_st' ctx_ptr digest_ptr sha512_state_ptr evp_pkey_ctx_ptr;
+  points_to_env_md_ctx_st_with_pctx ctx_ptr digest_ptr sha512_state_ptr evp_pkey_ctx_ptr;
 
-  sig_ptr <- crucible_alloc (llvm_array 102 i8);
-  r <- crucible_fresh_var "r" (llvm_array 48 i8);
-  s <- crucible_fresh_var "s" (llvm_array 48 i8);
-  crucible_points_to_untyped sig_ptr
-    (crucible_struct
-      [ crucible_term {{ 0x30 : [8] }}
-      , crucible_term {{ 100 : [8] }}
-      , crucible_term {{ 0x02 : [8] }}
-      , crucible_term {{ `r_bytes : [8] }}
-      , crucible_term r
-      , crucible_term {{ 0x02 : [8] }}
-      , crucible_term {{ `s_bytes : [8] }}
-      , crucible_term s
-      ]);
+  sig_ptr <- crucible_alloc (llvm_array sig_len i8);
+  (r, s) <- points_to_fresh_asn1_sig sig_ptr;
 
   crucible_precond {{ is_num_bits_bn`{r_bits} (join r) }};
   crucible_precond {{ is_num_bits_bn`{s_bits} (join s) }};

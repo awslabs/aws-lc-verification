@@ -4,7 +4,7 @@
 */
 
 
-let points_to_p384_bignum_st ptr d_ptr flags = points_to_bignum_st ptr d_ptr 6 6 flags;
+let points_to_p384_bignum_st ptr d_ptr flags = points_to_bignum_st ptr d_ptr ec_words ec_words flags;
 
 
 let points_to_ec_method_st ptr = do {
@@ -123,7 +123,7 @@ let pointer_to_fresh_ec_group_st = do {
 
   crucible_points_to (crucible_field ptr "curve_name") (crucible_term {{ 0 : [32] }});
 
-  order_mont_ptr <- pointer_to_bn_mont_ctx_st 6 {| P384_n |};
+  order_mont_ptr <- pointer_to_bn_mont_ctx_st ec_words {| P384_n |};
   crucible_points_to (crucible_field ptr "order_mont") order_mont_ptr;
 
   field_d_ptr <- crucible_alloc_readonly i384;
@@ -136,7 +136,7 @@ let pointer_to_fresh_ec_group_st = do {
   crucible_points_to (crucible_field ptr "field_greater_than_order") (crucible_term {{ 1 : [32] }});
   crucible_points_to_untyped (crucible_field ptr "field_minus_order") (crucible_term {{ fromInteger`{[P384_w]} (`P384_p - `P384_n) }});
 
-  mont_ptr <- pointer_to_bn_mont_ctx_st 6 {| P384_p |};
+  mont_ptr <- pointer_to_bn_mont_ctx_st ec_words {| P384_p |};
   crucible_points_to (crucible_field ptr "mont") mont_ptr;
 
   crucible_points_to_untyped (crucible_field ptr "one") (crucible_term {{ fieldElementToBV P384_R_p }});
@@ -157,6 +157,7 @@ let points_to_evp_pkey_ctx_st ptr pkey_ptr op data_ptr = do {
 let points_to_evp_pkey_st ptr pkey_ptr = do {
   references <- crucible_fresh_var "references" i32;
   crucible_points_to (crucible_field ptr "references") (crucible_term references);
+  crucible_precond {{ references != 0 }};
   crucible_points_to (crucible_field ptr "type") (crucible_term {{ `EVP_PKEY_EC : [32] }});
   crucible_points_to (crucible_field ptr "pkey") pkey_ptr;
   crucible_points_to (crucible_field ptr "ameth") (crucible_global "ec_asn1_meth");
@@ -425,40 +426,40 @@ EC_GFp_nistp224_method_ov <- crucible_llvm_unsafe_assume_spec
 bn_add_words_ov <- crucible_llvm_unsafe_assume_spec
   m
   "bn_add_words"
-  (bn_add_words_spec 6);
+  (bn_add_words_spec ec_words);
 bn_add_words_same_res_left_ov <- crucible_llvm_unsafe_assume_spec
   m
   "bn_add_words"
-  (bn_add_words_same_res_left_spec 6);
+  (bn_add_words_same_res_left_spec ec_words);
 
 bn_sub_words_ov <- crucible_llvm_unsafe_assume_spec
   m
   "bn_sub_words"
-  (bn_sub_words_spec 6);
+  (bn_sub_words_spec ec_words);
 
 bn_mul_mont_p_ov <- crucible_llvm_unsafe_assume_spec
   m
   "bn_mul_mont"
-  (bn_mul_mont_spec 6 {| P384_p |});
+  (bn_mul_mont_spec ec_words {| P384_p |});
 bn_mul_mont_same_res_left_p_ov <- crucible_llvm_unsafe_assume_spec
   m
   "bn_mul_mont"
-  (bn_mul_mont_same_res_left_spec 6 {| P384_p |});
+  (bn_mul_mont_same_res_left_spec ec_words {| P384_p |});
 bn_mul_mont_n_ov <- crucible_llvm_unsafe_assume_spec
   m
   "bn_mul_mont"
-  (bn_mul_mont_spec 6 {| P384_n |});
+  (bn_mul_mont_spec ec_words {| P384_n |});
 bn_mul_mont_same_res_left_n_ov <- crucible_llvm_unsafe_assume_spec
   m
   "bn_mul_mont"
-  (bn_mul_mont_same_res_left_spec 6 {| P384_n |});
+  (bn_mul_mont_same_res_left_spec ec_words {| P384_n |});
 
 bn_select_words_true_ov <- llvm_verify
   m
   "bn_select_words"
   [constant_time_select_w_true_ov]
   true
-  (bn_select_words_true_spec 6)
+  (bn_select_words_true_spec ec_words)
   (do {
     w4_unint_z3 [];
   });
@@ -467,7 +468,7 @@ bn_select_words_same_res_left_true_ov <- llvm_verify
   "bn_select_words"
   [constant_time_select_w_true_ov]
   true
-  (bn_select_words_same_res_left_true_spec 6)
+  (bn_select_words_same_res_left_true_spec ec_words)
   (do {
     w4_unint_z3 [];
   });
@@ -476,7 +477,7 @@ bn_select_words_false_ov <- llvm_verify
   "bn_select_words"
   [constant_time_select_w_false_ov]
   true
-  (bn_select_words_false_spec 6)
+  (bn_select_words_false_spec ec_words)
   (do {
     w4_unint_z3 [];
   });
@@ -485,7 +486,7 @@ bn_select_words_same_res_left_false_ov <- llvm_verify
   "bn_select_words"
   [constant_time_select_w_false_ov]
   true
-  (bn_select_words_same_res_left_false_spec 6)
+  (bn_select_words_same_res_left_false_spec ec_words)
   (do {
     w4_unint_z3 [];
   });
@@ -493,7 +494,7 @@ bn_select_words_same_res_left_false_ov <- llvm_verify
 bn_reduce_once_in_place_true_ov <- crucible_llvm_unsafe_assume_spec
   m
   "bn_reduce_once_in_place"
-  (bn_reduce_once_in_place_spec true 6);
+  (bn_reduce_once_in_place_spec true ec_words);
 bn_reduce_once_in_place_false_ov <- llvm_verify
   m
   "bn_reduce_once_in_place"
@@ -502,7 +503,7 @@ bn_reduce_once_in_place_false_ov <- llvm_verify
   , bn_select_words_same_res_left_false_ov
   ]
   true
-  (bn_reduce_once_in_place_spec false 6)
+  (bn_reduce_once_in_place_spec false ec_words)
   (do {
     goal_eval_unint ["integerToBV", "integerFromBV"];
     simplify (addsimp integerBV_thm empty_ss);

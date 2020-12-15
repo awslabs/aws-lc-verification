@@ -33,19 +33,21 @@ let constant_time_select_w_false_spec = do {
 };
 
 
+let CRYPTO_REFCOUNT_MAX = 0xffffffff;
+
 let CRYPTO_refcount_inc_spec = do {
-  (_count, count_ptr) <- ptr_to_fresh "count" i32;
+  (count, count_ptr) <- ptr_to_fresh "count" i32;
   crucible_execute_func [count_ptr];
-  count' <- crucible_fresh_var "count'" i32;
-  crucible_points_to count_ptr (crucible_term count');
+  crucible_points_to count_ptr (crucible_term {{ if count < `CRYPTO_REFCOUNT_MAX then count + 1 else count }});
 };
 
 let CRYPTO_refcount_dec_and_test_zero_spec = do {
-  (_count, count_ptr) <- ptr_to_fresh "count" i32;
+  (count, count_ptr) <- ptr_to_fresh "count" i32;
+  crucible_precond {{ count != 0 }};
   crucible_execute_func [count_ptr];
-  count' <- crucible_fresh_var "count'" i32;
+  let count' = {{ if count < `CRYPTO_REFCOUNT_MAX then count - 1 else count }};
   crucible_points_to count_ptr (crucible_term count');
-  crucible_return (crucible_term {{ 0 : [32] }});
+  crucible_return (crucible_term {{ if count' == 0 then (1 : [32]) else 0 }});
 };
 
 let ERR_put_error_spec = do {

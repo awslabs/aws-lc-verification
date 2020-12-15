@@ -3,6 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 
+/*
+ * Rewrite rules proofs and goal tactics. This does not
+ * contain any specifications or assumtions, thus it does
+ * not require inspection in order to trust the
+ * verification result.
+ */
 
 fieldElementBV_thm <- prove_print
   (do {
@@ -22,12 +28,23 @@ ite_integerToBV_thm <- prove_print
   })
   (rewrite (cryptol_ss ()) {{ \x y z -> (if x then (integerToBV`{P384_w} y) else (integerToBV z)) == integerToBV (if x then y else z) }});
 
+integerBV_thm' <- prove_print
+  (do {
+    w4_unint_z3 [];
+  })
+  (rewrite (cryptol_ss ()) {{ \x -> integerToBV`{P384_w} (integerFromBV x) == x }});
 integerBV_thm <- prove_print
   (do {
-    //w4_unint_z3 [];
-    assume_unsat;
+    simplify (addsimp integerBV_thm' empty_ss);
+    w4_unint_z3 [];
   })
   (rewrite (cryptol_ss ()) {{ \x -> integerToBV`{P384_w} (integerFromBV (integerToBV`{P384_w} x)) == integerToBV x }});
+
+mod_eq_0_thm <- prove_print
+  (do {
+    w4_unint_z3 [];
+  })
+  (rewrite (cryptol_ss ()) {{ \(x0 : Integer) x1 x2 x3 -> ((x0 * (x1 + x2)) % `P384_n == (x0 * (x1 + x3)) % `P384_n) == ((x0 * x2) % `P384_n == (x0 * x3) % `P384_n) }});
 
 add_mod_0_thm <- prove_print
   (do {
@@ -76,9 +93,8 @@ mod_3_thm <- prove_print
   (rewrite (cryptol_ss ()) {{ \(x0 : Integer) x1 x2 -> (((x0 % `P384_n) * x1) * x2) % `P384_n == ((x0 * x1) * x2) % `P384_n }});
 mod_4_thm <- prove_print
   (do {
-    print_goal;
-    //w4_unint_z3 [];
-    assume_unsat;
+    simplify (addsimp mod_eq_0_thm empty_ss);
+    w4_unint_z3 [];
   })
   (rewrite (cryptol_ss ()) {{ \(x0 : Integer) x1 x2 x3 -> (x0 * (x1 + (x2 % `P384_n) * x3)) % `P384_n == (x0 * (x1 + x2 * x3)) % `P384_n }});
 let mod_thms =
@@ -99,7 +115,6 @@ mont_p_0_thm <- prove_print
     w4_unint_z3 [];
   })
   (rewrite (cryptol_ss ()) {{ \x -> (((x * P384_R_p) % `P384_p) * P384_R_p_inv) % `P384_p == x % `P384_p }});
-print mont_p_0_thm;
 mont_n_0_thm <- prove_print
   (do {
     w4_unint_z3 [];
@@ -108,7 +123,6 @@ mont_n_0_thm <- prove_print
 mont_n_1_thm <- prove_print
   (do {
     simplify (addsimps mod_thms empty_ss);
-    print_goal;
     w4_unint_z3 [];
   })
   (rewrite (cryptol_ss ()) {{ \x y -> ((x * ((y * P384_R_n) % `P384_n)) * P384_R_n_inv) % `P384_n == (x * y) % `P384_n }});
@@ -117,18 +131,6 @@ let mont_thms =
   , mont_n_0_thm
   , mont_n_1_thm
   ];
-
-jacobian_affine_0_thm <- prove_print
-  (do {
-    assume_unsat;
-  })
-  (rewrite (cryptol_ss ()) {{ \k -> fromJacobian { x = ((ec_point_jacobian_scalar_mul (k % `P384_n) P384_G_Jacobian).x % `P384_p), y = ((ec_point_jacobian_scalar_mul (k % `P384_n) P384_G_Jacobian).y % `P384_p), z = ((ec_point_jacobian_scalar_mul (k % `P384_n) P384_G_Jacobian).z % `P384_p) } == ec_point_affine_scalar_mul (k % `P384_n) P384_G }});
-
-jacobian_affine_1_thm <- prove_print
-  (do {
-    assume_unsat;
-  })
-  (rewrite (cryptol_ss ()) {{ \u1 u2 Q -> fromJacobian { x = ((ec_point_jacobian_add (ec_point_jacobian_scalar_mul (u1 % `P384_n) P384_G_Jacobian) (ec_point_jacobian_scalar_mul (u2 % `P384_n) Q)).x % `P384_p), y = ((ec_point_jacobian_add (ec_point_jacobian_scalar_mul (u1 % `P384_n) P384_G_Jacobian) (ec_point_jacobian_scalar_mul (u2 % `P384_n) Q)).y % `P384_p), z = ((ec_point_jacobian_add (ec_point_jacobian_scalar_mul (u1 % `P384_n) P384_G_Jacobian) (ec_point_jacobian_scalar_mul (u2 % `P384_n) Q)).z % `P384_p) } == ec_point_affine_add (ec_point_affine_scalar_mul (u1 % `P384_n) P384_G) (ec_point_affine_scalar_mul (u2 % `P384_n) (fromJacobian Q)) }});
 
 append_assoc_thm <- prove_print
   (w4_unint_z3 [])
