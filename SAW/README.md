@@ -20,7 +20,7 @@ The following table describes the implementations that are verified using SAW. S
 | HMAC      | with <nobr>SHA-384</nobr> | HMAC_CTX_init, HMAC_Init_ex, HMAC_Update, HMAC_Final, HMAC | SandyBridge+ | InputLength, NoEngine, MemCorrect, InitZero
 | AES-GCM   | 256 | EVP_CipherInit_ex, EVP_EncryptUpdate, EVP_DecryptUpdate, EVP_EncryptFinal_ex, EVP_DecryptFinal_ex | SandyBridge+ | InputLength, NoEngine, MemCorrect, InitZero, AESNI_GCM_Patch, AES_GCM_FROM_CIPHER_CTX_Correct
 | <nobr>AES-KW(P)</nobr> | 256     | AES_wrap_key, AES_unwrap_key, AES_wrap_key_padded, AES_unwrap_key_padded | SandyBridge+ | InputLength, MemCorrect
-| ECDSA     | with <nobr>P-384</nobr>, <nobr>SHA-384</nobr> | EVP_DigestSignInit, EVP_DigestVerifyInit, EVP_DigestSignUpdate, EVP_DigestVerifyUpdate, EVP_DigestSignFinal, EVP_DigestVerifyFinal | SandyBridge+ | InputLength, NoEngine, MemCorrect, ECDSA_k_Valid, ECDSA_SignatureSize, CRYPTO_refcount_Correct, ERR_put_error_Correct |[SAW](SAW/README.md) |
+| ECDSA     | with <nobr>P-384</nobr>, <nobr>SHA-384</nobr> | EVP_DigestSignInit, EVP_DigestVerifyInit, EVP_DigestSignUpdate, EVP_DigestVerifyUpdate, EVP_DigestSignFinal, EVP_DigestVerifyFinal | SandyBridge+ | InputLength, NoEngine, MemCorrect, ECDSA_k_Valid, ECDSA_SignatureLength, CRYPTO_refcount_Correct, ERR_put_error_Correct |[SAW](SAW/README.md) |
 
 The verification ensures that each verified function has the following general properties:
 * The function does not write to or read from memory outside of the allocated space pointed to by its parameters. Though an exception to this rule exists in cases where a function frees memory. In these cases, the verification would not fail if the function writes to memory after it is freed.
@@ -76,7 +76,7 @@ The AES_(un)wrap_key_* functions are verified to have the following properties r
 
 ### ECDSA
 
-The EVP_DigestSign*/EVP_DigestVerify* functions are verified to have the following properties related to ECDSA using P-384 and SHA-384. For more detailed specifications, see [evp-function-specs.saw](proof/ECDSA/evp-function-specs.saw). BLOCK_LENGTH is the block length of the hash function, in bytes. MAX_SIGNATURE_LENGTH is the digest length of the hash function, in bytes. For ECDSA with P-384 and SHA-384, BLOCK_LENGTH is 64 and MAX_SIGNATURE_LENGTH is 104.
+The EVP_DigestSign*/EVP_DigestVerify* functions are verified to have the following properties related to ECDSA using P-384 and SHA-384. For more detailed specifications, see [evp-function-specs.saw](proof/ECDSA/evp-function-specs.saw). BLOCK_LENGTH is the block length of the hash function, in bytes. MAX_SIGNATURE_LENGTH is the maximum length of the signature in ASN1 format, in bytes. For ECDSA with P-384 and SHA-384, BLOCK_LENGTH is 64 and MAX_SIGNATURE_LENGTH is 104.
 
 | Function  | Preconditions |  Postconditions |
 | ----------| --------------| --------------- |

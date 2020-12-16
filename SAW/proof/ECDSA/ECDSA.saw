@@ -38,6 +38,9 @@ let EVP_PKEY_OP_SIGN = 8; // (1 << 3)
 let EVP_PKEY_OP_VERIFY = 16; // (1 << 4)
 
 
+let ecdsa_sig_st = "struct.DSA_SIG_st";
+
+
 include "../BN/BN.saw";
 include "../EC/EC.saw";
 include "memory.saw";
@@ -53,8 +56,6 @@ let digest_to_scalar_spec = do {
   crucible_points_to_untyped out_ptr (crucible_term {{ scalarToBV ((scalarFromBV (join digest)) % `P384_n) }});
 };
 
-
-let ecdsa_sig_st = "struct.DSA_SIG_st";
 
 let points_to_ecdsa_sig_st ptr r_ptr s_ptr = do {
   crucible_points_to (crucible_field ptr "r") r_ptr;
@@ -286,8 +287,8 @@ ECDSA_do_verify_ov <- llvm_verify m "ECDSA_do_verify"
 
 llvm_verify m "ec_group_new_from_data"
   [ OPENSSL_malloc_ov
-  , OPENSSL_free_nonnull_0x18_ov
-  , OPENSSL_free_nonnull_0x30_ov
+  , OPENSSL_free_nonnull_bignum_st_ov
+  , OPENSSL_free_nonnull_ec_bytes_ov
   , OPENSSL_free_null_ov
   , OPENSSL_cleanse_ov
   , CRYPTO_refcount_inc_ov
@@ -335,8 +336,8 @@ llvm_verify m "EVP_DigestVerifyUpdate"
 llvm_verify m "EVP_DigestSignFinal"
   [ OPENSSL_malloc_ov
   , OPENSSL_free_nonnull_ov
-  , OPENSSL_free_nonnull_0x10_ov
-  , OPENSSL_free_nonnull_0x20_ov
+  , OPENSSL_free_nonnull_ecdsa_sig_st_ov
+  , OPENSSL_free_nonnull_cbb_buffer_st_ov
   , OPENSSL_free_null_ov
   , OPENSSL_cleanse_ov
   , CRYPTO_refcount_inc_ov
@@ -355,27 +356,25 @@ llvm_verify m "EVP_DigestSignFinal"
   });
 
 llvm_verify m "EVP_DigestVerifyFinal"
-  [ OPENSSL_malloc_ov
-  , OPENSSL_malloc_null_ov
-  , OPENSSL_realloc_0x1_0x2_ov
-  , OPENSSL_realloc_0x2_0x4_ov
-  , OPENSSL_realloc_0x4_0x34_ov
-  , OPENSSL_realloc_0x34_0x68_ov
-  , OPENSSL_realloc_null_ov
-  , OPENSSL_free_nonnull_ov
-  , OPENSSL_free_nonnull_0x10_ov
-  , OPENSSL_free_nonnull_0x18_ov
-  , OPENSSL_free_nonnull_0x20_ov
-  , OPENSSL_free_null_ov
-  , OPENSSL_cleanse_ov
-  , CRYPTO_refcount_inc_ov
-  , CRYPTO_refcount_dec_and_test_zero_ov
-  , memcmp_ov
-  , sha512_block_data_order_spec
-  , BN_num_bits_r_bits_ov
-  , BN_num_bits_s_bits_ov
-  , ECDSA_do_verify_ov
-  ]
+  (concat
+    [ OPENSSL_malloc_ov
+    , OPENSSL_malloc_null_ov
+    , OPENSSL_realloc_null_ov
+    , OPENSSL_free_nonnull_ov
+    , OPENSSL_free_nonnull_ecdsa_sig_st_ov
+    , OPENSSL_free_nonnull_bignum_st_ov
+    , OPENSSL_free_nonnull_cbb_buffer_st_ov
+    , OPENSSL_free_null_ov
+    , OPENSSL_cleanse_ov
+    , CRYPTO_refcount_inc_ov
+    , CRYPTO_refcount_dec_and_test_zero_ov
+    , memcmp_ov
+    , sha512_block_data_order_spec
+    , BN_num_bits_r_bits_ov
+    , BN_num_bits_s_bits_ov
+    , ECDSA_do_verify_ov
+    ]
+    OPENSSL_realloc_ovs)
   true
   (EVP_DigestVerifyFinal_spec 112)
   (do {
