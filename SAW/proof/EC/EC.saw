@@ -4,6 +4,13 @@
 */
 
 
+let ec_bits = eval_size {| P384_w |};
+let ec_bytes = eval_size {| (ec_bits + 7) / 8 |};
+let ec_words = eval_size {| (ec_bytes + 7) / 8 |};
+let EC_MAX_BYTES = 66;
+let EC_MAX_WORDS = eval_size {| ((EC_MAX_BYTES + 7) / 8) |};
+
+
 let points_to_p384_bignum_st ptr d_ptr flags = points_to_bignum_st ptr d_ptr ec_words ec_words flags;
 
 
@@ -145,12 +152,12 @@ let pointer_to_fresh_ec_group_st = do {
 };
 
 
-let points_to_evp_pkey_ctx_st ptr pkey_ptr op data_ptr = do {
+let points_to_evp_pkey_ctx_st ptr pkey_ptr peerkey_ptr op data_ptr = do {
   crucible_points_to (crucible_field ptr "pmeth") (crucible_global "ec_pkey_meth");
   crucible_points_to (crucible_field ptr "engine") crucible_null;
   crucible_points_to (crucible_field ptr "pkey") pkey_ptr;
-  crucible_points_to (crucible_field ptr "peerkey") crucible_null;
-  crucible_points_to (crucible_field ptr "operation") (crucible_term (if op then {{ `EVP_PKEY_OP_SIGN : [32] }} else {{ `EVP_PKEY_OP_VERIFY : [32] }}));
+  crucible_points_to (crucible_field ptr "peerkey") peerkey_ptr;
+  crucible_points_to (crucible_field ptr "operation") (crucible_term {{ `op : [32] }});
   crucible_points_to (crucible_field ptr "data") data_ptr;
 };
 
@@ -177,25 +184,24 @@ let points_to_ec_key_st ptr group_ptr pub_key_ptr priv_key_ptr = do {
   crucible_points_to (crucible_field ptr "ecdsa_meth") crucible_null;
 };
 
-let pointer_to_fresh_ec_key_st is_priv = do {
+let pointer_to_fresh_ec_key_st group_ptr is_priv = do {
   ec_key_ptr <- crucible_alloc_readonly (llvm_struct "struct.ec_key_st");
 
-  ec_group_ptr <- pointer_to_fresh_ec_group_st;
-
   pub_key_ptr <- crucible_alloc_readonly (llvm_struct "struct.ec_point_st");
-  pub_key <- points_to_fresh_ec_point_st pub_key_ptr ec_group_ptr;
+  pub_key <- points_to_fresh_ec_point_st pub_key_ptr group_ptr;
 
   (priv_key_ptr, priv_key) <- if is_priv then do {
     priv_key_ptr <- crucible_alloc_readonly (llvm_struct "struct.EC_WRAPPED_SCALAR");
     priv_key <- crucible_fresh_var "priv_key" i384;
     points_to_EC_WRAPPED_SCALAR priv_key_ptr priv_key;
+    crucible_precond {{ (scalarFromBV priv_key) % `P384_n == scalarFromBV priv_key }};
     return (priv_key_ptr, priv_key);
   } else do {
     priv_key_ptr <- crucible_fresh_pointer (llvm_struct "struct.EC_WRAPPED_SCALAR");
     return (priv_key_ptr, {{ undefined : [384] }});
   };
 
-  points_to_ec_key_st ec_key_ptr ec_group_ptr pub_key_ptr priv_key_ptr;
+  points_to_ec_key_st ec_key_ptr group_ptr pub_key_ptr priv_key_ptr;
 
   return (ec_key_ptr, pub_key, priv_key);
 };

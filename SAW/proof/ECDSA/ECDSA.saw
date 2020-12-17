@@ -17,13 +17,6 @@ include "goal-rewrites.saw";
 /*
  * Verification parameters.
  */
-let ec_bits = eval_size {| P384_w |};
-let ec_bytes = eval_size {| (ec_bits + 7) / 8 |};
-let ec_words = eval_size {| (ec_bytes + 7) / 8 |};
-let max_sig_len = eval_size {| 1 + 1 + 1 + 1 + (ec_bits / 8 + 1) + 1 + 1 + (ec_bits / 8 + 1) |};
-let EC_MAX_BYTES = 66;
-let EC_MAX_WORDS = eval_size {| ((EC_MAX_BYTES + 7) / 8) |};
-
 let r_bits = 383;
 let s_bits = 383;
 let r_bytes = eval_size {| r_bits / 8 + 1 |};
@@ -44,6 +37,9 @@ let ecdsa_sig_st = "struct.DSA_SIG_st";
 include "../BN/BN.saw";
 include "../EC/EC.saw";
 include "memory.saw";
+
+
+let max_sig_len = eval_size {| 1 + 1 + 1 + 1 + (ec_bits / 8 + 1) + 1 + 1 + (ec_bits / 8 + 1) |};
 
 
 let digest_to_scalar_spec = do {
@@ -111,7 +107,8 @@ let ECDSA_do_sign_spec = do {
 
   (digest, digest_ptr) <- ptr_to_fresh_readonly "digest" (llvm_array SHA_DIGEST_LENGTH i8);
 
-  (ec_key_ptr, _pub_key, priv_key) <- pointer_to_fresh_ec_key_st true;
+  ec_group_ptr <- pointer_to_fresh_ec_group_st;
+  (ec_key_ptr, _pub_key, priv_key) <- pointer_to_fresh_ec_key_st ec_group_ptr true;
 
   // the symbolic integer to be used as the random integer `k` by the sign
   // operation
@@ -150,7 +147,8 @@ let ECDSA_do_verify_spec = do {
   points_to_p384_bignum_st s_ptr s_d_ptr BN_FLG_MALLOCED;
   points_to_ecdsa_sig_st sig_ptr r_ptr s_ptr;
 
-  (ec_key_ptr, pub_key, _priv_key) <- pointer_to_fresh_ec_key_st false;
+  ec_group_ptr <- pointer_to_fresh_ec_group_st;
+  (ec_key_ptr, pub_key, _priv_key) <- pointer_to_fresh_ec_key_st ec_group_ptr false;
 
   crucible_execute_func [digest_ptr, (crucible_term {{ `SHA_DIGEST_LENGTH : [64] }}), sig_ptr, ec_key_ptr];
 
