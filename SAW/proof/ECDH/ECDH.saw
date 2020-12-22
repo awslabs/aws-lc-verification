@@ -13,9 +13,6 @@ include "../ECDSA/goal-rewrites.saw";
 /*
  * Verification parameters.
  */
-let NID_secp384r1 = 715;
-let NID_X9_62_id_ecPublicKey = 408;
-let EVP_PKEY_EC = NID_X9_62_id_ecPublicKey;
 let EVP_PKEY_OP_DERIVE = eval_int {{ (1 << 8) : [64] }};
 
 
@@ -33,11 +30,11 @@ include "../EC/EC.saw";
 let EVP_PKEY_derive_spec = do {
   ctx_ptr <- crucible_alloc_readonly (llvm_struct "struct.evp_pkey_ctx_st");
   ec_group_ptr <- pointer_to_fresh_ec_group_st;
-  pkey_ptr <- crucible_alloc (llvm_struct "struct.evp_pkey_st");
+  pkey_ptr <- crucible_alloc_readonly (llvm_struct "struct.evp_pkey_st");
   (ec_key_ptr, _pub_key, priv_key) <- pointer_to_fresh_ec_key_st ec_group_ptr true;
   points_to_evp_pkey_st pkey_ptr ec_key_ptr;
-  peerkey_ptr <- crucible_alloc (llvm_struct "struct.evp_pkey_st");
-  (peer_ec_key_ptr, peer_pub_key, _priv_key) <- pointer_to_fresh_ec_key_st ec_group_ptr false;
+  peerkey_ptr <- crucible_alloc_readonly (llvm_struct "struct.evp_pkey_st");
+  (peer_ec_key_ptr, peer_pub_key, _peer_priv_key) <- pointer_to_fresh_ec_key_st ec_group_ptr false;
   points_to_evp_pkey_st peerkey_ptr peer_ec_key_ptr;
   points_to_evp_pkey_ctx_st ctx_ptr pkey_ptr peerkey_ptr EVP_PKEY_OP_DERIVE crucible_null;
 
@@ -47,7 +44,7 @@ let EVP_PKEY_derive_spec = do {
 
   crucible_execute_func [ctx_ptr, key_ptr, out_key_len_ptr];
 
-  crucible_points_to key_ptr (crucible_term {{ split`{each=8} (fieldElementToBV ((ec_point_affine_scalar_mul (scalarFromBV priv_key) (fromJacobian (jacobianFromMontBV peer_pub_key))).x % `P384_p)) }});
+  crucible_points_to key_ptr (crucible_term {{ split`{each=8} (fieldElementToBV (ECDH_derive (scalarFromBV priv_key) (fromJacobian (jacobianFromMontBV peer_pub_key)))) }});
 
   crucible_points_to out_key_len_ptr (crucible_term {{ `ec_bytes : [64] }});
 

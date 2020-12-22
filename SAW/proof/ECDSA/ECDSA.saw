@@ -24,9 +24,6 @@ let s_bytes = eval_size {| s_bits / 8 + 1 |};
 let sig_len = eval_size {| 1 + 1 + 1 + 1 + r_bytes + 1 + 1 + s_bytes |};
 
 
-let NID_secp384r1 = 715;
-let NID_X9_62_id_ecPublicKey = 408;
-let EVP_PKEY_EC = NID_X9_62_id_ecPublicKey;
 let EVP_PKEY_OP_SIGN = 8; // (1 << 3)
 let EVP_PKEY_OP_VERIFY = 16; // (1 << 4)
 
@@ -164,11 +161,6 @@ include "evp-function-specs.saw";
 ////////////////////////////////////////////////////////////////////////////////
 // Proof commands
 
-BN_div_ov <- crucible_llvm_unsafe_assume_spec
-  m
-  "BN_div"
-  (BN_div_spec (eval_size {| 2 * ec_words + 1 |}) ec_words);
-
 BN_num_bits_r_bits_ov <- llvm_verify m "BN_num_bits"
   []
   true
@@ -281,28 +273,6 @@ ECDSA_do_verify_ov <- llvm_verify m "ECDSA_do_verify"
     goal_eval_unint ["inv0", "ec_point_affine_add", "ec_point_affine_scalar_mul", "fromJacobian"];
     w4_unint_z3 ["inv0", "ec_point_affine_add", "ec_point_affine_scalar_mul", "fromJacobian"];
   });
-
-
-llvm_verify m "ec_group_new_from_data"
-  [ OPENSSL_malloc_ov
-  , OPENSSL_free_nonnull_bignum_st_ov
-  , OPENSSL_free_nonnull_ec_bytes_ov
-  , OPENSSL_free_null_ov
-  , OPENSSL_cleanse_ov
-  , CRYPTO_refcount_inc_ov
-  , CRYPTO_refcount_dec_and_test_zero_ov
-  , BN_div_ov
-  , BN_value_one_ov
-  , bn_add_words_ov
-  , bn_add_words_same_res_left_ov
-  , bn_sub_words_ov
-  , bn_mul_mont_p_ov
-  , bn_mul_mont_same_res_left_p_ov
-  , value_barrier_w_ov
-  ]
-  true
-  ec_group_new_from_data_spec
-  (w4_unint_yices []);
 
 
 llvm_verify m "EVP_DigestSignInit"

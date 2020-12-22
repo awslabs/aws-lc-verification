@@ -4,18 +4,6 @@
 */
 
 
-let ec_group_new_from_data_spec = do {
-  curve_ptr <- crucible_alloc_readonly (llvm_struct "struct.built_in_curve");
-  ec_method_ptr <- crucible_alloc_readonly (llvm_struct "struct.ec_method_st");
-  points_to_built_in_curve curve_ptr ec_method_ptr;
-
-  crucible_execute_func [curve_ptr];
-
-  ec_group_ptr <- pointer_to_fresh_ec_group_st;
-  crucible_return ec_group_ptr;
-};
-
-
 let EVP_DigestSignVerifyInit_spec is_sign = do {
   ctx_ptr <- crucible_alloc (llvm_struct "struct.env_md_ctx_st");
   points_to_env_md_ctx_st ctx_ptr crucible_null crucible_null;
