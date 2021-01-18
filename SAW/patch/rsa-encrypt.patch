@@ -1,29 +1,3 @@
-diff --git a/crypto/fipsmodule/rsa/rsa_impl.c b/crypto/fipsmodule/rsa/rsa_impl.c
-index 2d9a9c9fa..98d904b86 100644
---- a/crypto/fipsmodule/rsa/rsa_impl.c
-+++ b/crypto/fipsmodule/rsa/rsa_impl.c
-@@ -251,6 +251,12 @@ size_t rsa_default_size(const RSA *rsa) {
-   return BN_num_bytes(rsa->n);
- }
- 
-+// TODO: Remove this once SAW is fixed to support the override
-+static int wrap_BN_mod_exp_mont(BIGNUM *rr, const BIGNUM *a, const BIGNUM *p,
-+                                const BN_MONT_CTX *mont, BN_CTX *ctx, const BIGNUM *m) {
-+  return BN_mod_exp_mont(rr, a, p, m, ctx, mont);
-+}
-+
- int RSA_encrypt(RSA *rsa, size_t *out_len, uint8_t *out, size_t max_out,
-                 const uint8_t *in, size_t in_len, int padding) {
-   if (rsa->n == NULL || rsa->e == NULL) {
-@@ -319,7 +325,7 @@ int RSA_encrypt(RSA *rsa, size_t *out_len, uint8_t *out, size_t max_out,
-   }
- 
-   if (!BN_MONT_CTX_set_locked(&rsa->mont_n, &rsa->lock, rsa->n, ctx) ||
--      !BN_mod_exp_mont(result, f, rsa->e, &rsa->mont_n->N, ctx, rsa->mont_n)) {
-+      !wrap_BN_mod_exp_mont(result, f, rsa->e, rsa->mont_n, ctx, &rsa->mont_n->N)) {
-     goto err;
-   }
- 
 diff --git a/crypto/fipsmodule/rsa/padding.c b/crypto/fipsmodule/rsa/padding.c
 index 28f1b45b4..526ce22c9 100644
 --- a/crypto/fipsmodule/rsa/padding.c

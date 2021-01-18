@@ -135,41 +135,56 @@ let points_to_bignum_st ptr d_ptr width dmax flags = do {
   crucible_points_to (crucible_field ptr "flags") (crucible_term flags);
 };
 
+let points_to_bignum_st_same ptr d_ptr dmax = do {
+  flag <- crucible_fresh_var "flag" i32;
+  points_to_bignum_st ptr d_ptr dmax dmax flag;
+};
 
-let pointer_to_bn_mont_ctx_st num N_d_ptr N_d = do {
+
+let pointer_to_bn_mont_ctx_st num N = do {
   let num_bits = eval_size {| num * 64 |};
   let RR_bn_dmax = eval_size {| 2 * num + 1 |};
   let R = {{ 2 ^^ `num_bits }};
 
   ptr <- crucible_alloc_readonly (llvm_struct "struct.bn_mont_ctx_st");
 
-  /*
   RR_d_ptr <- crucible_alloc_readonly (llvm_int num_bits);
-  let N = {{ toInteger N_d }};
-  crucible_points_to RR_d_ptr (crucible_term {{ (fromInteger ((R * R) % N)) : [num_bits] }});
+  crucible_points_to RR_d_ptr (crucible_term {{ (fromInteger ((R * R) % `N)) : [num_bits] }});
   points_to_bignum_st (crucible_field ptr "RR") RR_d_ptr num RR_bn_dmax {{ 0 : [32] }};
-  */
 
-  /*
-  let n0 = {{ bn_mont_n0 (split`{num} N_d) }};
-  crucible_points_to_untyped (crucible_field ptr "n0") (crucible_term {{ n0 : [64] }});
-  */
+  let n0 = eval_int {{ bn_mont_n0`{N} }};
+  crucible_points_to_untyped (crucible_field ptr "n0") (crucible_term {{ `n0 : [64] }});
 
-  flag <- crucible_fresh_var "flag" i32;
-  points_to_bignum_st (crucible_field ptr "N") N_d_ptr num num flag;
+  N_d_ptr <- crucible_alloc_readonly (llvm_int num_bits);
+  crucible_points_to N_d_ptr (crucible_term {{ (fromInteger `N) : [num_bits] }});
+  points_to_bignum_st (crucible_field ptr "N") N_d_ptr num num {{ 0 : [32] }};
 
   return ptr;
 };
 
-let bn_mont_n0_spec words = do {
-  n_ptr <- crucible_alloc_readonly (llvm_struct "struct.bignum_st");
-  (n_d, n_d_ptr) <- ptr_to_fresh_readonly "n_d" (llvm_array words i64);
-  n_flag <- crucible_fresh_var "flag" i32;
-  points_to_bignum_st n_ptr n_d_ptr words words n_flag;
+let {{
+bn_mont_n0_with_N : {a} (fin a) => [a][64] -> [64]
+bn_mont_n0_with_N n = undefined
+}};
 
-  crucible_execute_func [n_ptr];
+let pointer_to_bn_mont_ctx_st_with_N_d num N_d_ptr N_d = do {
+  let num_bits = eval_size {| num * 64 |};
+  let RR_bn_dmax = eval_size {| 2 * num + 1 |};
+  let R = {{ 2 ^^ `num_bits }};
 
-  crucible_return (crucible_term {{ (bn_mont_n0 n_d) : [64] }} );
+  ptr <- crucible_alloc_readonly (llvm_struct "struct.bn_mont_ctx_st");
+
+  (RR_d, RR_d_ptr) <- ptr_to_fresh_readonly "RR_d" (llvm_int num_bits);
+  points_to_bignum_st (crucible_field ptr "RR") RR_d_ptr num RR_bn_dmax {{ 0 : [32] }};
+  crucible_precond {{ RR_d == integerToBV ((R * R) % (integerFromBV N_d)) }};
+
+  n0 <- crucible_fresh_var "n0" i64;
+  crucible_points_to_untyped (crucible_field ptr "n0") (crucible_term n0);
+  crucible_precond {{ n0 == bn_mont_n0_with_N (split`{num} N_d) }};
+
+  points_to_bignum_st_same (crucible_field ptr "N") N_d_ptr num;
+
+  return ptr;
 };
 
 
@@ -203,11 +218,6 @@ let BN_div_spec numerator_width divisor_width = do {
   crucible_return (crucible_term {{ 1 : [32] }});
 };
 
-let points_to_bignum_st_same ptr d_ptr dmax = do {
-  flag <- crucible_fresh_var "flag" i32;
-  points_to_bignum_st ptr d_ptr dmax dmax flag;
-};
-
 let BN_bin2bn_spec num = do {
   let bytes = eval_int {{ (`num * 8) : [64] }};
   let num_bits = eval_size {| num * 64 |};
@@ -222,71 +232,66 @@ let BN_bin2bn_spec num = do {
   out_d_ptr <- crucible_alloc (llvm_int num_bits);
   crucible_points_to out_d_ptr (crucible_term {{ join in_d }});
   points_to_bignum_st out_ptr out_d_ptr num num BN_FLG_MALLOCED;
-  crucible_return out_ptr;
 
+  crucible_return out_ptr;
 };
 
-let BN_bn2bin_padded_same_size_spec words = do {
-  let bytes = eval_int {{ (`words * 8) : [64] }};
+let BN_bn2bin_padded_spec num = do {
+  let bytes = eval_int {{ (`num * 8) : [64] }};
+  let num_bits = eval_size {| num * 64 |};
   out_ptr <- crucible_alloc (llvm_array bytes i8);
 
   in_ptr <- crucible_alloc_readonly (llvm_struct "struct.bignum_st");
-  (in_d, in_d_ptr) <- ptr_to_fresh_readonly "in_d" (llvm_array words i64);
-  points_to_bignum_st_same in_ptr in_d_ptr words;
+  (in_d, in_d_ptr) <- ptr_to_fresh_readonly "in_d" (llvm_int num_bits);
+  points_to_bignum_st_same in_ptr in_d_ptr num;
 
   crucible_execute_func [out_ptr, crucible_term {{ `bytes : [64] }}, in_ptr];
 
-  crucible_points_to out_ptr (crucible_term {{ split`{each=8} (join (reverse in_d)) }});
+  crucible_points_to out_ptr (crucible_term {{ split`{each=8} in_d }});
   crucible_return (crucible_term {{ 1 : [32] }});
 };
 
-let BN_mod_exp_mont_consttime_spec r_words = do {
-  let num_bits = eval_size {| r_words * 64 |};
+let BN_mod_exp_mont_spec num p_num = do {
+  let num_bits = eval_size {| num * 64 |};
+  let p_num_bits = eval_size {| p_num * 64 |};
   r_ptr <- crucible_alloc (llvm_struct "struct.bignum_st");
+
   a_ptr <- crucible_alloc_readonly (llvm_struct "struct.bignum_st");
+  (a_d, a_d_ptr) <- ptr_to_fresh_readonly "a_d" (llvm_int num_bits);
+  points_to_bignum_st_same a_ptr a_d_ptr num;
+
   p_ptr <- crucible_alloc_readonly (llvm_struct "struct.bignum_st");
+  (p_d, p_d_ptr) <- ptr_to_fresh_readonly "p_d" (llvm_int p_num_bits);
+  points_to_bignum_st_same p_ptr p_d_ptr p_num;
+
   m_ptr <- crucible_alloc_readonly (llvm_struct "struct.bignum_st");
-  // TODO: Technically ctx_ptr is not a const input to BN_mod_exp_mont_spec.
+  (m_d, m_d_ptr) <- ptr_to_fresh_readonly "m_d" (llvm_int num_bits);
+  points_to_bignum_st_same m_ptr m_d_ptr num;
+
+  // Technically ctx_ptr is not a const input to BN_mod_exp_mont_spec.
   // However, ctx_ptr is pretty much just a stack of bignums to use as temp
   // values, and BN_mod_exp_mont_spec pops off values that it pushes to the
-  // stack, so from the algorithm's perspective, the stack is unchanged.  In
-  // reality though, it's possible for BN_mod_exp_mont_spec to push enough to
-  // realloc the stack (though I'm not sure whether this happens), and more
-  // importantly, popping the stack does not zero it, so the memory itself will
-  // be different for values beyond the tip of the stack.
+  // stack, so from an abstract perspective, the stack is unchanged.  In
+  // reality though, it's possible for BN_mod_exp_mont_spec to push enough
+  // to realloc the stack (though I'm not sure whether this happens), and
+  // more importantly, popping the stack does not zero it, so the memory
+  // itself will be different for values beyond the tip of the stack.
   ctx_ptr <- crucible_alloc_readonly (llvm_struct "struct.bignum_ctx");
+
   (N_d, N_d_ptr) <- ptr_to_fresh_readonly "N_d" (llvm_int num_bits);
-  mont_ptr <- pointer_to_bn_mont_ctx_st r_words N_d_ptr N_d;
+  mont_ptr <- pointer_to_bn_mont_ctx_st_with_N_d num N_d_ptr N_d;
+
   crucible_execute_func [r_ptr, a_ptr, p_ptr, m_ptr, ctx_ptr, mont_ptr];
-  //r_ptr <- crucible_alloc (llvm_struct "struct.bignum_st");
-  (r_d, r_d_ptr) <- ptr_to_fresh "r_d" (llvm_array r_words i64);
-  points_to_bignum_st_same r_ptr r_d_ptr r_words;
+
+  r_d_ptr <- crucible_alloc (llvm_int num_bits);
+  crucible_points_to r_d_ptr (crucible_term {{ integerToBV`{num_bits} ((exp (integerFromBV a_d) (integerFromBV p_d)) % (integerModulusFromBV m_d)) }});
+  points_to_bignum_st_same r_ptr r_d_ptr num;
 
   crucible_return (crucible_term {{ 1 : [32] }});
 };
 
-let BN_mod_mul_montgomery_spec r_words = do {
-  let num_bits = eval_size {| r_words * 64 |};
-  r_ptr <- crucible_alloc (llvm_struct "struct.bignum_st");
-
-  b_ptr <- crucible_alloc_readonly (llvm_struct "struct.bignum_st");
-
-  (N_d, N_d_ptr) <- ptr_to_fresh_readonly "N_d" (llvm_int num_bits);
-  mont_ptr <- pointer_to_bn_mont_ctx_st r_words N_d_ptr N_d;
-  ctx_ptr <- crucible_alloc_readonly (llvm_struct "struct.bignum_ctx");
-
-  crucible_execute_func [r_ptr, r_ptr, b_ptr, mont_ptr, ctx_ptr];
-
-  // Get the sizes right to avoid padding
-  (r_d, r_d_ptr) <- ptr_to_fresh "r_d" (llvm_array r_words i64);
-  points_to_bignum_st_same r_ptr r_d_ptr r_words;
-
-  crucible_return (crucible_term {{ 1 : [32] }});
-};
-
-let BN_mod_mul_montgomery_nonoverlap_spec num = do {
+let BN_equal_consttime_spec num = do {
   let num_bits = eval_size {| num * 64 |};
-  r_ptr <- crucible_alloc (llvm_struct "struct.bignum_st");
 
   a_ptr <- crucible_alloc_readonly (llvm_struct "struct.bignum_st");
   (a_d, a_d_ptr) <- ptr_to_fresh_readonly "a_d" (llvm_int num_bits);
@@ -296,100 +301,26 @@ let BN_mod_mul_montgomery_nonoverlap_spec num = do {
   (b_d, b_d_ptr) <- ptr_to_fresh_readonly "b_d" (llvm_int num_bits);
   points_to_bignum_st_same b_ptr b_d_ptr num;
 
-  (N_d, N_d_ptr) <- ptr_to_fresh_readonly "N_d" (llvm_int num_bits);
-  mont_ptr <- pointer_to_bn_mont_ctx_st num N_d_ptr N_d;
+  crucible_execute_func [a_ptr, b_ptr];
 
-  ctx_ptr <- crucible_alloc_readonly (llvm_struct "struct.bignum_ctx");
-
-  crucible_execute_func [r_ptr, a_ptr, b_ptr, mont_ptr, ctx_ptr];
-
-  // TODO: postcond
-
-  // Get the sizes right to avoid padding
-  (r_d, r_d_ptr) <- ptr_to_fresh "r_d" (llvm_array num i64);
-  points_to_bignum_st_same r_ptr r_d_ptr num;
-
-  crucible_return (crucible_term {{ 1 : [32] }});
+  crucible_return (crucible_term {{ if integerFromBV a_d == integerFromBV b_d then (1 : [32]) else 0 }});
 };
 
-let bn_mod_exp_base_2_consttime_spec num = do {
+let BN_ucmp_spec num = do {
   let num_bits = eval_size {| num * 64 |};
-  r_ptr <- crucible_alloc (llvm_struct "struct.bignum_st");
-
-  n_ptr <- crucible_alloc_readonly (llvm_struct "struct.bignum_st");
-  (n_d, n_d_ptr) <- ptr_to_fresh_readonly "n_d" (llvm_int num_bits);
-  points_to_bignum_st_same n_ptr n_d_ptr num;
-
-  ctx_ptr <- crucible_alloc_readonly (llvm_struct "struct.bignum_ctx");
-
-  // Technically this should be N width * 64 * 2, but
-  // with the values we've chosen they're equivalent
-  // TODO: Don't even take num as a parameter if we're going to do this, just
-  // indicate in the name that this is only for 1 word bignums
-  let p = {{ `num * 64 * 2 }};
-
-  crucible_execute_func [r_ptr,
-                         crucible_term {{ p : [32] }},
-                         n_ptr,
-                         ctx_ptr];
-
-  r_d_ptr <- crucible_alloc (llvm_int num_bits);
-  crucible_points_to r_d_ptr (crucible_term {{
-      integerToBV`{num_bits} ((2 ^^ p) % (integerFromBV n_d)) }});
-  points_to_bignum_st_same r_ptr r_d_ptr num;
-
-  crucible_return (crucible_term {{ 1 : [32] }});
-};
-
-// Unwrapped version of wrap_BN_mod_exp_mont_spec without overlapping memory
-// regions
-let BN_mod_exp_mont_spec num = do {
-  let num_bits = eval_size {| num * 64 |};
-  r_ptr <- crucible_alloc (llvm_struct "struct.bignum_st");
 
   a_ptr <- crucible_alloc_readonly (llvm_struct "struct.bignum_st");
   (a_d, a_d_ptr) <- ptr_to_fresh_readonly "a_d" (llvm_int num_bits);
-  a_flag <- crucible_fresh_var "a_flag" i32;
-  points_to_bignum_st a_ptr a_d_ptr num num a_flag;
+  points_to_bignum_st_same a_ptr a_d_ptr num;
 
-  // TODO: Don't hardcode size here, take as a param
-  p_ptr <- crucible_alloc_readonly (llvm_struct "struct.bignum_st");
-  (p_d, p_d_ptr) <- ptr_to_fresh_readonly "p_d" i64;
-  points_to_bignum_st_same p_ptr p_d_ptr 1;
-
-  m_ptr <- crucible_alloc_readonly (llvm_struct "struct.bignum_st");
-  (m_d, m_d_ptr) <- ptr_to_fresh_readonly "m_d" (llvm_int num_bits);
-  points_to_bignum_st_same m_ptr m_d_ptr num;
-
-  // TODO: Technically ctx_ptr is not a const input to BN_mod_exp_mont_spec.
-  // However, ctx_ptr is pretty much just a stack of bignums to use as temp
-  // values, and BN_mod_exp_mont_spec pops off values that it pushes to the
-  // stack, so from the algorithm's perspective, the stack is unchanged.  In
-  // reality though, it's possible for BN_mod_exp_mont_spec to push enough to
-  // realloc the stack (though I'm not sure whether this happens), and more
-  // importantly, popping the stack does not zero it, so the memory itself will
-  // be different for values beyond the tip of the stack.
-  ctx_ptr <- crucible_alloc_readonly (llvm_struct "struct.bignum_ctx");
-  (N_d, N_d_ptr) <- ptr_to_fresh_readonly "N_d" (llvm_int num_bits);
-  mont_ptr <- pointer_to_bn_mont_ctx_st num N_d_ptr N_d;
-  crucible_execute_func [r_ptr, a_ptr, p_ptr, m_ptr, ctx_ptr, mont_ptr];
-  r_d_ptr <- crucible_alloc (llvm_int num_bits);
-  crucible_points_to r_d_ptr (crucible_term {{
-      integerToBV`{num_bits} (modexp (integerFromBV a_d) (integerFromBV p_d) (integerFromBV m_d)) }} );
-  points_to_bignum_st_same r_ptr r_d_ptr num;
-
-  crucible_return (crucible_term {{ 1 : [32] }});
-};
-
-// This is needed because BN_mod_exp_mont_spec isn't functionally correct.  I
-// suspect we can remove this override once BN_mod_exp_mont_spec is correct.
-let BN_equal_consttime_spec = do {
-  a_ptr <- crucible_alloc_readonly (llvm_struct "struct.bignum_st");
   b_ptr <- crucible_alloc_readonly (llvm_struct "struct.bignum_st");
-  crucible_execute_func [a_ptr, b_ptr];
-  crucible_return (crucible_term {{ 1 : [32] }});
-};
+  (b_d, b_d_ptr) <- ptr_to_fresh_readonly "b_d" (llvm_int num_bits);
+  points_to_bignum_st_same b_ptr b_d_ptr num;
 
+  crucible_execute_func [a_ptr, b_ptr];
+
+  crucible_return (crucible_term {{ if (integerFromBV a_d) < (integerFromBV b_d) then (~0 : [32]) else if (integerFromBV a_d) == (integerFromBV b_d) then 0 else 1 }});
+};
 let BN_ucmp_lt_spec num = do {
   let num_bits = eval_size {| num * 64 |};
 
@@ -401,13 +332,12 @@ let BN_ucmp_lt_spec num = do {
   (b_d, b_d_ptr) <- ptr_to_fresh_readonly "b_d" (llvm_int num_bits);
   points_to_bignum_st_same b_ptr b_d_ptr num;
 
-  crucible_precond {{ a_d < b_d }};
+  crucible_precond {{ (integerFromBV a_d) < (integerFromBV b_d) }};
 
   crucible_execute_func [a_ptr, b_ptr];
 
   crucible_return (crucible_term {{ ~0 : [32] }});
 };
-
 let BN_ucmp_gt_spec num_a num_b = do {
   let num_bits_a = eval_size {| num_a * 64 |};
   let num_bits_b = eval_size {| num_b * 64 |};
@@ -420,12 +350,13 @@ let BN_ucmp_gt_spec num_a num_b = do {
   (b_d, b_d_ptr) <- ptr_to_fresh_readonly "b_d" (llvm_int num_bits_b);
   points_to_bignum_st_same b_ptr b_d_ptr num_b;
 
-  crucible_precond {{ a_d > (0 # b_d) }};
+  crucible_precond {{ (integerFromBV a_d) > (integerFromBV b_d) }};
 
   crucible_execute_func [a_ptr, b_ptr];
 
   crucible_return (crucible_term {{ 1 : [32] }});
 };
+
 
 BN_value_one_ov <- crucible_llvm_unsafe_assume_spec
   m

@@ -5,6 +5,7 @@
 
 
 import "../../../cryptol-specs/Common/EC/EC_P384.cry";
+import "../../../cryptol-specs/Common/utils.cry";
 
 
 include "../SHA512/SHA512-384-common.saw";

@@ -1,100 +1,8 @@
-BN_div_9_ov <- crucible_llvm_unsafe_assume_spec
-  m
-  "BN_div"
-  (BN_div_spec 19 9);
+/*
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+*/
 
-bn_mont_n0_1_ov <- crucible_llvm_unsafe_assume_spec
-  m
-  "bn_mont_n0"
-  (bn_mont_n0_spec 1);
-
-bn_mont_n0_9_ov <- crucible_llvm_unsafe_assume_spec
-  m
-  "bn_mont_n0"
-  (bn_mont_n0_spec 9);
-
-// TODO: Overriden because it calls into bn_add_words asm function that the
-// override in the BN lib isn't working for
-bn_mod_exp_base_2_consttime_ov <- crucible_llvm_unsafe_assume_spec
-  m
-  "bn_mod_exp_base_2_consttime"
-  (bn_mod_exp_base_2_consttime_spec 1);
-
-
-BN_mod_mul_montgomery_9_ov <- crucible_llvm_unsafe_assume_spec
-  m
-  "BN_mod_mul_montgomery"
-  (BN_mod_mul_montgomery_spec 9);
-
-BN_mod_mul_montgomery_1_ov <- crucible_llvm_unsafe_assume_spec
-  m
-  "BN_mod_mul_montgomery"
-  (BN_mod_mul_montgomery_spec 1);
-
-BN_mod_mul_montgomery_nonoverlap_1_ov <- crucible_llvm_unsafe_assume_spec
-  m
-  "BN_mod_mul_montgomery"
-  (BN_mod_mul_montgomery_nonoverlap_spec 1);
-
-BN_mod_exp_mont_consttime_9_ov <- crucible_llvm_unsafe_assume_spec
-  m
-  "BN_mod_exp_mont_consttime"
-  (BN_mod_exp_mont_consttime_spec 9);
-
-BN_mod_exp_mont_consttime_1_ov <- crucible_llvm_unsafe_assume_spec
-  m
-  "BN_mod_exp_mont_consttime"
-  (BN_mod_exp_mont_consttime_spec 1);
-
-BN_mod_exp_mont_9_ov <- crucible_llvm_unsafe_assume_spec
-  m
-  "BN_mod_exp_mont"
-  (BN_mod_exp_mont_spec 9);
-
-BN_equal_consttime_ov <- crucible_llvm_unsafe_assume_spec
-  m
-  "BN_equal_consttime"
-  (BN_equal_consttime_spec);
-
-BN_ucmp_lt_9_ov <- crucible_llvm_verify m "BN_ucmp"
-  [value_barrier_w_ov]
-  true
-  (BN_ucmp_lt_spec 9)
-  do {
-    //(goal_eval_unint []);
-    //(print_goal);
-    (w4_unint_yices []);
-  };
-
-BN_ucmp_gt_9_1_ov <- crucible_llvm_verify m "BN_ucmp"
-  [value_barrier_w_ov]
-  true
-  (BN_ucmp_gt_spec 9 1)
-  do {
-    //(goal_eval_unint []);
-    //(print_goal);
-    (w4_unint_yices []);
-  };
-
-BN_bn2bin_padded_same_size_9_ov <- crucible_llvm_verify m "BN_bn2bin_padded"
-  []
-  true
-  (BN_bn2bin_padded_same_size_spec 9)
-  do {
-    //(simplify basic_ss);
-    //(print_goal);
-    (w4_unint_yices []);
-  };
-
-BN_bin2bn_9_ov <- crucible_llvm_verify m "BN_bin2bn"
-  [ OPENSSL_malloc_ov ]
-  true
-  (BN_bin2bn_spec 9)
-  do {
-    //(simplify basic_ss);
-    //(print_goal);
-    (w4_unint_yices []);
-  };
 
 let BN_num_bits_spec num_bits = do {
   let num = eval_size {| ((num_bits - 1) / 64) + 1 |};
@@ -111,14 +19,74 @@ let BN_num_bits_spec num_bits = do {
   crucible_return (crucible_term {{ `num_bits : [32] }});
 };
 
-BN_num_bits_32_ov <- llvm_verify m "BN_num_bits"
-  []
-  true
-  (BN_num_bits_spec 32)
-  (w4_unint_yices []);
 
-BN_num_bits_576_ov <- llvm_verify m "BN_num_bits"
+BN_mod_exp_mont_n_1_ov <- crucible_llvm_unsafe_assume_spec
+  m
+  "BN_mod_exp_mont"
+  (BN_mod_exp_mont_spec n_words 1);
+BN_mod_exp_mont_n_ov <- crucible_llvm_unsafe_assume_spec
+  m
+  "BN_mod_exp_mont_consttime"
+  (BN_mod_exp_mont_spec n_words n_words);
+
+BN_equal_consttime_ov <- llvm_verify m "BN_equal_consttime"
   []
   true
-  (BN_num_bits_spec 576)
-  (w4_unint_yices []);
+  (BN_equal_consttime_spec n_words)
+  (do {
+    w4_unint_z3 [];
+  });
+
+BN_ucmp_lt_n_ov <- llvm_verify m "BN_ucmp"
+  [ value_barrier_w_ov
+  ]
+  true
+  (BN_ucmp_lt_spec n_words)
+  (do {
+    w4_unint_yices [];
+  });
+BN_ucmp_gt_n_e_ov <- llvm_verify m "BN_ucmp"
+  [ value_barrier_w_ov
+  ]
+  true
+  (BN_ucmp_gt_spec n_words 1)
+  (do {
+    w4_unint_z3 [];
+  });
+BN_ucmp_n_ov <- llvm_verify m "BN_ucmp"
+  [ value_barrier_w_ov
+  ]
+  true
+  (BN_ucmp_spec n_words)
+  (do {
+    w4_unint_z3 [];
+  });
+
+BN_bn2bin_padded_n_ov <- llvm_verify m "BN_bn2bin_padded"
+  []
+  true
+  (BN_bn2bin_padded_spec n_words)
+  (do {
+    w4_unint_z3 [];
+  });
+
+BN_bin2bn_n_ov <- llvm_verify m "BN_bin2bn"
+  [ OPENSSL_malloc_ov
+  ]
+  true
+  (BN_bin2bn_spec n_words)
+  (do {
+    w4_unint_z3 [];
+  });
+
+BN_num_bits_n_bits_ov <- llvm_verify m "BN_num_bits"
+  []
+  true
+  (BN_num_bits_spec n_bits)
+  (w4_unint_z3 []);
+BN_num_bits_e_bits_ov <- llvm_verify m "BN_num_bits"
+  []
+  true
+  (BN_num_bits_spec 17)
+  (w4_unint_z3 []);
+
