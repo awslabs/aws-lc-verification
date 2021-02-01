@@ -84,6 +84,10 @@ let points_to_evp_pkey_st ptr pkey_ptr = do {
 };
 
 
+//let points_to_bn_blinding_st ptr Ai_ptr = do {
+//  crucible_points_to (crucible_field ptr "Ai") Ai_ptr;
+//};
+
 let points_to_rsa_st
       ptr
       meth_ptr
@@ -194,6 +198,7 @@ let pointer_to_fresh_rsa_st is_ro is_priv n_bits = do {
 
   mont_n_ptr <- pointer_to_bn_mont_ctx_st_with_N_d modulus_words n_d_ptr n_d;
 
+  //points_to_rsa_st ptr meth_ptr n_ptr e_ptr crucible_null 0 crucible_null crucible_null crucible_null crucible_null crucible_null mont_n_ptr;
   d_d <- if is_priv then do {
     d_ptr <- crucible_alloc_readonly (llvm_struct "struct.bignum_st");
     (d_d, d_d_ptr) <- ptr_to_fresh_readonly "d_d" (llvm_int modulus_bits);
@@ -202,6 +207,38 @@ let pointer_to_fresh_rsa_st is_ro is_priv n_bits = do {
     crucible_precond {{ ((integerFromBV d_d) * (integerFromBV e_d)) % (phi (integerFromBV n_d)) == 1 }};
     crucible_precond {{ (rad (integerFromBV n_d)) == (integerFromBV n_d) }};
 
+    // CRT case
+    // Fields for p+q case
+    //p_ptr <- crucible_alloc_readonly (llvm_struct "struct.bignum_st");
+    //(p_d, p_d_ptr) <- ptr_to_fresh_readonly "p_d" (llvm_int modulus_bits);
+    //points_to_bignum_st_same p_ptr p_d_ptr modulus_words;
+    //crucible_precond {{ ((p_d @ 0) && 1) == 1 }};  // p must be odd
+
+    //q_ptr <- crucible_alloc_readonly (llvm_struct "struct.bignum_st");
+    //(q_d, q_d_ptr) <- ptr_to_fresh_readonly "q_d" (llvm_int modulus_bits);
+    //points_to_bignum_st_same q_ptr q_d_ptr modulus_words;
+    //crucible_precond {{ ((q_d @ 0) && 1) == 1 }};  // q must be odd
+
+    //dmp1_ptr <- crucible_alloc_readonly (llvm_struct "struct.bignum_st");
+    //(dmp1_d, dmp1_d_ptr) <- ptr_to_fresh_readonly "dmp1_d" (llvm_int modulus_bits);
+    //points_to_bignum_st_same dmp1_ptr dmp1_d_ptr modulus_words;
+
+    //dmq1_ptr <- crucible_alloc_readonly (llvm_struct "struct.bignum_st");
+    //(dmq1_d, dmq1_d_ptr) <- ptr_to_fresh_readonly "dmq1_d" (llvm_int modulus_bits);
+    //points_to_bignum_st_same dmq1_ptr dmq1_d_ptr modulus_words;
+
+    //iqmp_ptr <- crucible_alloc_readonly (llvm_struct "struct.bignum_st");
+    //(iqmp_d, iqmp_d_ptr) <- ptr_to_fresh_readonly "iqmp_d" (llvm_int modulus_bits);
+    //points_to_bignum_st_same iqmp_ptr iqmp_d_ptr modulus_words;
+
+    //inv_small_mod_large_mont_ptr <- crucible_alloc_readonly (llvm_struct "struct.bignum_st");
+    //(inv_small_mod_large_mont_d, inv_small_mod_large_mont_d_ptr) <- ptr_to_fresh_readonly "inv_small_mod_large_mont_d" (llvm_int modulus_bits);
+    //points_to_bignum_st_same inv_small_mod_large_mont_ptr inv_small_mod_large_mont_d_ptr modulus_words;
+
+    //mont_p_ptr <- pointer_to_bn_mont_ctx_st_with_N_d modulus_words p_d_ptr p_d;
+
+    //mont_q_ptr <- pointer_to_bn_mont_ctx_st_with_N_d modulus_words q_d_ptr q_d;
+
     points_to_rsa_st
       ptr
       meth_ptr
@@ -209,6 +246,15 @@ let pointer_to_fresh_rsa_st is_ro is_priv n_bits = do {
       e_ptr
       d_ptr
       RSA_FLAG_NO_BLINDING // rsa_flags
+      //p_ptr
+      //q_ptr
+      //dmp1_ptr
+      //dmq1_ptr
+      //iqmp_ptr
+      //inv_small_mod_large_mont_ptr
+      //mont_n_ptr
+      //mont_p_ptr
+      //mont_q_ptr;
       crucible_null
       crucible_null
       crucible_null
@@ -221,6 +267,7 @@ let pointer_to_fresh_rsa_st is_ro is_priv n_bits = do {
 
     return d_d;
   } else do {
+    // No CRT.  Leave p+q (and related fields) null
     points_to_rsa_st
       ptr
       meth_ptr
