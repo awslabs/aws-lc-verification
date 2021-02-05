@@ -11,7 +11,7 @@ let OPENSSL_realloc_spec size = do {
   ptr3 <- crucible_fresh_pointer i64;
   crucible_points_to ptr (crucible_array [ptr0, ptr1, ptr2, ptr3]);
   crucible_execute_func [ptr, (crucible_term {{ `size : [64] }})];
-  ret <- crucible_alloc (llvm_array size i8);
+  ret <- crucible_alloc_aligned 16 (llvm_array size i8);
   crucible_points_to_untyped ret (crucible_array [ptr0, ptr1, ptr2, ptr3]);
   crucible_return ret;
 };

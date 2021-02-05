@@ -12,7 +12,7 @@ let EVP_DigestSignVerifyInit_spec is_sign = do {
   points_to_env_md_st type_ptr;
 
   pkey_ptr <- crucible_alloc (llvm_struct "struct.evp_pkey_st");
-  (rsa_ptr, _n, _d, _e) <- pointer_to_fresh_rsa_st true is_sign n_bits;
+  (rsa_ptr, _n, _d, _e, _p, _q) <- pointer_to_fresh_rsa_st true is_sign false false;
   points_to_evp_pkey_st pkey_ptr rsa_ptr;
 
   crucible_execute_func [ctx_ptr, crucible_null, type_ptr, crucible_null, pkey_ptr];
@@ -42,7 +42,7 @@ let EVP_DigestSignVerifyUpdate_spec is_sign num len = do {
 
   evp_pkey_ctx_ptr <- crucible_alloc_readonly (llvm_struct "struct.evp_pkey_ctx_st");
   pkey_ptr <- crucible_alloc_readonly (llvm_struct "struct.evp_pkey_st");
-  (rsa_ptr, _n, _d, _e) <- pointer_to_fresh_rsa_st true is_sign n_bits;
+  (rsa_ptr, _n, _d, _e, _p, _q) <- pointer_to_fresh_rsa_st true is_sign false false;
   points_to_evp_pkey_st pkey_ptr rsa_ptr;
   rsa_pkey_ctx_ptr <- crucible_alloc_readonly (llvm_struct "struct.RSA_PKEY_CTX");
   points_to_RSA_PKEY_CTX rsa_pkey_ctx_ptr digest_ptr;
@@ -64,6 +64,8 @@ let EVP_DigestSignVerifyUpdate_spec is_sign num len = do {
 let EVP_DigestSignFinal_spec num = do {
   salt <- crucible_fresh_cryptol_var "salt" {| [salt_len][8] |};
   crucible_ghost_value random_out salt;
+  a <- crucible_fresh_cryptol_var "a" {| Integer |};
+  crucible_ghost_value rsa_blinding_factor a;
 
   global_alloc_init "OPENSSL_ia32cap_P" {{ ia32cap }};
 
@@ -78,7 +80,7 @@ let EVP_DigestSignFinal_spec num = do {
 
   evp_pkey_ctx_ptr <- crucible_alloc_readonly (llvm_struct "struct.evp_pkey_ctx_st");
   pkey_ptr <- crucible_alloc (llvm_struct "struct.evp_pkey_st");
-  (rsa_ptr, n, d, _e) <- pointer_to_fresh_rsa_st false true n_bits;
+  (rsa_ptr, n, d, _e, _p, _q) <- pointer_to_fresh_rsa_st false true true true;
   points_to_evp_pkey_st pkey_ptr rsa_ptr;
   rsa_pkey_ctx_ptr <- crucible_alloc_readonly (llvm_struct "struct.RSA_PKEY_CTX");
   points_to_RSA_PKEY_CTX rsa_pkey_ctx_ptr digest_ptr;
@@ -116,7 +118,7 @@ let EVP_DigestVerifyFinal_spec num = do {
 
   evp_pkey_ctx_ptr <- crucible_alloc_readonly (llvm_struct "struct.evp_pkey_ctx_st");
   pkey_ptr <- crucible_alloc (llvm_struct "struct.evp_pkey_st");
-  (rsa_ptr, n, _d, e) <- pointer_to_fresh_rsa_st false false n_bits;
+  (rsa_ptr, n, _d, e, _p, _q) <- pointer_to_fresh_rsa_st false false false false;
   points_to_evp_pkey_st pkey_ptr rsa_ptr;
   rsa_pkey_ctx_ptr <- crucible_alloc_readonly (llvm_struct "struct.RSA_PKEY_CTX");
   points_to_RSA_PKEY_CTX rsa_pkey_ctx_ptr digest_ptr;
