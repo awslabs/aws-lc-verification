@@ -15,7 +15,6 @@ AWS libcrypto includes many cryptographic algorithm implementations for several 
 | Elliptic Curve Keys and Parameters | with <nobr>P-384</nobr> | EVP_PKEY_CTX_new_id, EVP_PKEY_CTX_new, EVP_PKEY_paramgen_init, EVP_PKEY_CTX_set_ec_paramgen_curve_nid, EVP_PKEY_paramgen, EVP_PKEY_keygen_init, EVP_PKEY_keygen | SandyBridge+ | NoEngine, MemCorrect, CRYPTO_refcount_Correct |[SAW](SAW/README.md) |
 | ECDSA     | with <nobr>P-384</nobr>, <nobr>SHA-384</nobr> | EVP_DigestSignInit, EVP_DigestVerifyInit, EVP_DigestSignUpdate, EVP_DigestVerifyUpdate, EVP_DigestSignFinal, EVP_DigestVerifyFinal | SandyBridge+ | InputLength, NoEngine, MemCorrect, ECDSA_k_Valid, ECDSA_SignatureLength, CRYPTO_refcount_Correct, ERR_put_error_Correct |[SAW](SAW/README.md) |
 | ECDH      | with <nobr>P-384</nobr> | EVP_PKEY_derive_init, EVP_PKEY_derive | SandyBridge+ | NoEngine, CRYPTO_refcount_Correct |[SAW](SAW/README.md) |
-| RSA-PSS   | 1024, with <nobr>SHA-384</nobr> | EVP_DigestSignInit, EVP_DigestVerifyInit, EVP_DigestSignUpdate, EVP_DigestVerifyUpdate, EVP_DigestSignFinal, EVP_DigestVerifyFinal | SandyBridge+ | InputLength, NoEngine, MemCorrect, RSA_Blinding, CRYPTO_refcount_Correct, CRYPTO_MUTEX_Correct, ERR_put_error_Correct |[SAW](SAW/README.md) |
 
 The platforms for which code is verified are defined in the following table. In all cases, the actual verification is performed on code that is produced by Clang 10, but the verification results also apply to any compiler that produces semantically equivalent code.
 
@@ -35,10 +34,8 @@ The caveats associated with some of the verification results are defined in the 
 | AES_GCM_FROM_CIPHER_CTX_Correct | Getter function aes_gcm_from_cipher_ctx is not verified, and is assumed to behave correctly. |
 | ECDSA_k_Valid | The implementation is verified correct assuming function ec_random_nonzero_scalar returns (at first call) a random integer `k` that results in a valid signature. |
 | ECDSA_SignatureLength | The implementation is verified correct only for a given length, in bytes, of the signature in ASN1 format. The length is determined by the bitwidth of `r` and `s`, which are determined by `k`. |
-| RSA_Blinding | Functions rsa_blinding_get, and rsa_blinding_release are are not verified, and are assumed to get and release a valid blinding factor.
 | CRYPTO_refcount_Correct | Functions CRYPTO_refcount_inc, and CRYPTO_refcount_dec_and_test_zero_ov are not verified, and are assumed to behave correctly. |
 | ERR_put_error_Correct | Function ERR_put_error is not verified, and is assumed to behave correctly. |
-| CRYPTO_MUTEX_Correct | Functions CRYPTO_MUTEX_lock_read, CRYPTO_MUTEX_unlock_read, CRYPTO_MUTEX_lock_write, and CRYPTO_MUTEX_unlock_write are not verified, and are assumed to behave correctly. |
 
 
 ## License
