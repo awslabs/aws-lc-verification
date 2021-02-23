@@ -24,7 +24,7 @@ include "../common/memory.saw";
  */
 
 let evp_cipher_update_gcm_len = 10;
-let evp_cipher_update_len = 353;
+let evp_cipher_update_len = 286;
 
 // If starting auth length is nonzero, bytes are collected and a single GCM_MUL is performed.
 // So bulk GCM auth length is the starting length rounded up to the next multiple of 16.
@@ -33,9 +33,9 @@ let gcm_len_diff = eval_size {| aesni_gcm_cipher_gcm_len - evp_cipher_update_gcm
 let aesni_gcm_cipher_len = eval_size {| evp_cipher_update_len - (min gcm_len_diff evp_cipher_update_len) |};
 // To get size for bulk processing core, round down to nearest multiple of 96 (min 288)
 let evp_cipher_update_bulk = eval_size {| max 288 (aesni_gcm_cipher_len / 96 * 96) |};
+let bulk_used = eval_size {| aesni_gcm_cipher_len / evp_cipher_update_bulk |};
 // Separate AES-CTR32 and GHASH performed on the remaining whole blocks
-// TODO: need to handle case when evp_cipher_update_len is less than 288
-let length_after_bulk = eval_size {| aesni_gcm_cipher_len - evp_cipher_update_bulk |};
+let length_after_bulk = eval_size {| aesni_gcm_cipher_len - bulk_used * evp_cipher_update_bulk |};
 let whole_blocks_after_bulk = eval_size {| length_after_bulk / 16 |};
 let GHASH_length_blocks = eval_size {| whole_blocks_after_bulk * 16|};
 let evp_cipher_final_gcm_len = eval_size {| evp_cipher_update_gcm_len + evp_cipher_update_len |};
@@ -44,7 +44,9 @@ print (str_concat "evp_cipher_update_len=" (show evp_cipher_update_len));
 print (str_concat "aesni_gcm_cipher_gcm_len=" (show aesni_gcm_cipher_gcm_len));
 print (str_concat "aesni_gcm_cipher_len=" (show aesni_gcm_cipher_len));
 print (str_concat "evp_cipher_update_bulk=" (show evp_cipher_update_bulk));
+print (str_concat "bulk_used=" (show bulk_used));
 print (str_concat "length_after_bulk=" (show length_after_bulk));
+print (str_concat "whole_blocks_after_bulk=" (show whole_blocks_after_bulk));
 print (str_concat "GHASH_length_blocks=" (show GHASH_length_blocks));
 
 /*
