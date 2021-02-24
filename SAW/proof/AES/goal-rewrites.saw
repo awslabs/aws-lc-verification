@@ -241,6 +241,10 @@ let GHASH_bulk_len = eval_size {| 8 * 16 |};
 gcm_ghash_avx_thm_bulk <- prove_gcm_ghash_avx_thm GHASH_bulk_len;
 let GHASH_length_remainder = eval_size {| GHASH_length_blocks % GHASH_bulk_len |};
 gcm_ghash_avx_thm_rem <- prove_gcm_ghash_avx_thm GHASH_length_remainder;
+let gcm_ghash_avx_thms =
+  [ gcm_ghash_avx_thm_bulk
+  , gcm_ghash_avx_thm_rem
+  ];
 
 let prove_ctr32_encrypt_thm gcm_len len = prove_print
   (do {
