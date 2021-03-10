@@ -24,7 +24,7 @@ include "../common/memory.saw";
  */
 
 let evp_cipher_update_gcm_len = 10;
-let evp_cipher_update_len = 254;
+let evp_cipher_update_len = 380;
 
 // If starting auth length is nonzero, bytes are collected and a single GCM_MUL is performed.
 // So bulk GCM auth length is the starting length rounded up to the next multiple of 16.
@@ -37,7 +37,7 @@ let evp_cipher_update_bulk_encrypt = eval_size {| max 288 (aesni_gcm_cipher_len 
 let bulk_encrypt_used = eval_size {| aesni_gcm_cipher_len / evp_cipher_update_bulk_encrypt |};
 // Separate AES-CTR32 and GHASH encryption on the remaining whole blocks
 let length_after_bulk_encrypt = eval_size {| aesni_gcm_cipher_len - bulk_encrypt_used * evp_cipher_update_bulk_encrypt |};
-let whole_blocks_after_bulk_encrypt = eval_size {| length_after_bulk_encrypt / 16 |};
+let whole_blocks_after_bulk_encrypt = eval_size {| max 1 (length_after_bulk_encrypt / 16) |};
 let GHASH_length_blocks_encrypt = eval_size {| whole_blocks_after_bulk_encrypt * 16|};
 
 // Bulk decrypt core also operates on 6 blocks, but min is 6 blocks.
@@ -45,7 +45,7 @@ let evp_cipher_update_bulk_decrypt = eval_size {| max 96 (aesni_gcm_cipher_len /
 let bulk_decrypt_used = eval_size {| aesni_gcm_cipher_len / evp_cipher_update_bulk_decrypt |};
 // Separate AES-CTR32 and GHASH decryption on the remaining whole blocks
 let length_after_bulk_decrypt = eval_size {| aesni_gcm_cipher_len - bulk_decrypt_used * evp_cipher_update_bulk_decrypt |};
-let whole_blocks_after_bulk_decrypt = eval_size {| length_after_bulk_decrypt / 16 |};
+let whole_blocks_after_bulk_decrypt = eval_size {| max 1 (length_after_bulk_decrypt / 16) |};
 let GHASH_length_blocks_decrypt = eval_size {| whole_blocks_after_bulk_decrypt * 16|};
 
 
