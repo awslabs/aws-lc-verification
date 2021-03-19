@@ -382,7 +382,7 @@ let ec_scalar_mul_montgomery_spec = do {
   crucible_points_to r_ptr (crucible_term {{ scalarToBV (((scalarFromBV a) * (scalarFromBV b) * P384_R_n_inv) % `P384_n) }});
 };
 
-let ec_scalar_mul_montgomery_rb_eq_spec = do {
+let ec_scalar_mul_montgomery_same_r_spec = do {
   group_ptr <- pointer_to_fresh_ec_group_st;
   (a, a_ptr) <- ptr_to_fresh_readonly "a" i384;
   (b, b_ptr) <- ptr_to_fresh "b" i384;
@@ -392,7 +392,7 @@ let ec_scalar_mul_montgomery_rb_eq_spec = do {
   crucible_points_to b_ptr (crucible_term {{ scalarToBV (((scalarFromBV a) * (scalarFromBV b) * P384_R_n_inv) % `P384_n) }});
 };
 
-let ec_scalar_mul_montgomery_ra_eq_spec = do {
+let ec_scalar_mul_montgomery_same_l_spec = do {
   group_ptr <- pointer_to_fresh_ec_group_st;
   (a, a_ptr) <- ptr_to_fresh "a" i384;
   (b, b_ptr) <- ptr_to_fresh_readonly "b" i384;
@@ -752,23 +752,23 @@ ec_scalar_mul_montgomery_ov <- llvm_verify
     w4_unint_z3 [];
   });
 
-ec_scalar_mul_montgomery_rb_eq_ov <- llvm_verify
+ec_scalar_mul_montgomery_same_r_ov <- llvm_verify
   m
   "ec_scalar_mul_montgomery"
   [bn_mul_mont_same_res_right_n_ov]
   true
-  ec_scalar_mul_montgomery_rb_eq_spec
+  ec_scalar_mul_montgomery_same_r_spec
   (do {
     goal_eval_unint [];
     w4_unint_z3 [];
   });
 
-ec_scalar_mul_montgomery_ra_eq_ov <- llvm_verify
+ec_scalar_mul_montgomery_same_l_ov <- llvm_verify
   m
   "ec_scalar_mul_montgomery"
   [bn_mul_mont_same_res_left_n_ov]
   true
-  ec_scalar_mul_montgomery_ra_eq_spec
+  ec_scalar_mul_montgomery_same_l_spec
   (do {
     goal_eval_unint [];
     w4_unint_z3 [];
