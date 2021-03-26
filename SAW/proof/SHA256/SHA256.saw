@@ -387,6 +387,7 @@ let concat_assoc_thms =
 
 enable_what4_hash_consing;
 
+// noavx
 crucible_llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "sha256_block_data_order"
   [ ("K256", 704) // immutable constants
   ]
@@ -399,12 +400,27 @@ crucible_llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "sha256_block_da
     w4_unint_yices ["S0", "S1", "s0", "s1", "Ch"];
   });
 
+// avx2 + bmi2 + bmi1
+// crucible_llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "sha256_block_data_order"
+//   [ ("K256", 704) // immutable constants
+//   ]
+//   true
+//   (sha256_block_data_order_spec {{ [0, 0, 0x000000FF, 0] : [4][32] }} false)
+//   (do {
+//     simplify (cryptol_ss ());
+//     simplify (addsimps avx_thms empty_ss);
+//     simplify (addsimps concat_assoc_thms empty_ss);
+//     w4_unint_yices ["S0", "S1", "s0", "s1", "Ch"];
+//   });
+
+// shaext
 crucible_llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "sha256_block_data_order"
   [ ("K256", 704) // immutable constants
   ]
   true
   (sha256_block_data_order_spec {{ [0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF] : [4][32] }} false)
   (do {
+    print_goal;
     simplify (cryptol_ss ());
     simplify (addsimps avx_thms empty_ss);
     simplify (addsimps concat_assoc_thms empty_ss);
