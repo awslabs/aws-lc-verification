@@ -22,27 +22,27 @@ include "../common/memory.saw";
 let NID_sha256 = 672;
 let SHA256_CBLOCK = 64;
 let SHA256_DIGEST_LENGTH = 32;
-let SHA256_CTX_SIZE = eval_int {{ (`SHA256_DIGEST_LENGTH + 4 + 4 + `SHA256_CBLOCK + 4 + 4) : [64] }};
+let SHA256_CTX_SIZE = llvm_sizeof m (llvm_struct "struct.sha256_state_st");
+
+/*
+ * Architecture features for the AVX+shrd code path
+ */
+let {{ ia32cap = [0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff] : [4][32] }};
 
 
 /*
  * Specification of block function for SHA256
  */
-let sha256_block_data_order_spec io32cap check_postcond = do {
-  if check_postcond then do {
-    return ();
-  } else do {
-    crucible_alloc_global "OPENSSL_ia32cap_P";
-    crucible_points_to
-      (crucible_global "OPENSSL_ia32cap_P")
-      (crucible_term io32cap);
-  };
+let sha256_block_data_order_spec ia32cap = do {
+  global_alloc_init "OPENSSL_ia32cap_P" {{ ia32cap }};
 
   (state, state_ptr) <- ptr_to_fresh "state" (llvm_array 8 (llvm_int 32));
 
   (data, data_ptr) <- ptr_to_fresh_readonly "data" (llvm_array SHA256_CBLOCK (llvm_int 8));
 
   crucible_execute_func [state_ptr, data_ptr, crucible_term {{ 1 : [64] }}];
+
+  global_points_to "OPENSSL_ia32cap_P" {{ ia32cap }};
 
   crucible_points_to state_ptr (crucible_term {{ processBlock_Common state (split (join data)) }});
 };
@@ -117,6 +117,8 @@ let EVP_DigestInit_spec = do {
 };
 
 let EVP_DigestUpdate_spec num len = do {
+  global_alloc_init "OPENSSL_ia32cap_P" {{ ia32cap }};
+
   ctx_ptr <- crucible_alloc (llvm_struct "struct.env_md_ctx_st");
 
   digest_ptr <- crucible_alloc_readonly (llvm_struct "struct.env_md_st");
@@ -132,6 +134,8 @@ let EVP_DigestUpdate_spec num len = do {
 
   crucible_execute_func [ctx_ptr, data_ptr, crucible_term {{ `len : [64] }}];
 
+  global_points_to "OPENSSL_ia32cap_P" {{ ia32cap }};
+
   points_to_sha256_state_st sha256_ctx_ptr {{ SHAUpdate sha256_ctx data }};
 
   points_to_env_md_ctx_st ctx_ptr digest_ptr sha256_ctx_ptr;
@@ -140,6 +144,8 @@ let EVP_DigestUpdate_spec num len = do {
 };
 
 let EVP_DigestFinal_spec num = do {
+  global_alloc_init "OPENSSL_ia32cap_P" {{ ia32cap }};
+
   md_out_ptr <- crucible_alloc (llvm_array 32 (llvm_int 8));
 
   ctx_ptr <- crucible_alloc (llvm_struct "struct.env_md_ctx_st");
@@ -155,12 +161,16 @@ let EVP_DigestFinal_spec num = do {
 
   crucible_execute_func [ctx_ptr, md_out_ptr, crucible_null];
 
+  global_points_to "OPENSSL_ia32cap_P" {{ ia32cap }};
+
   crucible_points_to md_out_ptr (crucible_term {{ split`{32} (SHAFinal sha256_ctx) }});
 
   crucible_return (crucible_term {{ 1 : [32] }});
 };
 
 let EVP_Digest_spec len = do {
+  global_alloc_init "OPENSSL_ia32cap_P" {{ ia32cap }};
+
   (data, data_ptr) <- ptr_to_fresh_readonly "data" (llvm_array len (llvm_int 8));
 
   md_out_ptr <- crucible_alloc (llvm_array 32 (llvm_int 8));
@@ -176,6 +186,8 @@ let EVP_Digest_spec len = do {
     , type_ptr
     , crucible_null
     ];
+
+  global_points_to "OPENSSL_ia32cap_P" {{ ia32cap }};
 
   crucible_points_to md_out_ptr (crucible_term {{ split`{32} (SHAImp data) }});
 
@@ -392,7 +404,7 @@ crucible_llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "sha256_block_da
   [ ("K256", 704) // immutable constants
   ]
   true
-  (sha256_block_data_order_spec {{ [0, 0, 0, 0] : [4][32] }} false)
+  (sha256_block_data_order_spec {{ [0, 0, 0, 0] : [4][32] }})
   (do {
     simplify (cryptol_ss ());
     simplify (addsimps scalar_thms empty_ss);
@@ -401,36 +413,32 @@ crucible_llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "sha256_block_da
   });
 
 // avx2 + bmi2 + bmi1
-// crucible_llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "sha256_block_data_order"
-//   [ ("K256", 704) // immutable constants
-//   ]
-//   true
-//   (sha256_block_data_order_spec {{ [0, 0, 0x000000FF, 0] : [4][32] }} false)
-//   (do {
-//     simplify (cryptol_ss ());
-//     simplify (addsimps avx_thms empty_ss);
-//     simplify (addsimps concat_assoc_thms empty_ss);
-//     w4_unint_yices ["S0", "S1", "s0", "s1", "Ch"];
-//   });
-
-// shaext
 crucible_llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "sha256_block_data_order"
   [ ("K256", 704) // immutable constants
   ]
   true
-  (sha256_block_data_order_spec {{ [0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF] : [4][32] }} false)
+  (sha256_block_data_order_spec {{ [0, 0, 0x0000FFFF, 0] : [4][32] }})
   (do {
-    print_goal;
     simplify (cryptol_ss ());
+    simplify (addsimps scalar_thms empty_ss);
     simplify (addsimps avx_thms empty_ss);
-    simplify (addsimps concat_assoc_thms empty_ss);
     w4_unint_yices ["S0", "S1", "s0", "s1", "Ch"];
   });
 
-disable_what4_hash_consing;
+// shaext
+sha256_block_data_order_spec <- crucible_llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "sha256_block_data_order"
+  [ ("K256", 704) // immutable constants
+  ]
+  true
+  (sha256_block_data_order_spec {{ [0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF] : [4][32] }})
+  (do {
+    simplify (cryptol_ss ());
+    simplify (addsimps avx_thms empty_ss);
+    simplify (addsimps concat_assoc_thms empty_ss);
+    w4_unint_yices ["SIGMA_0", "SIGMA_1", "sigma_0", "sigma_1", "Ch"];
+  });
 
-sha256_block_data_order_spec <- crucible_llvm_unsafe_assume_spec m "sha256_block_data_order"
-  (sha256_block_data_order_spec {{ [0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF] : [4][32] }} true);
+disable_what4_hash_consing;
 
 
 crucible_llvm_verify m "EVP_sha256_init" [] true EVP_sha256_init_spec (w4_unint_yices []);
