@@ -67,7 +67,7 @@ gcm_gmult_avx_ov <- llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "gcm_
   rme;
 
 enable_what4_hash_consing;
-print (str_concat "GHASH_length_blocks_encrypt=" (show GHASH_length_blocks_encrypt));
+
 gcm_ghash_avx_encrypt_ov <- llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "gcm_ghash_avx"
   [ ("gcm_ghash_avx", 1800)
   ]
@@ -85,9 +85,7 @@ gcm_ghash_avx_encrypt_ov <- llvm_verify_x86 m "../../build/x86/crypto/crypto_tes
     simplify (addsimps concat_assoc_2_thms empty_ss);
     w4_unint_z3 ["pmult", "gcm_polyval"];
   });
-disable_what4_hash_consing;
 
-print (str_concat "GHASH_length_blocks_decrypt=" (show GHASH_length_blocks_decrypt));
 gcm_ghash_avx_decrypt_ov <- llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "gcm_ghash_avx"
   [ ("gcm_ghash_avx", 1800)
   ]
@@ -105,5 +103,6 @@ gcm_ghash_avx_decrypt_ov <- llvm_verify_x86 m "../../build/x86/crypto/crypto_tes
     simplify (addsimps concat_assoc_2_thms empty_ss);
     w4_unint_z3 ["pmult", "gcm_polyval"];
   });
+  
 disable_what4_hash_consing;
 
