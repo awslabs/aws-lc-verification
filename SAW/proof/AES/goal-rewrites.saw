@@ -237,17 +237,6 @@ let prove_gcm_ghash_avx_thm len = prove_print
   })
   (rewrite (cryptol_ss ()) {{ \H Xi (in : [len][8]) -> gcm_ghash H Xi in == gcm_ghash_avx`{n=((len/16)-1)/8} H Xi in }});
 
-/*
-let GHASH_bulk_len = eval_size {| 8 * 16 |};
-gcm_ghash_avx_thm_bulk <- prove_gcm_ghash_avx_thm GHASH_bulk_len;
-let GHASH_length_remainder = eval_size {| GHASH_length_blocks % GHASH_bulk_len |};
-gcm_ghash_avx_thm_rem <- prove_gcm_ghash_avx_thm GHASH_length_remainder;
-let gcm_ghash_avx_thms =
-  [ gcm_ghash_avx_thm_bulk
-  , gcm_ghash_avx_thm_rem
-  ];
-*/
-
 gcm_ghash_avx_encrypt_thm <- prove_gcm_ghash_avx_thm GHASH_length_blocks_encrypt;
 gcm_ghash_avx_decrypt_thm <- prove_gcm_ghash_avx_thm GHASH_length_blocks_decrypt;
 

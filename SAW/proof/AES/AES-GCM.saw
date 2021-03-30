@@ -48,6 +48,9 @@ let aesni_gcm_cipher_len = eval_size {| evp_cipher_update_len - (min gcm_len_dif
 let evp_cipher_update_bulk_encrypt = eval_size {| max 288 (aesni_gcm_cipher_len / 96 * 96) |};
 let bulk_encrypt_used = eval_size {| aesni_gcm_cipher_len / evp_cipher_update_bulk_encrypt |};
 // Separate AES-CTR32 and GHASH encryption on the remaining whole blocks
+// When there are no blocks left after the bulk operation, prove the CTR32 and GHASH
+// operations correct for 1 block. The code is not entered, so this proof is never used,
+// but it avoids complications related to proving these operations correct on 0 blocks.
 let length_after_bulk_encrypt = eval_size {| aesni_gcm_cipher_len - bulk_encrypt_used * evp_cipher_update_bulk_encrypt |};
 let whole_blocks_after_bulk_encrypt = eval_size {| max 1 (length_after_bulk_encrypt / 16) |};
 let GHASH_length_blocks_encrypt = eval_size {| whole_blocks_after_bulk_encrypt * 16|};
@@ -56,6 +59,7 @@ let GHASH_length_blocks_encrypt = eval_size {| whole_blocks_after_bulk_encrypt *
 let evp_cipher_update_bulk_decrypt = eval_size {| max 96 (aesni_gcm_cipher_len / 96 * 96) |};
 let bulk_decrypt_used = eval_size {| aesni_gcm_cipher_len / evp_cipher_update_bulk_decrypt |};
 // Separate AES-CTR32 and GHASH decryption on the remaining whole blocks
+// Limit to minimum of 1 block like in encrypt case.
 let length_after_bulk_decrypt = eval_size {| aesni_gcm_cipher_len - bulk_decrypt_used * evp_cipher_update_bulk_decrypt |};
 let whole_blocks_after_bulk_decrypt = eval_size {| max 1 (length_after_bulk_decrypt / 16) |};
 let GHASH_length_blocks_decrypt = eval_size {| whole_blocks_after_bulk_decrypt * 16|};
@@ -106,36 +110,29 @@ the original stack pointer in r11 and then calls helper routines, preventing
 the binary analysis from inferring that the return address is still on the stack
 when the routine returns. The called helper routines do not modify r11.
 */
+
+let aes_hw_ctr32_tactic = do {
+  simplify (cryptol_ss ());
+  simplify (addsimps slice_384_thms basic_ss);
+  simplify (addsimps [cmp_sub_thm] empty_ss);
+  goal_eval_unint ["AESRound", "AESFinalRound", "aesenc", "aesenclast"];
+  simplify (addsimps add_xor_slice_thms basic_ss);
+  simplify (addsimps aesenclast_thms basic_ss);
+  w4_unint_yices ["AESRound", "AESFinalRound"];
+};
+
 add_x86_preserved_reg "r11";
 aes_hw_ctr32_encrypt_blocks_encrypt_ov <- llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "aes_hw_ctr32_encrypt_blocks"
   []
   true
   (aes_hw_ctr32_encrypt_blocks_spec whole_blocks_after_bulk_encrypt)
-  (do {
-    simplify (cryptol_ss ());
-    simplify (addsimps slice_384_thms basic_ss);
-    simplify (addsimps [cmp_sub_thm] empty_ss);
-    goal_eval_unint ["AESRound", "AESFinalRound", "aesenc", "aesenclast"];
-    simplify (addsimps add_xor_slice_thms basic_ss);
-    simplify (addsimps aesenclast_thms basic_ss);
-    w4_unint_yices ["AESRound", "AESFinalRound"];
-  });
-default_x86_preserved_reg;
+  aes_hw_ctr32_tactic;
 
-add_x86_preserved_reg "r11";
 aes_hw_ctr32_encrypt_blocks_decrypt_ov <- llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "aes_hw_ctr32_encrypt_blocks"
   []
   true
   (aes_hw_ctr32_encrypt_blocks_spec whole_blocks_after_bulk_decrypt)
-  (do {
-    simplify (cryptol_ss ());
-    simplify (addsimps slice_384_thms basic_ss);
-    simplify (addsimps [cmp_sub_thm] empty_ss);
-    goal_eval_unint ["AESRound", "AESFinalRound", "aesenc", "aesenclast"];
-    simplify (addsimps add_xor_slice_thms basic_ss);
-    simplify (addsimps aesenclast_thms basic_ss);
-    w4_unint_yices ["AESRound", "AESFinalRound"];
-  });
+  aes_hw_ctr32_tactic;
 default_x86_preserved_reg;
 
 
