@@ -12,5 +12,5 @@ cd build_src/llvm
 export LLVM_COMPILER=clang
 export CC=wllvm
 export CXX=clang++
-cmake -DCMAKE_BUILD_TYPE=Rel ../../../src
+cmake -DCMAKE_BUILD_TYPE=Release ../../../src
 make
