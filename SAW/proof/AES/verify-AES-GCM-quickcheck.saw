@@ -9,3 +9,5 @@ let evp_cipher_update_len = 101;
 print (str_concat "Running AES-GCM quick check with evp_cipher_update_len=" (show evp_cipher_update_len));
 
 include "AES-GCM.saw";
+
+print (str_concat "Completed AES-GCM quick check with evp_cipher_update_len=" (show evp_cipher_update_len));

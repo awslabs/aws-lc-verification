@@ -9,3 +9,5 @@ let evp_cipher_update_len = TARGET_LEN_PLACEHOLDER;
 print (str_concat "Running AES-GCM select check with evp_cipher_update_len=" (show evp_cipher_update_len));
 
 include "AES-GCM.saw";
+
+print (str_concat "Completed AES-GCM select check with evp_cipher_update_len=" (show evp_cipher_update_len));
