@@ -4,7 +4,7 @@
 */
 
 // The number of bytes of input given to the update function.
-let evp_cipher_update_len = 101;
+let evp_cipher_update_len = 380;
 
 print (str_concat "Running AES-GCM quick check with evp_cipher_update_len=" (show evp_cipher_update_len));
 
