@@ -41,17 +41,21 @@ func CreateAndRunSawScript(path_to_template string, placeholder_key string, valu
 	defer os.Remove(file_name)
 	// Run saw script.
 	defer wg.Done()
-	RunSawScript(file_name)
+	RunSawScript(file_name, path_to_template)
 }
 
 // A function to run saw script.
-func RunSawScript(path_to_saw_file string) {
-	log.Printf("Running saw script %s", path_to_saw_file)
+func RunSawScript(path_to_saw_file string, path_to_template string) {
+	log.Printf("Running saw script %s. Related template: %s.", path_to_saw_file, path_to_template)
 	cmd := exec.Command("saw", path_to_saw_file)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	err := cmd.Run()
-	CheckError(err)
+	if e != nil {
+		log.Fatal("Failed to run saw script %s. Related template: %s.", path_to_saw_file, path_to_template, e)
+	} else {
+		log.Printf("Finished executing saw script %s. Related template: %s.", path_to_saw_file, path_to_template)
+	}
 }
 
 // A function to limit number of concurrent processes.

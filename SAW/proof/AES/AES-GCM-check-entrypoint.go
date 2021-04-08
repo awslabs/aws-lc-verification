@@ -28,7 +28,7 @@ func main() {
 	// Generate saw scripts based on the verification template and evp_cipher_update_len range [1, 384].
 	var wg sync.WaitGroup
 	process_count := 0
-	for i := 1; i <= 384; i++ {
+	for i := 100; i <= 384; i++ {
 		wg.Add(1)
 		saw_template := "verify-AES-GCM-selectcheck-template.txt"
 		placeholder_name := "TARGET_LEN_PLACEHOLDER"
