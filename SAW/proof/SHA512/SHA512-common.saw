@@ -102,6 +102,31 @@ let sha512_block_data_order_spec = do {
   crucible_points_to state_ptr (crucible_term {{ processBlock_Common state (split (join data)) }});
 };
 
+let sha512_block_data_order_array_spec = do {
+  // Precondition: The function uses the AVX+shrd code path
+  global_alloc_init "OPENSSL_ia32cap_P" {{ ia32cap }};
+
+  // Precondition: `state_ptr` points to an array of 8 64 bit integers
+  (state, state_ptr) <- ptr_to_fresh "state" (llvm_array 8 i64);
+
+  // Precondition: `data_ptr` points to const memory that contains `num`
+  // message blocks
+  num <- crucible_fresh_var "num" i64;
+  let len = {{ num * `SHA512_CBLOCK }};
+  (data, data_ptr) <- ptr_to_fresh_array_readonly "data" len;
+
+  // Call function with `state_ptr`, `data_ptr`, and `num`
+  crucible_execute_func [state_ptr, data_ptr, (crucible_term num)];
+
+  // Postcondition: The function has not changed the variable that decides the AVX+shrd code path
+  global_points_to "OPENSSL_ia32cap_P" {{ ia32cap }};
+
+  // Postcondition: The data pointed to by `state_ptr` is equivalent to the
+  // return value of the processBlock_Common Cryptol spec function applied to `state`
+  // and `data`.
+  crucible_points_to state_ptr (crucible_term {{ processBlocks state data 0 num }});
+};
+
 
 /*
  * Helpers for specifying the SHA512 structs
@@ -174,6 +199,69 @@ let pointer_to_fresh_sha512_state_st name n = do {
   return (state, ptr);
 };
 
+// Create a Cryptol SHAState
+let fresh_sha512_state_st_array name = do {
+  // Hash value
+  h <- crucible_fresh_var (str_concat name ".h") (llvm_array 8 i64);
+  // Message block
+  block <- crucible_fresh_cryptol_var (str_concat name ".block") {| ByteArray |};
+  // Index
+  n <- crucible_fresh_var (str_concat name ".n") i32;
+  // Size
+  sz <- crucible_fresh_var (str_concat name ".sz") i128;
+  // Build SHAState
+  return {{ { h = h, block = block, n = n, sz = sz } : SHAState_Array }};
+};
+
+/*
+ * The next functions all specify structs used in the C SHA implementation.
+ * Most of the statements in these are of the form:
+ *    crucible_points_to (crucible_field ptr "name") (crucible_term {{ term }})
+ * which indicates that the field `name` of the struct pointed to by `ptr`
+ * contains the value `term`.  Some have the form:
+ *    crucible_points_to (crucible_field ptr "name") (crucible_global GLOBAL)
+ * which indicates that the field `name` of the struct pointed to by `ptr`
+ * contains the value of the global variable `GLOBAL`.
+ * All statements that do not match these two forms are documented inline
+ */
+// Specify the sha512_state_st_array struct from a SHAState
+let points_to_sha512_state_st_common_array ptr (h, sz, block, n) = do {
+  crucible_points_to (crucible_field ptr "h") (crucible_term h);
+
+  // Specify `sha512_state_st.Nl` and `sha512_state_st.Nh` contain `sz`
+  //llvm_points_to_at_type (crucible_field ptr "Nl") i128 (crucible_term sz);
+  llvm_points_to_untyped (crucible_field ptr "Nl") (crucible_term sz);
+
+  crucible_points_to_array_prefix (crucible_field ptr "p") block {{ `SHA512_CBLOCK : [64] }};
+
+  crucible_points_to (crucible_field ptr "num") (crucible_term n);
+  crucible_points_to (crucible_field ptr "md_len") (crucible_term {{ `SHA_DIGEST_LENGTH : [32] }});
+};
+
+// Specify the sha512_state_st struct from a SHAState
+let points_to_sha512_state_st_array ptr state = do {
+ points_to_sha512_state_st_common_array ptr ({{ state.h }}, {{ state.sz }}, {{ state.block }}, {{ state.n }});
+};
+
+let pointer_to_fresh_sha512_state_st_array name = do {
+  // Hash value
+  h <- crucible_fresh_var (str_concat name ".h") (llvm_array 8 i64);
+  // Message block
+  block <- crucible_fresh_cryptol_var (str_concat name ".block") {| ByteArray |};
+  // Index
+  n <- crucible_fresh_var (str_concat name ".n") i32;
+  // Size
+  sz <- crucible_fresh_var (str_concat name ".sz") i128;
+  // Build SHAState
+  let state = {{ { h = h, block = block, n = n, sz = sz } : SHAState_Array }};
+
+  // `ptr` is a pointer to a `sha512_state_st` struct
+  ptr <- crucible_alloc (llvm_struct "struct.sha512_state_st");
+  points_to_sha512_state_st_common_array ptr (h, sz, block, n);
+
+  return (state, ptr);
+};
+
 // Specify the env_md_st struct
 let points_to_env_md_st ptr = do {
   crucible_points_to (crucible_field ptr "type") (crucible_term {{ `NID : [32] }});
@@ -231,3 +319,9 @@ sha512_block_data_order_spec <- crucible_llvm_verify_x86 m "../../build/x86/cryp
     simplify (addsimp concat_assoc_thm empty_ss);
     w4_unint_yices ["S0", "S1", "s0", "s1", "Ch"];
   });
+
+sha512_block_data_order_array_ov <- crucible_llvm_unsafe_assume_spec
+  m
+  "sha512_block_data_order"
+  sha512_block_data_order_array_spec;
+
