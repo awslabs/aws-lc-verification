@@ -1,0 +1,20 @@
+diff --git a/crypto/fipsmodule/rsa/rsa_impl.c b/crypto/fipsmodule/rsa/rsa_impl.c
+index a0ef8d1f5..d25dce2da 100644
+--- a/crypto/fipsmodule/rsa/rsa_impl.c
++++ b/crypto/fipsmodule/rsa/rsa_impl.c
+@@ -360,6 +360,7 @@ err:
+ //
+ // On success, the index of the assigned BN_BLINDING is written to
+ // |*index_used| and must be passed to |rsa_blinding_release| when finished.
++__attribute__((noinline))
+ static BN_BLINDING *rsa_blinding_get(RSA *rsa, unsigned *index_used,
+                                      BN_CTX *ctx) {
+   assert(ctx != NULL);
+@@ -461,6 +462,7 @@ out:
+ 
+ // rsa_blinding_release marks the cached BN_BLINDING at the given index as free
+ // for other threads to use.
++__attribute__((noinline))
+ static void rsa_blinding_release(RSA *rsa, BN_BLINDING *blinding,
+                                  unsigned blinding_index) {
+   if (blinding_index == MAX_BLINDINGS_PER_RSA) {
