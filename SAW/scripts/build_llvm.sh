@@ -12,5 +12,6 @@ cd build_src/llvm
 export LLVM_COMPILER=clang
 export CC=wllvm
 export CXX=clang++
-cmake -DCMAKE_BUILD_TYPE=Rel ../../../src
-make
+cmake -DCMAKE_BUILD_TYPE=Rel ../../../src -DBUILD_TESTING=OFF -DBUILD_LIBSSL=OFF
+NUM_CPU_THREADS=$(grep -c ^processor /proc/cpuinfo)
+make -j $NUM_CPU_THREADS

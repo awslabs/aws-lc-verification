@@ -157,6 +157,7 @@ let pointer_to_base_fresh_rsa_st is_ro = do {
   (e_d, e_d_ptr) <- ptr_to_fresh_readonly "e_d" i64;
   points_to_bignum_st_same e_ptr e_d_ptr 1;
   crucible_precond {{ is_num_bits_bn`{17} e_d }};
+  crucible_precond {{ (integerFromBV e_d) % 2 == 1 }};
 
   crucible_points_to (crucible_field ptr "meth") meth_ptr;
   crucible_points_to (crucible_field ptr "n") n_ptr;
@@ -198,6 +199,7 @@ let pointer_to_fresh_rsa_st is_ro is_priv with_crt with_blinding = do {
   (e_d, e_d_ptr) <- ptr_to_fresh_readonly "e_d" i64;
   points_to_bignum_st_same e_ptr e_d_ptr 1;
   crucible_precond {{ is_num_bits_bn`{17} e_d }};
+  crucible_precond {{ (integerFromBV e_d) % 2 == 1 }};
 
   mont_n_ptr <- pointer_to_bn_mont_ctx_st_with_N_d n_words n_d_ptr n_d;
 
@@ -514,6 +516,7 @@ RSA_verify_PKCS1_PSS_mgf1_ov <- llvm_verify
   , EVP_DigestFinal_ex_0x68_ov
   , sha512_block_data_order_spec
   , BN_num_bits_n_bits_ov
+  , BN_is_odd_ov
   , OPENSSL_malloc_ov
   , OPENSSL_free_nonnull_salt_ov
   , OPENSSL_free_null_ov
