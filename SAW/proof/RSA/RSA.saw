@@ -24,6 +24,7 @@ let p_bytes = eval_size {| p_bits / 8 |};
 let p_words = eval_size {| p_bytes / 8 |};
 let salt_len = SHA_DIGEST_LENGTH;
 let salt_len_param = eval_int {{ -1 : [32] }};
+let e_words = 1;
 
 
 /*
@@ -515,7 +516,6 @@ RSA_verify_PKCS1_PSS_mgf1_ov <- llvm_verify
   , EVP_DigestFinal_ex_0x68_ov
   , sha512_block_data_order_spec
   , BN_num_bits_n_bits_ov
-  , BN_is_odd_ov
   , OPENSSL_malloc_ov
   , OPENSSL_free_nonnull_salt_ov
   , OPENSSL_free_null_ov
@@ -658,6 +658,7 @@ RSA_verify_pss_mgf1_ov <- llvm_verify
   , BN_ucmp_gt_n_e_ov
   , BN_num_bits_n_bits_ov
   , BN_num_bits_e_bits_ov
+  , BN_is_odd_ov
   , sha512_block_data_order_spec
   , value_barrier_w_ov
   , ERR_put_error_ov
