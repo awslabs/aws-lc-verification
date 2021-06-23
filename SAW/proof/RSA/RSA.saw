@@ -157,7 +157,6 @@ let pointer_to_base_fresh_rsa_st is_ro = do {
   (e_d, e_d_ptr) <- ptr_to_fresh_readonly "e_d" i64;
   points_to_bignum_st_same e_ptr e_d_ptr 1;
   crucible_precond {{ is_num_bits_bn`{17} e_d }};
-  crucible_precond {{ (integerFromBV e_d) % 2 == 1 }};
 
   crucible_points_to (crucible_field ptr "meth") meth_ptr;
   crucible_points_to (crucible_field ptr "n") n_ptr;
@@ -199,7 +198,6 @@ let pointer_to_fresh_rsa_st is_ro is_priv with_crt with_blinding = do {
   (e_d, e_d_ptr) <- ptr_to_fresh_readonly "e_d" i64;
   points_to_bignum_st_same e_ptr e_d_ptr 1;
   crucible_precond {{ is_num_bits_bn`{17} e_d }};
-  crucible_precond {{ (integerFromBV e_d) % 2 == 1 }};
 
   mont_n_ptr <- pointer_to_bn_mont_ctx_st_with_N_d n_words n_d_ptr n_d;
 
@@ -442,6 +440,7 @@ let RSA_verify_pss_mgf1_spec = do {
   global_alloc_init "OPENSSL_ia32cap_P" {{ ia32cap }};
 
   (rsa_ptr, n, _d, e, _p, _q) <- pointer_to_fresh_rsa_st false false false false;
+  crucible_precond {{ (integerFromBV e) % 2 == 1 }};
   (msg, msg_ptr) <- ptr_to_fresh_readonly "msg" (llvm_array SHA_DIGEST_LENGTH i8);
   md_ptr <- crucible_alloc_readonly (llvm_struct "struct.env_md_st");
   points_to_env_md_st md_ptr;
