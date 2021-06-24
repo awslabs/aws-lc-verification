@@ -1,0 +1,425 @@
++ saw proof/ECDH/verify-ECDH.saw
+
+
+[14:39:59.796] Loading file "/home/rscott/Documents/Hacking/SAW/aws-lc-verification/SAW/proof/ECDH/verify-ECDH.saw"
+[14:39:59.797] Loading file "/home/rscott/Documents/Hacking/SAW/aws-lc-verification/SAW/proof/ECDH/ECDH.saw"
+
+
+[14:39:59.872] Loading file "/home/rscott/Documents/Hacking/SAW/aws-lc-verification/SAW/proof/ECDSA/goal-rewrites.saw"
+
+[14:40:35.317] Loading file "/home/rscott/Documents/Hacking/SAW/aws-lc-verification/SAW/proof/common/helpers.saw"
+[14:40:35.320] Loading file "/home/rscott/Documents/Hacking/SAW/aws-lc-verification/SAW/proof/common/internal.saw"
+[14:40:35.822] Assume override CRYPTO_get_fork_generation
+[14:40:35.947] Assume override CRYPTO_refcount_inc
+[14:40:36.103] Assume override CRYPTO_refcount_dec_and_test_zero
+[14:40:36.212] Assume override ERR_put_error
+[14:40:36.320] Assume override CRYPTO_MUTEX_lock_read
+[14:40:36.429] Assume override CRYPTO_MUTEX_unlock_read
+[14:40:36.536] Assume override CRYPTO_MUTEX_lock_write
+[14:40:36.644] Assume override CRYPTO_MUTEX_unlock_write
+[14:40:36.644] Loading file "/home/rscott/Documents/Hacking/SAW/aws-lc-verification/SAW/proof/common/memory.saw"
+[14:40:36.787] Assume override OPENSSL_malloc
+[14:40:36.895] Assume override OPENSSL_malloc
+[14:40:37.003] Assume override OPENSSL_realloc
+[14:40:38.866] Assume override OPENSSL_free
+[14:40:38.966] Assume override OPENSSL_cleanse
+[14:40:38.966] Loading file "/home/rscott/Documents/Hacking/SAW/aws-lc-verification/SAW/proof/BN/BN.saw"
+[14:40:39.211] Assume override BN_value_one
+[14:40:39.212] Loading file "/home/rscott/Documents/Hacking/SAW/aws-lc-verification/SAW/proof/EC/EC.saw"
+
+
+[14:40:39.284] Loading file "/home/rscott/Documents/Hacking/SAW/aws-lc-verification/SAW/proof/EC/memory.saw"
+[14:40:39.386] Assume override OPENSSL_free
+[14:40:39.490] Assume override OPENSSL_free
+[14:40:39.656] Assume override EC_GFp_mont_method
+[14:40:39.754] Assume override EC_GFp_nistz256_method
+[14:40:39.852] Assume override EC_GFp_nistp224_method
+
+
+[14:40:40.012] Assume override bn_add_words
+
+
+[14:40:40.172] Assume override bn_add_words
+
+[14:40:40.331] Assume override bn_sub_words
+[14:40:40.661] Assume override bn_mul_mont
+[14:40:41.011] Assume override bn_mul_mont
+[14:40:41.349] Assume override bn_mul_mont
+[14:40:41.693] Assume override bn_mul_mont
+[14:40:42.040] Assume override bn_mul_mont
+[14:40:42.389] Assume override bn_mul_mont
+[14:40:42.555] Verifying bn_select_words ...
+[14:40:42.555] Simulating bn_select_words ...
+[14:40:42.559] Checking proof obligations bn_select_words ...
+[14:40:42.569] Proof succeeded! bn_select_words
+[14:40:42.749] Verifying bn_select_words ...
+[14:40:42.750] Simulating bn_select_words ...
+[14:40:42.755] Checking proof obligations bn_select_words ...
+[14:40:42.766] Proof succeeded! bn_select_words
+[14:40:42.948] Verifying bn_select_words ...
+[14:40:42.949] Simulating bn_select_words ...
+[14:40:42.951] Checking proof obligations bn_select_words ...
+[14:40:42.964] Proof succeeded! bn_select_words
+[14:40:43.135] Verifying bn_select_words ...
+[14:40:43.136] Simulating bn_select_words ...
+[14:40:43.139] Checking proof obligations bn_select_words ...
+[14:40:43.149] Proof succeeded! bn_select_words
+[warning] at /home/rscott/Documents/Hacking/SAW/aws-lc-verification/SAW/proof/EC/EC.saw:690:19--690:20
+    This binding for `b` shadows the existing binding at
+    ../../../cryptol-specs/Common/EC/EC_P384.cry:23:1--23:2
+[warning] at /home/rscott/Documents/Hacking/SAW/aws-lc-verification/SAW/proof/EC/EC.saw:692:98--692:99
+    This binding for `b` shadows the existing binding at
+    ../../../cryptol-specs/Common/EC/EC_P384.cry:23:1--23:2
+[warning] at /home/rscott/Documents/Hacking/SAW/aws-lc-verification/SAW/proof/EC/EC.saw:694:30--694:31
+    This binding for `b` shadows the existing binding at
+    ../../../cryptol-specs/Common/EC/EC_P384.cry:23:1--23:2
+[warning] at /home/rscott/Documents/Hacking/SAW/aws-lc-verification/SAW/proof/EC/EC.saw:696:30--696:31
+    This binding for `b` shadows the existing binding at
+    ../../../cryptol-specs/Common/EC/EC_P384.cry:23:1--23:2
+[warning] at /home/rscott/Documents/Hacking/SAW/aws-lc-verification/SAW/proof/EC/EC.saw:698:40--698:41
+    This binding for `b` shadows the existing binding at
+    ../../../cryptol-specs/Common/EC/EC_P384.cry:23:1--23:2
+[warning] at /home/rscott/Documents/Hacking/SAW/aws-lc-verification/SAW/proof/EC/EC.saw:711:59--711:60
+    This binding for `b` shadows the existing binding at
+    ../../../cryptol-specs/Common/EC/EC_P384.cry:23:1--23:2
+[warning] at /home/rscott/Documents/Hacking/SAW/aws-lc-verification/SAW/proof/EC/EC.saw:716:59--716:60
+    This binding for `b` shadows the existing binding at
+    ../../../cryptol-specs/Common/EC/EC_P384.cry:23:1--23:2
+
+
+
+[14:40:44.502] Assume override bn_reduce_once_in_place
+
+
+[14:40:44.787] Verifying bn_reduce_once_in_place ...
+[14:40:44.788] Simulating bn_reduce_once_in_place ...
+[14:40:44.788] Registering overrides for `bn_select_words`
+[14:40:44.788]   variant `Symbol "bn_select_words"`
+[14:40:44.788] Registering overrides for `bn_sub_words`
+[14:40:44.789]   variant `Symbol "bn_sub_words"`
+[14:40:44.794] Matching 1 overrides of  bn_sub_words ...
+[14:40:44.795] Branching on 1 override variants of bn_sub_words ...
+[14:40:44.796] Applied override! bn_sub_words
+[14:40:44.802] The following overrides were not used:
+	bn_sub_words (defined at /home/rscott/Documents/Hacking/SAW/aws-lc-verification/SAW/proof/EC/EC.saw:605:20)
+
+[14:40:44.802] Checking proof obligations bn_reduce_once_in_place ...
+[14:40:44.986] Proof succeeded! bn_reduce_once_in_place
+[14:40:45.348] Assume override BN_div
+
+
+[14:40:46.767] Assume override EC_GROUP_new_by_curve_name
+[14:40:46.953] Verifying BN_is_zero ...
+[14:40:46.954] Simulating BN_is_zero ...
+[14:40:46.957] Checking proof obligations BN_is_zero ...
+[14:40:46.969] Proof succeeded! BN_is_zero
+[14:40:47.161] Verifying BN_is_zero ...
+[14:40:47.162] Simulating BN_is_zero ...
+[14:40:47.172] Checking proof obligations BN_is_zero ...
+[14:40:47.192] Proof succeeded! BN_is_zero
+[14:40:47.392] Assume override bn_rand_range_words
+
+
+[14:40:48.730] Verifying ec_scalar_is_zero ...
+[14:40:48.740] Simulating ec_scalar_is_zero ...
+[14:40:48.742] Checking proof obligations ec_scalar_is_zero ...
+[14:40:48.754] Proof succeeded! ec_scalar_is_zero
+
+
+[14:40:50.003] Verifying ec_scalar_is_zero ...
+[14:40:50.015] Simulating ec_scalar_is_zero ...
+[14:40:50.019] Checking proof obligations ec_scalar_is_zero ...
+[14:40:50.037] Proof succeeded! ec_scalar_is_zero
+
+
+[14:40:51.412] Verifying ec_bignum_to_scalar ...
+[14:40:51.420] Simulating ec_bignum_to_scalar ...
+[14:40:51.421] Registering overrides for `ERR_put_error`
+[14:40:51.421]   variant `Symbol "ERR_put_error"`
+[14:40:51.439] Matching 1 overrides of  ERR_put_error ...
+[14:40:51.439] Branching on 1 override variants of ERR_put_error ...
+[14:40:51.439] Applied override! ERR_put_error
+[14:40:51.444] The following overrides were not used:
+	ERR_put_error (defined at /home/rscott/Documents/Hacking/SAW/aws-lc-verification/SAW/proof/common/internal.saw:129:21)
+
+[14:40:51.444] Checking proof obligations ec_bignum_to_scalar ...
+[14:40:54.415] Proof succeeded! ec_bignum_to_scalar
+
+
+[14:40:55.723] Verifying ec_scalar_to_montgomery ...
+[14:40:55.732] Simulating ec_scalar_to_montgomery ...
+[14:40:55.732] Registering overrides for `bn_mul_mont`
+[14:40:55.732]   variant `Symbol "bn_mul_mont"`
+[14:40:55.736] Matching 1 overrides of  bn_mul_mont ...
+[14:40:55.739] Branching on 1 override variants of bn_mul_mont ...
+[14:40:55.739] Applied override! bn_mul_mont
+[14:40:55.740] The following overrides were not used:
+	bn_mul_mont (defined at /home/rscott/Documents/Hacking/SAW/aws-lc-verification/SAW/proof/EC/EC.saw:618:21)
+
+[14:40:55.740] Checking proof obligations ec_scalar_to_montgomery ...
+[14:40:55.752] Proof succeeded! ec_scalar_to_montgomery
+
+
+[14:40:57.052] Verifying ec_scalar_to_montgomery ...
+[14:40:57.060] Simulating ec_scalar_to_montgomery ...
+[14:40:57.061] Registering overrides for `bn_mul_mont`
+[14:40:57.061]   variant `Symbol "bn_mul_mont"`
+[14:40:57.065] Matching 1 overrides of  bn_mul_mont ...
+[14:40:57.067] Branching on 1 override variants of bn_mul_mont ...
+[14:40:57.067] Applied override! bn_mul_mont
+[14:40:57.068] The following overrides were not used:
+	bn_mul_mont (defined at /home/rscott/Documents/Hacking/SAW/aws-lc-verification/SAW/proof/EC/EC.saw:630:35)
+
+[14:40:57.068] Checking proof obligations ec_scalar_to_montgomery ...
+[14:40:57.080] Proof succeeded! ec_scalar_to_montgomery
+
+
+[14:40:59.995] Assume override ec_scalar_from_montgomery
+
+
+[14:41:01.213] Assume override ec_scalar_from_montgomery
+
+[14:41:01.587] Assume override bn_from_montgomery_small
+
+[14:41:01.975] Assume override bn_from_montgomery_small
+
+
+[14:41:03.328] Assume override ec_scalar_add
+
+
+[14:41:04.640] Assume override ec_scalar_add
+
+
+[14:41:06.033] Verifying ec_scalar_mul_montgomery ...
+[14:41:06.041] Simulating ec_scalar_mul_montgomery ...
+[14:41:06.041] Registering overrides for `bn_mul_mont`
+[14:41:06.041]   variant `Symbol "bn_mul_mont"`
+[14:41:06.046] Matching 1 overrides of  bn_mul_mont ...
+[14:41:06.048] Branching on 1 override variants of bn_mul_mont ...
+[14:41:06.048] Applied override! bn_mul_mont
+[14:41:06.049] The following overrides were not used:
+	bn_mul_mont (defined at /home/rscott/Documents/Hacking/SAW/aws-lc-verification/SAW/proof/EC/EC.saw:618:21)
+
+[14:41:06.049] Checking proof obligations ec_scalar_mul_montgomery ...
+[14:41:06.062] Proof succeeded! ec_scalar_mul_montgomery
+
+
+[14:41:07.327] Verifying ec_scalar_mul_montgomery ...
+[14:41:07.337] Simulating ec_scalar_mul_montgomery ...
+[14:41:07.337] Registering overrides for `bn_mul_mont`
+[14:41:07.337]   variant `Symbol "bn_mul_mont"`
+[14:41:07.343] Matching 1 overrides of  bn_mul_mont ...
+[14:41:07.345] Branching on 1 override variants of bn_mul_mont ...
+[14:41:07.346] Applied override! bn_mul_mont
+[14:41:07.347] The following overrides were not used:
+	bn_mul_mont (defined at /home/rscott/Documents/Hacking/SAW/aws-lc-verification/SAW/proof/EC/EC.saw:626:36)
+
+[14:41:07.347] Checking proof obligations ec_scalar_mul_montgomery ...
+[14:41:07.364] Proof succeeded! ec_scalar_mul_montgomery
+
+
+[14:41:08.814] Verifying ec_scalar_mul_montgomery ...
+[14:41:08.831] Simulating ec_scalar_mul_montgomery ...
+[14:41:08.832] Registering overrides for `bn_mul_mont`
+[14:41:08.832]   variant `Symbol "bn_mul_mont"`
+[14:41:08.841] Matching 1 overrides of  bn_mul_mont ...
+[14:41:08.845] Branching on 1 override variants of bn_mul_mont ...
+[14:41:08.845] Applied override! bn_mul_mont
+[14:41:08.847] The following overrides were not used:
+	bn_mul_mont (defined at /home/rscott/Documents/Hacking/SAW/aws-lc-verification/SAW/proof/EC/EC.saw:630:35)
+
+[14:41:08.847] Checking proof obligations ec_scalar_mul_montgomery ...
+[14:41:08.864] Proof succeeded! ec_scalar_mul_montgomery
+
+[14:41:09.338] Verifying bn_mod_mul_montgomery_small ...
+[14:41:09.340] Simulating bn_mod_mul_montgomery_small ...
+[14:41:09.340] Registering overrides for `bn_mul_mont`
+[14:41:09.340]   variant `Symbol "bn_mul_mont"`
+[14:41:09.344] Matching 1 overrides of  bn_mul_mont ...
+[14:41:09.347] Branching on 1 override variants of bn_mul_mont ...
+[14:41:09.347] Applied override! bn_mul_mont
+[14:41:09.348] The following overrides were not used:
+	bn_mul_mont (defined at /home/rscott/Documents/Hacking/SAW/aws-lc-verification/SAW/proof/EC/EC.saw:618:21)
+
+[14:41:09.348] Checking proof obligations bn_mod_mul_montgomery_small ...
+[14:41:09.361] Proof succeeded! bn_mod_mul_montgomery_small
+
+[14:41:09.840] Verifying bn_mod_mul_montgomery_small ...
+[14:41:09.842] Simulating bn_mod_mul_montgomery_small ...
+[14:41:09.842] Registering overrides for `bn_mul_mont`
+[14:41:09.842]   variant `Symbol "bn_mul_mont"`
+[14:41:09.849] Matching 1 overrides of  bn_mul_mont ...
+[14:41:09.852] Branching on 1 override variants of bn_mul_mont ...
+[14:41:09.853] Applied override! bn_mul_mont
+[14:41:09.854] The following overrides were not used:
+	bn_mul_mont (defined at /home/rscott/Documents/Hacking/SAW/aws-lc-verification/SAW/proof/EC/EC.saw:626:36)
+
+[14:41:09.854] Checking proof obligations bn_mod_mul_montgomery_small ...
+[14:41:09.874] Proof succeeded! bn_mod_mul_montgomery_small
+
+[14:41:10.360] Verifying bn_mod_mul_montgomery_small ...
+[14:41:10.362] Simulating bn_mod_mul_montgomery_small ...
+[14:41:10.363] Registering overrides for `bn_mul_mont`
+[14:41:10.363]   variant `Symbol "bn_mul_mont"`
+[14:41:10.369] Matching 1 overrides of  bn_mul_mont ...
+[14:41:10.372] Branching on 1 override variants of bn_mul_mont ...
+[14:41:10.372] Applied override! bn_mul_mont
+[14:41:10.373] The following overrides were not used:
+	bn_mul_mont (defined at /home/rscott/Documents/Hacking/SAW/aws-lc-verification/SAW/proof/EC/EC.saw:630:35)
+
+[14:41:10.374] Checking proof obligations bn_mod_mul_montgomery_small ...
+[14:41:10.392] Proof succeeded! bn_mod_mul_montgomery_small
+
+
+[14:41:11.665] Assume override ec_simple_scalar_inv0_montgomery
+
+
+[14:41:13.076] Assume override ec_random_nonzero_scalar
+
+
+[14:41:14.484] Assume override ec_point_mul_scalar
+
+
+[14:41:15.970] Assume override ec_point_mul_scalar_base
+
+
+[14:41:17.643] Assume override ec_GFp_mont_mul_base
+
+
+[14:41:19.229] Assume override ec_point_mul_scalar_public
+
+
+[14:41:20.506] Assume override ec_cmp_x_coordinate
+
+
+[14:41:21.798] Assume override ec_get_x_coordinate_as_scalar
+
+
+[14:41:23.334] Assume override ec_get_x_coordinate_as_bytes
+
+
+[14:41:24.796] Assume override ec_GFp_simple_is_on_curve
+[14:41:24.797] Loading file "/home/rscott/Documents/Hacking/SAW/aws-lc-verification/SAW/proof/ECDH/evp-function-specs.saw"
+[14:41:24.912] WARNING: assuming goal prove is unsat
+[14:41:24.970] WARNING: assuming goal prove is unsat
+[14:41:25.117] Verifying EVP_PKEY_CTX_new_id ...
+[14:41:25.118] Simulating EVP_PKEY_CTX_new_id ...
+[14:41:25.118] Registering overrides for `OPENSSL_malloc`
+[14:41:25.118]   variant `Symbol "OPENSSL_malloc"`
+[14:41:25.121] Matching 1 overrides of  OPENSSL_malloc ...
+[14:41:25.122] Branching on 1 override variants of OPENSSL_malloc ...
+[14:41:25.122] Applied override! OPENSSL_malloc
+[14:41:25.122] Matching 1 overrides of  OPENSSL_malloc ...
+[14:41:25.123] Branching on 1 override variants of OPENSSL_malloc ...
+[14:41:25.123] Applied override! OPENSSL_malloc
+[14:41:25.147] The following overrides were not used:
+	OPENSSL_malloc (defined at /home/rscott/Documents/Hacking/SAW/aws-lc-verification/SAW/proof/common/memory.saw:107:22)
+
+[14:41:25.147] Checking proof obligations EVP_PKEY_CTX_new_id ...
+[14:41:25.147] Proof succeeded! EVP_PKEY_CTX_new_id
+[14:41:25.314] Verifying EVP_PKEY_CTX_new ...
+[14:41:25.315] Simulating EVP_PKEY_CTX_new ...
+[14:41:25.316] Registering overrides for `CRYPTO_refcount_inc`
+[14:41:25.316]   variant `Symbol "CRYPTO_refcount_inc"`
+[14:41:25.316] Registering overrides for `OPENSSL_malloc`
+[14:41:25.316]   variant `Symbol "OPENSSL_malloc"`
+[14:41:25.319] Matching 1 overrides of  OPENSSL_malloc ...
+[14:41:25.320] Branching on 1 override variants of OPENSSL_malloc ...
+[14:41:25.320] Applied override! OPENSSL_malloc
+[14:41:25.320] Matching 1 overrides of  CRYPTO_refcount_inc ...
+[14:41:25.320] Branching on 1 override variants of CRYPTO_refcount_inc ...
+[14:41:25.320] Applied override! CRYPTO_refcount_inc
+[14:41:25.320] Matching 1 overrides of  OPENSSL_malloc ...
+[14:41:25.321] Branching on 1 override variants of OPENSSL_malloc ...
+[14:41:25.321] Applied override! OPENSSL_malloc
+[14:41:25.347] The following overrides were not used:
+	CRYPTO_refcount_inc (defined at /home/rscott/Documents/Hacking/SAW/aws-lc-verification/SAW/proof/common/internal.saw:119:27)
+	OPENSSL_malloc (defined at /home/rscott/Documents/Hacking/SAW/aws-lc-verification/SAW/proof/common/memory.saw:107:22)
+
+[14:41:25.347] Checking proof obligations EVP_PKEY_CTX_new ...
+[14:41:25.347] Proof succeeded! EVP_PKEY_CTX_new
+[14:41:25.501] Verifying EVP_PKEY_paramgen_init ...
+[14:41:25.502] Simulating EVP_PKEY_paramgen_init ...
+[14:41:25.503] Checking proof obligations EVP_PKEY_paramgen_init ...
+[14:41:25.503] Proof succeeded! EVP_PKEY_paramgen_init
+
+
+[14:41:27.140] Verifying EVP_PKEY_CTX_set_ec_paramgen_curve_nid ...
+[14:41:27.147] Simulating EVP_PKEY_CTX_set_ec_paramgen_curve_nid ...
+[14:41:27.148] Registering overrides for `EC_GROUP_new_by_curve_name`
+[14:41:27.148]   variant `Symbol "EC_GROUP_new_by_curve_name"`
+[14:41:27.151] Matching 1 overrides of  EC_GROUP_new_by_curve_name ...
+[14:41:27.152] Branching on 1 override variants of EC_GROUP_new_by_curve_name ...
+[14:41:27.170] Applied override! EC_GROUP_new_by_curve_name
+[14:41:27.218] The following overrides were not used:
+	EC_GROUP_new_by_curve_name (defined at /home/rscott/Documents/Hacking/SAW/aws-lc-verification/SAW/proof/EC/EC.saw:792:34)
+
+[14:41:27.218] Checking proof obligations EVP_PKEY_CTX_set_ec_paramgen_curve_nid ...
+[14:41:27.218] Proof succeeded! EVP_PKEY_CTX_set_ec_paramgen_curve_nid
+
+
+[14:41:28.848] Verifying EVP_PKEY_paramgen ...
+[14:41:28.862] Simulating EVP_PKEY_paramgen ...
+[14:41:28.863] Registering overrides for `OPENSSL_malloc`
+[14:41:28.863]   variant `Symbol "OPENSSL_malloc"`
+[14:41:28.866] Matching 1 overrides of  OPENSSL_malloc ...
+[14:41:28.867] Branching on 1 override variants of OPENSSL_malloc ...
+[14:41:28.867] Applied override! OPENSSL_malloc
+[14:41:28.868] Matching 1 overrides of  OPENSSL_malloc ...
+[14:41:28.868] Branching on 1 override variants of OPENSSL_malloc ...
+[14:41:28.868] Applied override! OPENSSL_malloc
+[14:41:28.874] The following overrides were not used:
+	OPENSSL_malloc (defined at /home/rscott/Documents/Hacking/SAW/aws-lc-verification/SAW/proof/common/memory.saw:107:22)
+
+[14:41:28.874] Checking proof obligations EVP_PKEY_paramgen ...
+[14:41:28.874] Proof succeeded! EVP_PKEY_paramgen
+[14:41:29.028] Verifying EVP_PKEY_keygen_init ...
+[14:41:29.029] Simulating EVP_PKEY_keygen_init ...
+[14:41:29.031] Checking proof obligations EVP_PKEY_keygen_init ...
+[14:41:29.031] Proof succeeded! EVP_PKEY_keygen_init
+
+
+[14:41:32.027] Verifying EVP_PKEY_keygen ...
+[14:41:32.040] Simulating EVP_PKEY_keygen ...
+[14:41:32.041] Registering overrides for `OPENSSL_malloc`
+[14:41:32.041]   variant `Symbol "OPENSSL_malloc"`
+[14:41:32.041] Registering overrides for `bn_rand_range_words`
+[14:41:32.041]   variant `Symbol "bn_rand_range_words"`
+[14:41:32.041] Registering overrides for `ec_GFp_mont_mul_base`
+[14:41:32.041]   variant `Symbol "ec_GFp_mont_mul_base"`
+[14:41:32.041] Registering overrides for `ec_GFp_simple_is_on_curve`
+[14:41:32.042]   variant `Symbol "ec_GFp_simple_is_on_curve"`
+[14:41:32.042] Registering overrides for `ec_point_mul_scalar_base`
+[14:41:32.042]   variant `Symbol "ec_point_mul_scalar_base"`
+[14:41:32.042] Registering overrides for `ec_random_nonzero_scalar`
+[14:41:32.042]   variant `Symbol "ec_random_nonzero_scalar"`
+[14:41:32.045] Matching 1 overrides of  OPENSSL_malloc ...
+[14:41:32.046] Branching on 1 override variants of OPENSSL_malloc ...
+[14:41:32.046] Applied override! OPENSSL_malloc
+[14:41:32.047] Matching 1 overrides of  OPENSSL_malloc ...
+[14:41:32.047] Branching on 1 override variants of OPENSSL_malloc ...
+[14:41:32.048] Applied override! OPENSSL_malloc
+[14:41:32.050] Matching 1 overrides of  OPENSSL_malloc ...
+[14:41:32.051] Branching on 1 override variants of OPENSSL_malloc ...
+[14:41:32.051] Applied override! OPENSSL_malloc
+[14:41:32.051] Matching 1 overrides of  OPENSSL_malloc ...
+[14:41:32.052] Branching on 1 override variants of OPENSSL_malloc ...
+[14:41:32.052] Applied override! OPENSSL_malloc
+[14:41:32.052] Matching 1 overrides of  bn_rand_range_words ...
+[14:41:32.053] Branching on 1 override variants of bn_rand_range_words ...
+[14:41:32.054] Applied override! bn_rand_range_words
+[14:41:32.054] Matching 1 overrides of  ec_GFp_mont_mul_base ...
+[14:41:32.087] Branching on 1 override variants of ec_GFp_mont_mul_base ...
+[14:41:32.105] Applied override! ec_GFp_mont_mul_base
+[14:41:32.105] Matching 1 overrides of  ec_GFp_simple_is_on_curve ...
+[14:41:32.135] Branching on 1 override variants of ec_GFp_simple_is_on_curve ...
+[14:41:32.135] Applied override! ec_GFp_simple_is_on_curve
+[14:41:32.136] Symbolic simulation completed with side conditions.
+[14:41:32.158] The following overrides were not used:
+	OPENSSL_malloc (defined at /home/rscott/Documents/Hacking/SAW/aws-lc-verification/SAW/proof/common/memory.saw:107:22)
+	bn_rand_range_words (defined at /home/rscott/Documents/Hacking/SAW/aws-lc-verification/SAW/proof/EC/EC.saw:814:27)
+	ec_GFp_mont_mul_base (defined at /home/rscott/Documents/Hacking/SAW/aws-lc-verification/SAW/proof/EC/EC.saw:980:28)
+	ec_GFp_simple_is_on_curve (defined at /home/rscott/Documents/Hacking/SAW/aws-lc-verification/SAW/proof/EC/EC.saw:1015:33)
+
+[14:41:32.158] Checking proof obligations EVP_PKEY_keygen ...
+[14:42:50.020] user interrupt
