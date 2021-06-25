@@ -13,6 +13,7 @@ PATCH=$(realpath ./patch)
 (cd ../src; patch -p1 -r - --forward < "$PATCH"/noinline-aes_gcm_from_cipher_ctx.patch || true)
 (cd ../src; patch -p1 -r - --forward < "$PATCH"/noinline-bn_sub_words.patch || true)
 (cd ../src; patch -p1 -r - --forward < "$PATCH"/noinline-rsa_blinding.patch || true)
+(cd ../src; patch -p1 -r - --forward < "$PATCH"/noinline-ec_random_nonzero_scalar.patch || true)
 
 ./scripts/build_x86.sh
 ./scripts/build_llvm.sh
