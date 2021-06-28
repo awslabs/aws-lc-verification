@@ -14,7 +14,13 @@ Difficult tasks:
   - Mark certain functions as `noinline` (e.g., `bn_sub_words`, which invokes `bn_reduce_once_in_place`). I've went with this approach for now.
 
 Unknown-difficulty tasks:
-* [ ] The proofs of `ECDSA_do_sign`, `EVP_PKEY_keygen`, and `RSA_verify_PKCS1_PSS_mgf1` currently go into an infinite loop for reasons I haven't yet figured out. (**Estimate**: 2-4 hours to triage, unknown hours to fix)
+* The proofs of
+
+  * [ ] `ECDSA_do_sign`,
+  * [X] `EVP_PKEY_keygen`, and
+  * [ ] `RSA_verify_PKCS1_PSS_mgf1`
+
+  currently go into an infinite loop for reasons I haven't yet figured out. (**Estimate**: 2-4 hours to triage, unknown hours to fix)
 * [ ] The proof of `ECDSA_do_verify` triggers `Run-time error: encountered call to the Cryptol 'error' function` for reasons I haven't yet figured out. (https://github.com/GaloisInc/saw-script/issues/1326 _might_ make this easier to debug, but that's not a guarantee.) (**Estimate**: 2–4 hours to triage, unknown hours to fix)
 
 "Tasks" that I'm not sure if there's much we can do about:

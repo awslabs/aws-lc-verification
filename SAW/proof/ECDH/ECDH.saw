@@ -99,10 +99,8 @@ llvm_verify m "EVP_PKEY_keygen_init"
   (w4_unint_z3 []);
 
 llvm_verify m "EVP_PKEY_keygen"
-  [ ec_random_nonzero_scalar_ov
-  // , ec_point_mul_scalar_base_ov
-  , OPENSSL_malloc_ov
-  // , bn_rand_range_words_ov
+  [ OPENSSL_malloc_ov
+  , bn_rand_range_words_ov
   , ec_GFp_mont_mul_base_ov
   , ec_GFp_simple_is_on_curve_ov
   ]
@@ -118,8 +116,6 @@ llvm_verify m "EVP_PKEY_keygen"
     goal_eval_unint ["ec_point_affine_scalar_mul", "fromJacobian"];
     w4_unint_z3 ["ec_point_affine_scalar_mul", "fromJacobian"];
   });
-// llvm_unsafe_assume_spec m "EVP_PKEY_keygen"
-//   EVP_PKEY_keygen_spec;
 
 
 llvm_verify m "EVP_PKEY_derive_init"
