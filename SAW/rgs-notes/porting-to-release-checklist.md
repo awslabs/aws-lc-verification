@@ -1,3 +1,6 @@
+Low priority tasks:
+* [ ] I had to mark `bn_reduce_once_in_place` as `noinline` in order to make the proof for `ECDSA_do_verify` go through. In theory, it might be possible to make the proof work without `noinline`, but it would be significantly more annoying. Since the underlying bignum library is liable to be replaced soon, it didn't seem worthwhile to pursue this at the moment.
+
 Small tasks:
 * [X] When LLVM optimizes `bn_select_words`, it produces code that compares pointers. This is permissible in Crucible only when a specific flag is enabled, but SAW does not yet offer a way to enable that flag. I've added support for this in https://github.com/GaloisInc/saw-script/pull/1309, which is still pending review. (**Estimate**: however long it takes to land the MR. Probably no more than 1 hour.)
 
@@ -21,7 +24,7 @@ Unknown-difficulty tasks:
   * [ ] `RSA_verify_PKCS1_PSS_mgf1`
 
   currently go into an infinite loop for reasons I haven't yet figured out. (**Estimate**: 2-4 hours to triage, unknown hours to fix)
-* [ ] The proof of `ECDSA_do_verify` triggers `Run-time error: encountered call to the Cryptol 'error' function` for reasons I haven't yet figured out. (https://github.com/GaloisInc/saw-script/issues/1326 _might_ make this easier to debug, but that's not a guarantee.) (**Estimate**: 2–4 hours to triage, unknown hours to fix)
+* [X] The proof of `ECDSA_do_verify` triggers `Run-time error: encountered call to the Cryptol 'error' function` for reasons I haven't yet figured out. (https://github.com/GaloisInc/saw-script/issues/1326 _might_ make this easier to debug, but that's not a guarantee.) (**Estimate**: 2–4 hours to triage, unknown hours to fix)
 
 "Tasks" that I'm not sure if there's much we can do about:
 * [ ] I had to mark `aes_gcm_from_cipher_ctx` as `noinline` for two reasons:
