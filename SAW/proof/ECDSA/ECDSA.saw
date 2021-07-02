@@ -290,9 +290,6 @@ ECDSA_do_verify_ov <- llvm_verify m "ECDSA_do_verify"
     simplify (addsimp jacobian_affine_1_thm empty_ss);
     simplify (addsimps mod_thms empty_ss);
     goal_eval_unint ["inv0", "ec_point_affine_add", "ec_point_affine_scalar_mul", "fromJacobian"];
-    simplify (addsimp append_assoc_thm empty_ss);
-    simplify (addsimp append_assoc_thm2 empty_ss);
-    simplify (addsimp append_at_thm empty_ss);
     simplify (addsimp mod_2_384_thm empty_ss);
     w4_unint_z3 ["inv0", "ec_point_affine_add", "ec_point_affine_scalar_mul", "fromJacobian"];
   });
