@@ -1,7 +1,7 @@
 [submodule "src"]
 	path = src
-	url = https://github.com/samuel40791765/aws-lc.git
-	branch = boringssl-merge-7fffa4636cf7647daf981914286d5d32f1beab6d
+	branch = main
+	url = https://github.com/awslabs/aws-lc.git
 [submodule "cryptol-specs"]
 	path = cryptol-specs
 	branch = sha-imperative
