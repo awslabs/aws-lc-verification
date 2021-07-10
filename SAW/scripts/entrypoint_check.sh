@@ -20,6 +20,8 @@ PATCH=$(realpath ./patch)
 (cd ../src; patch -p1 -r - --forward < "$PATCH"/noinline-ec_point_mul_scalar_base.patch || true)
 (cd ../src; patch -p1 -r - --forward < "$PATCH"/noinline-ec_scalar_add.patch || true)
 (cd ../src; patch -p1 -r - --forward < "$PATCH"/noinline-ec_scalar_is_zero.patch || true)
+(cd ../src; patch -p1 -r - --forward < "$PATCH"/noinline-ec_cmp_x_coordinate.patch || true)
+(cd ../src; patch -p1 -r - --forward < "$PATCH"/noinline-ec_point_mul_scalar_public.patch || true)
 
 ./scripts/build_x86.sh
 ./scripts/build_llvm.sh
