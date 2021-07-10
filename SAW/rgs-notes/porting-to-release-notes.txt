@@ -2356,3 +2356,117 @@ index e8ca7a3..ab1fc23 100644
 ```
 
 And that's all for RSA.
+
+Here are the elliptic curve-related functions that are currently marked as `noinline`:
+
+* Remove the uses of `noinline` for the following functions used in the proof of `ECDSA_do_sign`:
+  * [ ] `ec_scalar_from_montgomery` (shared in common with `ECDSA_do_verify`)
+
+    ```c
+    void ec_scalar_from_montgomery(const EC_GROUP *group, EC_SCALAR *r,
+                                   const EC_SCALAR *a) {
+      const BIGNUM *order = &group->order;
+      bn_from_montgomery_small(r->words, order->width, a->words, order->width,
+                               group->order_mont);
+    }
+    ```
+
+  * [ ] `ec_scalar_mul_montgomery` (shared in common with `ECDSA_do_verify`)
+
+    ```c
+    void ec_scalar_mul_montgomery(const EC_GROUP *group, EC_SCALAR *r,
+                                  const EC_SCALAR *a, const EC_SCALAR *b) {
+      const BIGNUM *order = &group->order;
+      bn_mod_mul_montgomery_small(r->words, a->words, b->words, order->width,
+                                  group->order_mont);
+    }
+    ```
+  * [ ] `ec_scalar_to_montgomery`
+
+    ```c
+    void ec_scalar_to_montgomery(const EC_GROUP *group, EC_SCALAR *r,
+                                 const EC_SCALAR *a) {
+      const BIGNUM *order = &group->order;
+      bn_to_montgomery_small(r->words, a->words, order->width, group->order_mont);
+    }
+    ```
+  * [ ] `ec_point_mul_scalar_base`
+
+    ```c
+    int ec_point_mul_scalar_base(const EC_GROUP *group, EC_RAW_POINT *r,
+                                 const EC_SCALAR *scalar) {
+      if (scalar == NULL) {
+        OPENSSL_PUT_ERROR(EC, ERR_R_PASSED_NULL_PARAMETER);
+        return 0;
+      }
+
+      group->meth->mul_base(group, r, scalar);
+
+      // Check the result is on the curve to defend against fault attacks or bugs.
+      // This has negligible cost compared to the multiplication.
+      if (!ec_GFp_simple_is_on_curve(group, r)) {
+        OPENSSL_PUT_ERROR(EC, ERR_R_INTERNAL_ERROR);
+        return 0;
+      }
+
+      return 1;
+    }
+    ```
+
+    TODO RGS: Figure out what `group->meth->mul_base` resolves to
+  * [ ] `ec_scalar_add`
+
+    ```c
+    void ec_scalar_add(const EC_GROUP *group, EC_SCALAR *r, const EC_SCALAR *a,
+                       const EC_SCALAR *b) {
+      const BIGNUM *order = &group->order;
+      BN_ULONG tmp[EC_MAX_WORDS];
+      bn_mod_add_words(r->words, a->words, b->words, order->d, tmp, order->width);
+      OPENSSL_cleanse(tmp, sizeof(tmp));
+    }
+    ```
+  * [ ] `ec_scalar_is_zero`
+
+    ```c
+    int ec_scalar_is_zero(const EC_GROUP *group, const EC_SCALAR *a) {
+      BN_ULONG mask = 0;
+      for (int i = 0; i < group->order.width; i++) {
+        mask |= a->words[i];
+      }
+      return mask == 0;
+    }
+    ```
+* Remove the uses of `noinline` for the following functions used in the proof of `ECDSA_do_verify`:
+  * [ ] `ec_scalar_from_montgomery` (shared in common with `ECDSA_do_sign`)
+  * [ ] `ec_scalar_mul_montgomery` (shared in common with `ECDSA_do_sign`)
+  * [ ] `ec_cmp_x_coordinate`
+
+    ```c
+    int ec_cmp_x_coordinate(const EC_GROUP *group, const EC_RAW_POINT *p,
+                            const EC_SCALAR *r) {
+      return group->meth->cmp_x_coordinate(group, p, r);
+    }
+    ```
+
+    TODO RGS: Figure out what `group->meth->cmp_x_coordinate` resolves to
+  * [ ] `ec_point_mul_scalar_public`
+
+    ```c
+    int ec_point_mul_scalar_public(const EC_GROUP *group, EC_RAW_POINT *r,
+                                   const EC_SCALAR *g_scalar, const EC_RAW_POINT *p,
+                                   const EC_SCALAR *p_scalar) {
+      if (g_scalar == NULL || p_scalar == NULL || p == NULL) {
+        OPENSSL_PUT_ERROR(EC, ERR_R_PASSED_NULL_PARAMETER);
+        return 0;
+      }
+
+      if (group->meth->mul_public == NULL) {
+        return group->meth->mul_public_batch(group, r, g_scalar, p, p_scalar, 1);
+      }
+
+      group->meth->mul_public(group, r, g_scalar, p, p_scalar);
+      return 1;
+    }
+    ```
+
+    TODO RGS: Figure out what `group->meth->mul_public{,_batch}` resolve to
