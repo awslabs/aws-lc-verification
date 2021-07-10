@@ -1,0 +1,12 @@
+diff --git a/crypto/fipsmodule/ec/scalar.c b/crypto/fipsmodule/ec/scalar.c
+index e4ae9d7fc..3e26d49ad 100644
+--- a/crypto/fipsmodule/ec/scalar.c
++++ b/crypto/fipsmodule/ec/scalar.c
+@@ -131,6 +131,7 @@ void ec_scalar_from_montgomery(const EC_GROUP *group, EC_SCALAR *r,
+                            group->order_mont);
+ }
+ 
++__attribute__((noinline))
+ void ec_scalar_mul_montgomery(const EC_GROUP *group, EC_SCALAR *r,
+                               const EC_SCALAR *a, const EC_SCALAR *b) {
+   const BIGNUM *order = &group->order;

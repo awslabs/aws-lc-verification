@@ -752,7 +752,7 @@ bn_reduce_once_in_place_false_ov <- llvm_verify
     simplify (addsimp integerBV_thm empty_ss);
     simplify (addsimp ite_integerToBV_thm empty_ss);
 
-    // These two are only needed when optimization is enabled
+    // These are only needed when optimization is enabled
     simplify (addsimps append_thms empty_ss);
     simplify (addsimps coup_de_grace_thms empty_ss);
 

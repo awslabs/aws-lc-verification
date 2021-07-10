@@ -5,6 +5,13 @@ Small tasks:
 * [X] When LLVM optimizes `bn_select_words`, it produces code that compares pointers. This is permissible in Crucible only when a specific flag is enabled, but SAW does not yet offer a way to enable that flag. I've added support for this in https://github.com/GaloisInc/saw-script/pull/1309, which is still pending review. (**Estimate**: however long it takes to land the MR. Probably no more than 1 hour.)
 
 Medium tasks:
+* Remove the uses of `noinline` for the following functions used in the proof of `ECDSA_do_sign`:
+  * [ ] `ec_scalar_from_montgomery`
+  * [ ] `ec_scalar_mul_montgomery`
+  * [ ] `ec_scalar_to_montgomery`
+  * [ ] `ec_point_mul_scalar_base`
+  * [ ] `ec_scalar_add`
+  * [ ] `ec_scalar_is_zero`
 * [ ] The proofs for `RSA_sign_pss_mgf1` and `RSA_verify_pss_mgf1` will require more complicated tactics since they feature many more vectorized instructions that before. I've figured out how to do this before in a much more limited setting (`bn_reduce_once_in_place`). (**Estimate**: 8–16 hours)
 * [ ] Write a specification for `ec_GFp_simple_is_on_curve`, which currently has an extremely simplistic unsafe override. (**Estimate**: 8–16 hours)
 
@@ -19,7 +26,7 @@ Difficult tasks:
 Unknown-difficulty tasks:
 * The proofs of
 
-  * [ ] `ECDSA_do_sign`,
+  * [X] `ECDSA_do_sign`,
   * [X] `EVP_PKEY_keygen`, and
   * [ ] `RSA_verify_PKCS1_PSS_mgf1`
 

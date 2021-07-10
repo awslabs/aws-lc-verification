@@ -14,6 +14,12 @@ PATCH=$(realpath ./patch)
 (cd ../src; patch -p1 -r - --forward < "$PATCH"/noinline-bn_sub_words.patch || true)
 (cd ../src; patch -p1 -r - --forward < "$PATCH"/noinline-rsa_blinding.patch || true)
 (cd ../src; patch -p1 -r - --forward < "$PATCH"/noinline-bn_reduce_once_in_place.patch || true)
+(cd ../src; patch -p1 -r - --forward < "$PATCH"/noinline-ec_scalar_from_montgomery.patch || true)
+(cd ../src; patch -p1 -r - --forward < "$PATCH"/noinline-ec_scalar_mul_montgomery.patch || true)
+(cd ../src; patch -p1 -r - --forward < "$PATCH"/noinline-ec_scalar_to_montgomery.patch || true)
+(cd ../src; patch -p1 -r - --forward < "$PATCH"/noinline-ec_point_mul_scalar_base.patch || true)
+(cd ../src; patch -p1 -r - --forward < "$PATCH"/noinline-ec_scalar_add.patch || true)
+(cd ../src; patch -p1 -r - --forward < "$PATCH"/noinline-ec_scalar_is_zero.patch || true)
 
 ./scripts/build_x86.sh
 ./scripts/build_llvm.sh
