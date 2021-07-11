@@ -2371,7 +2371,7 @@ Here are the elliptic curve-related functions that are currently marked as `noin
     }
     ```
 
-  * [ ] `ec_scalar_mul_montgomery` (shared in common with `ECDSA_do_verify`)
+  * [X] `ec_scalar_mul_montgomery` (shared in common with `ECDSA_do_verify`)
 
     ```c
     void ec_scalar_mul_montgomery(const EC_GROUP *group, EC_SCALAR *r,
@@ -2438,7 +2438,7 @@ Here are the elliptic curve-related functions that are currently marked as `noin
     ```
 * Remove the uses of `noinline` for the following functions used in the proof of `ECDSA_do_verify`:
   * [ ] `ec_scalar_from_montgomery` (shared in common with `ECDSA_do_sign`)
-  * [ ] `ec_scalar_mul_montgomery` (shared in common with `ECDSA_do_sign`)
+  * [X] `ec_scalar_mul_montgomery` (shared in common with `ECDSA_do_sign`)
   * [ ] `ec_cmp_x_coordinate`
 
     ```c

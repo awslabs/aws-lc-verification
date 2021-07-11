@@ -324,9 +324,9 @@ ECDSA_do_sign_ov <- llvm_verify m "ECDSA_do_sign"
   , ec_scalar_from_montgomery_same_ov
   , ec_scalar_add_ov
   , ec_scalar_add_same_l_ov
-  , ec_scalar_mul_montgomery_ov
-  , ec_scalar_mul_montgomery_same_l_ov
-  , ec_scalar_mul_montgomery_same_r_ov
+  // , ec_scalar_mul_montgomery_ov
+  // , ec_scalar_mul_montgomery_same_l_ov
+  // , ec_scalar_mul_montgomery_same_r_ov
   , ec_simple_scalar_inv0_montgomery_ov
   , ec_random_nonzero_scalar_ov
   , ec_point_mul_scalar_base_ov
@@ -340,9 +340,9 @@ ECDSA_do_sign_ov <- llvm_verify m "ECDSA_do_sign"
   , OPENSSL_cleanse_ov
   , bn_rand_range_words_ov
   , bn_sub_words_ov
-  // , bn_mod_mul_montgomery_small_ov
-  // , bn_mod_mul_montgomery_small_same_l_ov
-  // , bn_mod_mul_montgomery_small_same_r_ov
+  , bn_mod_mul_montgomery_small_ov
+  , bn_mod_mul_montgomery_small_same_l_ov
+  , bn_mod_mul_montgomery_small_same_r_ov
   // , ec_GFp_mont_mul_base_ov
   // , ec_GFp_simple_is_on_curve_ov
   ]
@@ -386,8 +386,8 @@ ECDSA_do_verify_ov <- llvm_verify m "ECDSA_do_verify"
   , ec_scalar_from_montgomery_ov
   , ec_scalar_from_montgomery_same_ov
   , ec_scalar_add_ov
-  , ec_scalar_mul_montgomery_ov
-  , ec_scalar_mul_montgomery_same_r_ov
+  // , ec_scalar_mul_montgomery_ov
+  // , ec_scalar_mul_montgomery_same_r_ov
   , ec_simple_scalar_inv0_montgomery_ov
   , ec_scalar_is_zero_ov
   , ec_random_nonzero_scalar_ov
@@ -397,6 +397,8 @@ ECDSA_do_verify_ov <- llvm_verify m "ECDSA_do_verify"
   , ec_get_x_coordinate_as_scalar_ov
   // , digest_to_scalar_ov
   , bn_reduce_once_in_place_false_ov
+  , bn_mod_mul_montgomery_small_ov
+  , bn_mod_mul_montgomery_small_same_r_ov
   , ERR_put_error_ov
   ]
   true
