@@ -2454,7 +2454,7 @@ Here are the elliptic curve-related functions that are currently marked as `noin
     ```
 
     TODO RGS: Figure out what `group->meth->cmp_x_coordinate` resolves to
-  * [ ] `ec_point_mul_scalar_public`
+  * [X] `ec_point_mul_scalar_public`
 
     ```c
     int ec_point_mul_scalar_public(const EC_GROUP *group, EC_RAW_POINT *r,
@@ -2473,5 +2473,3 @@ Here are the elliptic curve-related functions that are currently marked as `noin
       return 1;
     }
     ```
-
-    TODO RGS: Figure out what `group->meth->mul_public{,_batch}` resolve to
