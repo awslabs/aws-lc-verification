@@ -2417,9 +2417,7 @@ Here are the elliptic curve-related functions that are currently marked as `noin
       return 1;
     }
     ```
-
-    TODO RGS: Figure out what `group->meth->mul_base` resolves to
-  * [ ] `ec_scalar_add`
+  * [X] `ec_scalar_add`
 
     ```c
     void ec_scalar_add(const EC_GROUP *group, EC_SCALAR *r, const EC_SCALAR *a,
@@ -2428,6 +2426,12 @@ Here are the elliptic curve-related functions that are currently marked as `noin
       BN_ULONG tmp[EC_MAX_WORDS];
       bn_mod_add_words(r->words, a->words, b->words, order->d, tmp, order->width);
       OPENSSL_cleanse(tmp, sizeof(tmp));
+    }
+
+    void bn_mod_add_words(BN_ULONG *r, const BN_ULONG *a, const BN_ULONG *b,
+                          const BN_ULONG *m, BN_ULONG *tmp, size_t num) {
+      BN_ULONG carry = bn_add_words(r, a, b, num);
+      bn_reduce_once_in_place(r, carry, m, tmp, num);
     }
     ```
   * [ ] `ec_scalar_is_zero`

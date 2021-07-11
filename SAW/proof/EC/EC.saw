@@ -409,6 +409,35 @@ let ec_scalar_add_same_l_spec = do {
   crucible_points_to a_ptr (crucible_term {{ scalarToBV (((scalarFromBV a) + (scalarFromBV b)) % `P384_n) }});
 };
 
+let bn_mod_add_words_spec = do {
+  r_ptr <- llvm_alloc i384;
+  (a, a_ptr) <- ptr_to_fresh_readonly "a" i384;
+  (b, b_ptr) <- ptr_to_fresh_readonly "b" i384;
+  llvm_precond {{ (scalarFromBV a) % `P384_n == scalarFromBV a }};
+  llvm_precond {{ (scalarFromBV b) % `P384_n == scalarFromBV b }};
+  d_ptr <- llvm_alloc_readonly i384;
+  llvm_points_to d_ptr (llvm_term {{ fromInteger`{[P384_w]} `P384_n }});
+  out_ptr <- llvm_alloc (llvm_array EC_MAX_WORDS i64);
+
+  llvm_execute_func [r_ptr, a_ptr, b_ptr, d_ptr, out_ptr, llvm_term {{ `ec_words : [64] }}];
+
+  llvm_points_to r_ptr (llvm_term {{ scalarToBV (((scalarFromBV a) + (scalarFromBV b)) % `P384_n) }});
+};
+
+let bn_mod_add_words_same_l_spec = do {
+  (a, a_ptr) <- ptr_to_fresh "a" i384;
+  (b, b_ptr) <- ptr_to_fresh_readonly "b" i384;
+  llvm_precond {{ (scalarFromBV a) % `P384_n == scalarFromBV a }};
+  llvm_precond {{ (scalarFromBV b) % `P384_n == scalarFromBV b }};
+  d_ptr <- llvm_alloc_readonly i384;
+  llvm_points_to d_ptr (llvm_term {{ fromInteger`{[P384_w]} `P384_n }});
+  out_ptr <- llvm_alloc (llvm_array EC_MAX_WORDS i64);
+
+  llvm_execute_func [a_ptr, a_ptr, b_ptr, d_ptr, out_ptr, llvm_term {{ `ec_words : [64] }}];
+
+  llvm_points_to a_ptr (llvm_term {{ scalarToBV (((scalarFromBV a) + (scalarFromBV b)) % `P384_n) }});
+};
+
 let ec_scalar_mul_montgomery_spec = do {
   group_ptr <- pointer_to_fresh_ec_group_st;
   r_ptr <- crucible_alloc i384;
@@ -957,6 +986,16 @@ ec_scalar_add_same_l_ov <- crucible_llvm_unsafe_assume_spec
   m
   "ec_scalar_add"
   ec_scalar_add_same_l_spec;
+
+bn_mod_add_words_ov <- llvm_unsafe_assume_spec
+  m
+  "bn_mod_add_words"
+  bn_mod_add_words_spec;
+
+bn_mod_add_words_same_l_ov <- llvm_unsafe_assume_spec
+  m
+  "bn_mod_add_words"
+  bn_mod_add_words_same_l_spec;
 
 ec_scalar_mul_montgomery_ov <- llvm_verify
   m

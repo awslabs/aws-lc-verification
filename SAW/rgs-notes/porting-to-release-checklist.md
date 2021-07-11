@@ -1,5 +1,5 @@
 Low priority tasks:
-* [ ] I had to mark `bn_reduce_once_in_place` as `noinline` in order to make the proof for `ECDSA_do_verify` go through. In theory, it might be possible to make the proof work without `noinline`, but it would be significantly more annoying. Since the underlying bignum library is liable to be replaced soon, it didn't seem worthwhile to pursue this at the moment.
+* [ ] I had to mark `bn_mod_add_words` and `bn_reduce_once_in_place` as `noinline` in order to make the proof for `ECDSA_do_verify` go through. In theory, it might be possible to make the proofs work without `noinline`, but it would be significantly more annoying. Since the underlying bignum library is liable to be replaced soon, it didn't seem worthwhile to pursue this at the moment.
 
 Small tasks:
 * [X] When LLVM optimizes `bn_select_words`, it produces code that compares pointers. This is permissible in Crucible only when a specific flag is enabled, but SAW does not yet offer a way to enable that flag. I've added support for this in https://github.com/GaloisInc/saw-script/pull/1309, which is still pending review. (**Estimate**: however long it takes to land the MR. Probably no more than 1 hour.)
@@ -11,7 +11,7 @@ Medium tasks:
   * [X] `ec_scalar_to_montgomery`
   * [X] `ec_point_mul_scalar_base`
   * [ ] `ec_scalar_add`
-  * [ ] `ec_scalar_is_zero`
+  * [X] `ec_scalar_is_zero`
 * Remove the uses of `noinline` for the following functions used in the proof of `ECDSA_do_verify`:
   * [X] `ec_scalar_from_montgomery` (shared in common with `ECDSA_do_sign`)
   * [X] `ec_scalar_mul_montgomery` (shared in common with `ECDSA_do_sign`)
