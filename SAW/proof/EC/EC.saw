@@ -363,6 +363,27 @@ let ec_scalar_from_montgomery_same_spec = do {
   crucible_points_to a_ptr (crucible_term {{ scalarToBV (((scalarFromBV a) * P384_R_n_inv) % `P384_n) }});
 };
 
+let bn_from_montgomery_small_spec = do {
+  r_ptr <- llvm_alloc i384;
+  (a, a_ptr) <- ptr_to_fresh "a" i384;
+  let width = llvm_term {{ `ec_words : [64] }};
+  order_mont_ptr <- pointer_to_bn_mont_ctx_st ec_words {| P384_n |};
+
+  llvm_execute_func [r_ptr, width, a_ptr, width, order_mont_ptr];
+
+  llvm_points_to r_ptr (llvm_term {{ scalarToBV (((scalarFromBV a) * P384_R_n_inv) % `P384_n) }});
+};
+
+let bn_from_montgomery_small_same_spec = do {
+  (a, a_ptr) <- ptr_to_fresh "a" i384;
+  let width = llvm_term {{ `ec_words : [64] }};
+  order_mont_ptr <- pointer_to_bn_mont_ctx_st ec_words {| P384_n |};
+
+  llvm_execute_func [a_ptr, width, a_ptr, width, order_mont_ptr];
+
+  llvm_points_to a_ptr (llvm_term {{ scalarToBV (((scalarFromBV a) * P384_R_n_inv) % `P384_n) }});
+};
+
 let ec_scalar_add_spec = do {
   group_ptr <- pointer_to_fresh_ec_group_st;
   r_ptr <- crucible_alloc i384;
@@ -872,11 +893,11 @@ ec_scalar_from_montgomery_same_ov <- crucible_llvm_unsafe_assume_spec
 bn_from_montgomery_small_ov <- llvm_unsafe_assume_spec
   m
   "bn_from_montgomery_small"
-  (bn_from_montgomery_small_spec ec_words);
+  bn_from_montgomery_small_spec;
 bn_from_montgomery_small_same_ov <- llvm_unsafe_assume_spec
   m
   "bn_from_montgomery_small"
-  (bn_from_montgomery_small_same_spec ec_words);
+  bn_from_montgomery_small_same_spec;
 
 ec_scalar_add_ov <- crucible_llvm_unsafe_assume_spec
   m

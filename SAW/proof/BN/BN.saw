@@ -364,35 +364,6 @@ let BN_bn2bin_padded_spec num num_extra = do {
 //   crucible_return (crucible_term {{ 1 : [32] }});
 // };
 
-let bn_from_montgomery_small_spec num = do {
-  let num_bits = eval_size {| num * 64 |};
-  let num_val = llvm_term {{ `num : [64] }};
-
-  r_ptr <- llvm_alloc (llvm_int num_bits);
-  (a, a_ptr) <- ptr_to_fresh "a" (llvm_int num_bits);
-
-  (N_d, N_d_ptr) <- ptr_to_fresh_readonly "N_d" (llvm_int num_bits);
-  mont_ptr <- pointer_to_bn_mont_ctx_st_with_N_d num N_d_ptr N_d;
-
-  llvm_execute_func [r_ptr, num_val, a_ptr, num_val, mont_ptr];
-
-  llvm_points_to r_ptr (llvm_term {{ integerToBV`{num_bits} (((integerFromBV a) * (integerFromBV (mont_R_inv_with_N N_d))) % (integerModulusFromBV N_d)) }});
-};
-
-let bn_from_montgomery_small_same_spec num = do {
-  let num_bits = eval_size {| num * 64 |};
-  let num_val = llvm_term {{ `num : [64] }};
-
-  (r, r_ptr) <- ptr_to_fresh "r" (llvm_int num_bits);
-
-  (N_d, N_d_ptr) <- ptr_to_fresh_readonly "N_d" (llvm_int num_bits);
-  mont_ptr <- pointer_to_bn_mont_ctx_st_with_N_d num N_d_ptr N_d;
-
-  llvm_execute_func [r_ptr, num_val, r_ptr, num_val, mont_ptr];
-
-  llvm_points_to r_ptr (llvm_term {{ integerToBV`{num_bits} (((integerFromBV r) * (integerFromBV (mont_R_inv_with_N N_d))) % (integerModulusFromBV N_d)) }});
-};
-
 let bn_mul_mont_with_N_spec num = do {
   let num_bits = eval_size {| num * 64 |};
   r_ptr <- crucible_alloc (llvm_int num_bits);

@@ -6,14 +6,14 @@ Small tasks:
 
 Medium tasks:
 * Remove the uses of `noinline` for the following functions used in the proof of `ECDSA_do_sign`:
-  * [ ] `ec_scalar_from_montgomery` (shared in common with `ECDSA_do_verify`)
+  * [X] `ec_scalar_from_montgomery` (shared in common with `ECDSA_do_verify`)
   * [X] `ec_scalar_mul_montgomery` (shared in common with `ECDSA_do_verify`)
   * [ ] `ec_scalar_to_montgomery`
   * [ ] `ec_point_mul_scalar_base`
   * [ ] `ec_scalar_add`
   * [ ] `ec_scalar_is_zero`
 * Remove the uses of `noinline` for the following functions used in the proof of `ECDSA_do_verify`:
-  * [ ] `ec_scalar_from_montgomery` (shared in common with `ECDSA_do_sign`)
+  * [X] `ec_scalar_from_montgomery` (shared in common with `ECDSA_do_sign`)
   * [X] `ec_scalar_mul_montgomery` (shared in common with `ECDSA_do_sign`)
   * [ ] `ec_cmp_x_coordinate`
   * [ ] `ec_point_mul_scalar_public`
