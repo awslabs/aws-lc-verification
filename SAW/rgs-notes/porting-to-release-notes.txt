@@ -2444,7 +2444,7 @@ Here are the elliptic curve-related functions that are currently marked as `noin
 * Remove the uses of `noinline` for the following functions used in the proof of `ECDSA_do_verify`:
   * [X] `ec_scalar_from_montgomery` (shared in common with `ECDSA_do_sign`)
   * [X] `ec_scalar_mul_montgomery` (shared in common with `ECDSA_do_sign`)
-  * [ ] `ec_cmp_x_coordinate`
+  * [X] `ec_cmp_x_coordinate`
 
     ```c
     int ec_cmp_x_coordinate(const EC_GROUP *group, const EC_RAW_POINT *p,
@@ -2452,8 +2452,6 @@ Here are the elliptic curve-related functions that are currently marked as `noin
       return group->meth->cmp_x_coordinate(group, p, r);
     }
     ```
-
-    TODO RGS: Figure out what `group->meth->cmp_x_coordinate` resolves to
   * [X] `ec_point_mul_scalar_public`
 
     ```c

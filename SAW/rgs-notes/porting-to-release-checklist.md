@@ -15,7 +15,7 @@ Medium tasks:
 * Remove the uses of `noinline` for the following functions used in the proof of `ECDSA_do_verify`:
   * [X] `ec_scalar_from_montgomery` (shared in common with `ECDSA_do_sign`)
   * [X] `ec_scalar_mul_montgomery` (shared in common with `ECDSA_do_sign`)
-  * [ ] `ec_cmp_x_coordinate`
+  * [X] `ec_cmp_x_coordinate`
   * [X] `ec_point_mul_scalar_public`
 * [ ] The proofs for `RSA_sign_pss_mgf1` and `RSA_verify_pss_mgf1` will require more complicated tactics since they feature many more vectorized instructions that before. I've figured out how to do this before in a much more limited setting (`bn_reduce_once_in_place`). (**Estimate**: 8–16 hours)
 * [ ] Write a specification for `ec_GFp_simple_is_on_curve`, which currently has an extremely simplistic unsafe override. (**Estimate**: 8–16 hours)
