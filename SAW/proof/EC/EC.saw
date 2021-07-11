@@ -143,7 +143,7 @@ let pointer_to_fresh_ec_group_st_with_curve_name curve_name = do {
 
   crucible_points_to (crucible_field ptr "curve_name") (crucible_term {{ `curve_name : [32] }});
 
-  order_mont_ptr <- pointer_to_bn_mont_ctx_st ec_words {| P384_n |};
+  (_, order_mont_ptr) <- pointer_to_bn_mont_ctx_st ec_words {| P384_n |};
   crucible_points_to (crucible_field ptr "order_mont") order_mont_ptr;
 
   field_d_ptr <- crucible_alloc_readonly i384;
@@ -156,7 +156,7 @@ let pointer_to_fresh_ec_group_st_with_curve_name curve_name = do {
   crucible_points_to (crucible_field ptr "field_greater_than_order") (crucible_term {{ 1 : [32] }});
   crucible_points_to_untyped (crucible_field ptr "field_minus_order") (crucible_term {{ fromInteger`{[P384_w]} (`P384_p - `P384_n) }});
 
-  mont_ptr <- pointer_to_bn_mont_ctx_st ec_words {| P384_p |};
+  (_, mont_ptr) <- pointer_to_bn_mont_ctx_st ec_words {| P384_p |};
   crucible_points_to (crucible_field ptr "mont") mont_ptr;
 
   crucible_points_to_untyped (crucible_field ptr "one") (crucible_term {{ fieldElementToBV P384_R_p }});
@@ -367,7 +367,7 @@ let bn_from_montgomery_small_spec = do {
   r_ptr <- llvm_alloc i384;
   (a, a_ptr) <- ptr_to_fresh "a" i384;
   let width = llvm_term {{ `ec_words : [64] }};
-  order_mont_ptr <- pointer_to_bn_mont_ctx_st ec_words {| P384_n |};
+  (_, order_mont_ptr) <- pointer_to_bn_mont_ctx_st ec_words {| P384_n |};
 
   llvm_execute_func [r_ptr, width, a_ptr, width, order_mont_ptr];
 
@@ -377,7 +377,7 @@ let bn_from_montgomery_small_spec = do {
 let bn_from_montgomery_small_same_spec = do {
   (a, a_ptr) <- ptr_to_fresh "a" i384;
   let width = llvm_term {{ `ec_words : [64] }};
-  order_mont_ptr <- pointer_to_bn_mont_ctx_st ec_words {| P384_n |};
+  (_, order_mont_ptr) <- pointer_to_bn_mont_ctx_st ec_words {| P384_n |};
 
   llvm_execute_func [a_ptr, width, a_ptr, width, order_mont_ptr];
 
@@ -445,7 +445,7 @@ let bn_mod_mul_montgomery_small_spec = do {
   (a, a_ptr) <- ptr_to_fresh_readonly "a" i384;
   (b, b_ptr) <- ptr_to_fresh_readonly "b" i384;
   let width = llvm_term {{ `ec_words : [64] }};
-  order_mont_ptr <- pointer_to_bn_mont_ctx_st ec_words {| P384_n |};
+  (_, order_mont_ptr) <- pointer_to_bn_mont_ctx_st ec_words {| P384_n |};
 
   llvm_execute_func [r_ptr, a_ptr, b_ptr, width, order_mont_ptr];
 
@@ -456,7 +456,7 @@ let bn_mod_mul_montgomery_small_same_r_spec = do {
   (a, a_ptr) <- ptr_to_fresh_readonly "a" i384;
   (b, b_ptr) <- ptr_to_fresh "b" i384;
   let width = llvm_term {{ `ec_words : [64] }};
-  order_mont_ptr <- pointer_to_bn_mont_ctx_st ec_words {| P384_n |};
+  (_, order_mont_ptr) <- pointer_to_bn_mont_ctx_st ec_words {| P384_n |};
 
   llvm_execute_func [b_ptr, a_ptr, b_ptr, width, order_mont_ptr];
 
@@ -467,11 +467,32 @@ let bn_mod_mul_montgomery_small_same_l_spec = do {
   (a, a_ptr) <- ptr_to_fresh "a" i384;
   (b, b_ptr) <- ptr_to_fresh_readonly "b" i384;
   let width = llvm_term {{ `ec_words : [64] }};
-  order_mont_ptr <- pointer_to_bn_mont_ctx_st ec_words {| P384_n |};
+  (_, order_mont_ptr) <- pointer_to_bn_mont_ctx_st ec_words {| P384_n |};
 
   llvm_execute_func [a_ptr, a_ptr, b_ptr, width, order_mont_ptr];
 
   llvm_points_to a_ptr (llvm_term {{ scalarToBV (((scalarFromBV a) * (scalarFromBV b) * P384_R_n_inv) % `P384_n) }});
+};
+
+let bn_mod_mul_montgomery_small_RR_d_spec = do {
+  r_ptr <- llvm_alloc i384;
+  (a, a_ptr) <- ptr_to_fresh_readonly "a" i384;
+  let width = llvm_term {{ `ec_words : [64] }};
+  (RR_d_ptr, order_mont_ptr) <- pointer_to_bn_mont_ctx_st ec_words {| P384_n |};
+
+  llvm_execute_func [r_ptr, a_ptr, RR_d_ptr, width, order_mont_ptr];
+
+  llvm_points_to r_ptr (llvm_term {{ scalarToBV (((scalarFromBV a) * P384_R_n) % `P384_n) }});
+};
+
+let bn_mod_mul_montgomery_small_RR_d_same_spec = do {
+  (a, a_ptr) <- ptr_to_fresh "a" i384;
+  let width = llvm_term {{ `ec_words : [64] }};
+  (RR_d_ptr, order_mont_ptr) <- pointer_to_bn_mont_ctx_st ec_words {| P384_n |};
+
+  llvm_execute_func [a_ptr, a_ptr, RR_d_ptr, width, order_mont_ptr];
+
+  llvm_points_to a_ptr (llvm_term {{ scalarToBV (((scalarFromBV a) * P384_R_n) % `P384_n) }});
 };
 
 let ec_simple_scalar_inv0_montgomery_spec = do {
@@ -970,6 +991,28 @@ bn_mod_mul_montgomery_small_same_l_ov <- llvm_verify
   [bn_mul_mont_same_res_left_n_ov]
   true
   bn_mod_mul_montgomery_small_same_l_spec
+  (do {
+    goal_eval_unint [];
+    w4_unint_z3 [];
+  });
+
+bn_mod_mul_montgomery_small_RR_d_ov <- llvm_verify
+  m
+  "bn_mod_mul_montgomery_small"
+  [bn_mul_mont_n_ov]
+  true
+  bn_mod_mul_montgomery_small_RR_d_spec
+  (do {
+    goal_eval_unint [];
+    w4_unint_z3 [];
+  });
+
+bn_mod_mul_montgomery_small_RR_d_same_ov <- llvm_verify
+  m
+  "bn_mod_mul_montgomery_small"
+  [bn_mul_mont_same_res_left_n_ov]
+  true
+  bn_mod_mul_montgomery_small_RR_d_same_spec
   (do {
     goal_eval_unint [];
     w4_unint_z3 [];

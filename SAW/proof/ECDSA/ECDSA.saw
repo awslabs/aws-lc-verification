@@ -318,8 +318,8 @@ toInteger_sub_thm1 <- assume_folding_theorem
 ECDSA_do_sign_ov <- llvm_verify m "ECDSA_do_sign"
   [ sha512_block_data_order_spec
   , ec_bignum_to_scalar_ov
-  , ec_scalar_to_montgomery_ov
-  , ec_scalar_to_montgomery_same_ov
+  // , ec_scalar_to_montgomery_ov
+  // , ec_scalar_to_montgomery_same_ov
   // , ec_scalar_from_montgomery_ov
   // , ec_scalar_from_montgomery_same_ov
   , ec_scalar_add_ov
@@ -345,6 +345,8 @@ ECDSA_do_sign_ov <- llvm_verify m "ECDSA_do_sign"
   , bn_mod_mul_montgomery_small_ov
   , bn_mod_mul_montgomery_small_same_l_ov
   , bn_mod_mul_montgomery_small_same_r_ov
+  , bn_mod_mul_montgomery_small_RR_d_ov
+  , bn_mod_mul_montgomery_small_RR_d_same_ov
   // , ec_GFp_mont_mul_base_ov
   // , ec_GFp_simple_is_on_curve_ov
   ]
@@ -383,8 +385,8 @@ ECDSA_do_sign_ov <- llvm_verify m "ECDSA_do_sign"
 ECDSA_do_verify_ov <- llvm_verify m "ECDSA_do_verify"
   [ BN_is_zero_ov
   , ec_bignum_to_scalar_ov
-  , ec_scalar_to_montgomery_ov
-  , ec_scalar_to_montgomery_same_ov
+  // , ec_scalar_to_montgomery_ov
+  // , ec_scalar_to_montgomery_same_ov
   // , ec_scalar_from_montgomery_ov
   // , ec_scalar_from_montgomery_same_ov
   , ec_scalar_add_ov
@@ -403,6 +405,8 @@ ECDSA_do_verify_ov <- llvm_verify m "ECDSA_do_verify"
   , bn_from_montgomery_small_same_ov
   , bn_mod_mul_montgomery_small_ov
   , bn_mod_mul_montgomery_small_same_r_ov
+  , bn_mod_mul_montgomery_small_RR_d_ov
+  , bn_mod_mul_montgomery_small_RR_d_same_ov
   , ERR_put_error_ov
   ]
   true

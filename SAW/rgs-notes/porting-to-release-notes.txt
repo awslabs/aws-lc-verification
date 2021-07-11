@@ -2381,13 +2381,18 @@ Here are the elliptic curve-related functions that are currently marked as `noin
                                   group->order_mont);
     }
     ```
-  * [ ] `ec_scalar_to_montgomery`
+  * [X] `ec_scalar_to_montgomery`
 
     ```c
     void ec_scalar_to_montgomery(const EC_GROUP *group, EC_SCALAR *r,
                                  const EC_SCALAR *a) {
       const BIGNUM *order = &group->order;
       bn_to_montgomery_small(r->words, a->words, order->width, group->order_mont);
+    }
+
+    void bn_to_montgomery_small(BN_ULONG *r, const BN_ULONG *a, size_t num,
+                                const BN_MONT_CTX *mont) {
+      bn_mod_mul_montgomery_small(r, a, mont->RR.d, num, mont);
     }
     ```
   * [ ] `ec_point_mul_scalar_base`

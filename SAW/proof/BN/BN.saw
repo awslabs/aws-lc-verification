@@ -165,7 +165,7 @@ let pointer_to_bn_mont_ctx_st num N = do {
   crucible_points_to N_d_ptr (crucible_term {{ (fromInteger `N) : [num_bits] }});
   points_to_bignum_st (crucible_field ptr "N") N_d_ptr num num {{ 0 : [32] }};
 
-  return ptr;
+  return (RR_d_ptr, ptr);
 };
 
 let {{
