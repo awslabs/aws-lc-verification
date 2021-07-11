@@ -329,7 +329,7 @@ ECDSA_do_sign_ov <- llvm_verify m "ECDSA_do_sign"
   // , ec_scalar_mul_montgomery_same_r_ov
   , ec_simple_scalar_inv0_montgomery_ov
   , ec_random_nonzero_scalar_ov
-  , ec_point_mul_scalar_base_ov
+  // , ec_point_mul_scalar_base_ov
   , ec_point_mul_scalar_public_ov
   , ec_cmp_x_coordinate_ov
   , ec_get_x_coordinate_as_scalar_ov
@@ -347,8 +347,8 @@ ECDSA_do_sign_ov <- llvm_verify m "ECDSA_do_sign"
   , bn_mod_mul_montgomery_small_same_r_ov
   , bn_mod_mul_montgomery_small_RR_d_ov
   , bn_mod_mul_montgomery_small_RR_d_same_ov
-  // , ec_GFp_mont_mul_base_ov
-  // , ec_GFp_simple_is_on_curve_ov
+  , ec_GFp_mont_mul_base_ov
+  , ec_GFp_simple_is_on_curve_ov
   ]
   true
   ECDSA_do_sign_spec
@@ -395,7 +395,7 @@ ECDSA_do_verify_ov <- llvm_verify m "ECDSA_do_verify"
   , ec_simple_scalar_inv0_montgomery_ov
   , ec_scalar_is_zero_ov
   , ec_random_nonzero_scalar_ov
-  , ec_point_mul_scalar_base_ov
+  // , ec_point_mul_scalar_base_ov
   , ec_point_mul_scalar_public_ov
   , ec_cmp_x_coordinate_ov
   , ec_get_x_coordinate_as_scalar_ov
@@ -408,6 +408,8 @@ ECDSA_do_verify_ov <- llvm_verify m "ECDSA_do_verify"
   , bn_mod_mul_montgomery_small_RR_d_ov
   , bn_mod_mul_montgomery_small_RR_d_same_ov
   , ERR_put_error_ov
+  , ec_GFp_mont_mul_base_ov
+  , ec_GFp_simple_is_on_curve_ov
   ]
   true
   ECDSA_do_verify_spec

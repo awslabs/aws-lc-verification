@@ -2395,7 +2395,7 @@ Here are the elliptic curve-related functions that are currently marked as `noin
       bn_mod_mul_montgomery_small(r, a, mont->RR.d, num, mont);
     }
     ```
-  * [ ] `ec_point_mul_scalar_base`
+  * [X] `ec_point_mul_scalar_base`
 
     ```c
     int ec_point_mul_scalar_base(const EC_GROUP *group, EC_RAW_POINT *r,
