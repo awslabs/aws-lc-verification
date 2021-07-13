@@ -16,6 +16,7 @@ PATCH=$(realpath ./patch)
 (cd ../src; patch -p1 -r - --forward < "$PATCH"/noinline-bn_reduce_once_in_place.patch || true)
 (cd ../src; patch -p1 -r - --forward < "$PATCH"/noinline-bn_mod_add_words.patch || true)
 (cd ../src; patch -p1 -r - --forward < "$PATCH"/noinline-ec_scalar_is_zero.patch || true)
+(cd ../src; patch -p1 -r - --forward < "$PATCH"/noinline-value_barrier_w.patch || true)
 
 ./scripts/build_x86.sh
 ./scripts/build_llvm.sh

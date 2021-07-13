@@ -353,6 +353,7 @@ ECDSA_do_sign_ov <- llvm_verify m "ECDSA_do_sign"
   , ec_GFp_simple_is_on_curve_ov
   , ec_GFp_mont_mul_public_batch_ov
   , ec_GFp_mont_cmp_x_coordinate_ov
+  , value_barrier_w_ov
   ]
   true
   ECDSA_do_sign_spec
@@ -366,8 +367,6 @@ ECDSA_do_sign_ov <- llvm_verify m "ECDSA_do_sign"
     simplify (addsimp jacobian_affine_0_thm empty_ss);
     simplify (addsimps mod_thms empty_ss);
     goal_eval_unint ["inv0", "ec_point_affine_scalar_mul"];
-
-    // These are only needed when optimization is enabled
     simplify (addsimp append_assoc_thm empty_ss);
     simplify (addsimp append_assoc_thm2 empty_ss);
     simplify (addsimp append_at_thm empty_ss);
@@ -382,7 +381,6 @@ ECDSA_do_sign_ov <- llvm_verify m "ECDSA_do_sign"
     hoist_ifs_in_goal;
     simplify (addsimps minor_touchup_thms empty_ss);
     simplify (addsimp eq_modulo_arith_thm empty_ss);
-
     w4_unint_z3 ["inv0", "ec_point_affine_scalar_mul"];
   });
 

@@ -108,8 +108,7 @@ let verify_wrap_padded length = do {
     (do {w4_unint_yices ["aesEncrypt"];});
 
   crucible_llvm_verify m "AES_unwrap_key_padded"
-    // [aes_hw_decrypt_ov, aes_hw_decrypt_in_place_ov, value_barrier_w_ov]
-    [aes_hw_decrypt_ov, aes_hw_decrypt_in_place_ov]
+    [aes_hw_decrypt_ov, aes_hw_decrypt_in_place_ov, value_barrier_w_ov]
     true
     (AES_unwrap_key_padded_spec length)
     (do {w4_unint_yices ["aesDecrypt"];});
