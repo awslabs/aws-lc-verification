@@ -200,59 +200,29 @@ let prove_folding_theorem t = prove_print z3 (rewrite (cryptol_ss ()) t);
 let prove_folding_theorem_w4 t = prove_print w4 (rewrite (cryptol_ss ()) t);
 let assume_folding_theorem t = prove_print assume_unsat (rewrite (cryptol_ss ()) t);
 
-append_slice_384_thm_0 <- prove_folding_theorem
+append_at_slice_384_thm_1 <- prove_folding_theorem
   {{ \(x : [48][8]) -> ((x @ (0 : [8])) # ((x @ (1 : [8])) # ((x @ (2 : [8])) # ((x @ (3 : [8])) # ((x @ (4 : [8])) # ((x @ (5 : [8])) # ((x @ (6 : [8])) # (x @ (7 : [8]))))))))) == slice_0_64_320 (join x) }};
-append_slice_384_thm_1 <- prove_folding_theorem
+append_at_slice_384_thm_2 <- prove_folding_theorem
   {{ \(x : [48][8]) -> ((x @ (8 : [8])) # ((x @ (9 : [8])) # ((x @ (10 : [8])) # ((x @ (11 : [8])) # ((x @ (12 : [8])) # ((x @ (13 : [8])) # ((x @ (14 : [8])) # (x @ (15 : [8]))))))))) == slice_64_64_256 (join x) }};
-append_slice_384_thm_2 <- prove_folding_theorem
+append_at_slice_384_thm_3 <- prove_folding_theorem
   {{ \(x : [48][8]) -> ((x @ (16 : [8])) # ((x @ (17 : [8])) # ((x @ (18 : [8])) # ((x @ (19 : [8])) # ((x @ (20 : [8])) # ((x @ (21 : [8])) # ((x @ (22 : [8])) # (x @ (23 : [8]))))))))) == slice_128_64_192 (join x) }};
-append_slice_384_thm_3 <- prove_folding_theorem
+append_at_slice_384_thm_4 <- prove_folding_theorem
   {{ \(x : [48][8]) -> ((x @ (24 : [8])) # ((x @ (25 : [8])) # ((x @ (26 : [8])) # ((x @ (27 : [8])) # ((x @ (28 : [8])) # ((x @ (29 : [8])) # ((x @ (30 : [8])) # (x @ (31 : [8]))))))))) == slice_192_64_128 (join x) }};
-append_slice_384_thm_4 <- prove_folding_theorem
+append_at_slice_384_thm_5 <- prove_folding_theorem
   {{ \(x : [48][8]) -> ((x @ (32 : [8])) # ((x @ (33 : [8])) # ((x @ (34 : [8])) # ((x @ (35 : [8])) # ((x @ (36 : [8])) # ((x @ (37 : [8])) # ((x @ (38 : [8])) # (x @ (39 : [8]))))))))) == slice_256_64_64 (join x) }};
-append_slice_384_thm_5 <- prove_folding_theorem
+append_at_slice_384_thm_6 <- prove_folding_theorem
   {{ \(x : [48][8]) -> ((x @ (40 : [8])) # ((x @ (41 : [8])) # ((x @ (42 : [8])) # ((x @ (43 : [8])) # ((x @ (44 : [8])) # ((x @ (45 : [8])) # ((x @ (46 : [8])) # (x @ (47 : [8]))))))))) == slice_320_64_0 (join x) }};
-mul_if_thm <- prove_folding_theorem
-  {{ \(b : Bit) (x : [64]) t f -> x * (if b then t else f) == if b then (x * t) else (x * f) }};
-and_if_zero_thm_0 <- prove_folding_theorem
-  {{ \(x : [64]) (b : Bit) -> (if b then 0 else ~0) && x == if b then 0 else x }};
-and_if_zero_thm_1 <- prove_folding_theorem
-  {{ \(x : [64]) (b : Bit) -> x && (if b then 0 else ~0) == if b then 0 else x }};
-xor_if_zero_thm <- prove_folding_theorem
-  {{ \(x : [64]) (b : Bit) -> x ^ (if b then 0 else x) == if b then x else 0 }};
-or_if_thm <- prove_folding_theorem
-  {{ \(x1 : [64]) x2 y (b : Bit) -> (if b then x1 else y) || (if b then x2 else 0) == if b then (x1 || x2) else y }};
-or_zero_thm <- prove_folding_theorem
-  {{ \(x : [64]) -> 0 || x == x }};
-append_if_thm_64_64 <- prove_folding_theorem
-  {{ \(b : Bit) (x1 : [64]) (x2 : [64]) (y1 : [64]) (y2 : [64]) -> (if b then x1 else y1) # (if b then x2 else y2) == if b then (x1 # x2) else (y1 # y2) }};
-append_if_thm_128_128 <- prove_folding_theorem
-  {{ \(b : Bit) (x1 : [128]) (x2 : [128]) (y1 : [128]) (y2 : [128]) -> (if b then x1 else y1) # (if b then x2 else y2) == if b then (x1 # x2) else (y1 # y2) }};
-append_if_thm_64_256 <- prove_folding_theorem
-  {{ \(b : Bit) (x1 : [64]) (x2 : [256]) (y1 : [64]) (y2 : [256]) -> (if b then x1 else y1) # (if b then x2 else y2) == if b then (x1 # x2) else (y1 # y2) }};
-append_if_thm_64_320 <- prove_folding_theorem
-  {{ \(b : Bit) (x1 : [64]) (x2 : [320]) (y1 : [64]) (y2 : [320]) -> (if b then x1 else y1) # (if b then x2 else y2) == if b then (x1 # x2) else (y1 # y2) }};
-append_slice_thm <- prove_folding_theorem
+append_slice_384_thm <- prove_folding_theorem
   {{ \x -> (slice_0_64_320 x) # ((slice_64_64_256 x) # (((slice_128_64_192 x) # (slice_192_64_128 x)) # ((slice_256_64_64 x) # (slice_320_64_0 x)))) == x }};
 
 let append_slice_384_thms =
-  [ append_slice_384_thm_0
-  , append_slice_384_thm_1
-  , append_slice_384_thm_2
-  , append_slice_384_thm_3
-  , append_slice_384_thm_4
-  , append_slice_384_thm_5
-  , mul_if_thm
-  , and_if_zero_thm_0
-  , and_if_zero_thm_1
-  , xor_if_zero_thm
-  , or_if_thm
-  , or_zero_thm
-  , append_if_thm_64_64
-  , append_if_thm_128_128
-  , append_if_thm_64_256
-  , append_if_thm_64_320
-  , append_slice_thm
+  [ append_at_slice_384_thm_1
+  , append_at_slice_384_thm_2
+  , append_at_slice_384_thm_3
+  , append_at_slice_384_thm_4
+  , append_at_slice_384_thm_5
+  , append_at_slice_384_thm_6
+  , append_slice_384_thm
   ];
 
 complement_false_thm <- prove_folding_theorem
@@ -267,6 +237,22 @@ and_true_thm <- prove_folding_theorem
   {{ \(x : Bit) -> True && x == x }};
 and_same_thm <- prove_folding_theorem
   {{ \(x : Bit) -> x && x == x }};
+and_0_thm_1 <- prove_folding_theorem
+  {{ \(x : [64]) -> 0 && x == 0 }};
+and_0_thm_2 <- prove_folding_theorem
+  {{ \(x : [64]) -> x && 0 == 0 }};
+and_complement_0_thm_1 <- prove_folding_theorem
+  {{ \(x : [64]) -> (~0) && x == x }};
+and_complement_0_thm_2 <- prove_folding_theorem
+  {{ \(x : [64]) -> x && (~0) == x }};
+xor_0_thm <- prove_folding_theorem
+  {{ \(x : [64]) -> x ^ 0 == x }};
+xor_self_thm <- prove_folding_theorem
+  {{ \(x : [64]) -> x ^ x == 0 }};
+or_0_thm_1 <- prove_folding_theorem
+  {{ \(x : [64]) -> 0 || x == x }};
+or_0_thm_2 <- prove_folding_theorem
+  {{ \(x : [64]) -> x || 0 == x }};
 
 let minor_touchup_thms =
   [ complement_false_thm
@@ -274,6 +260,14 @@ let minor_touchup_thms =
   , or_false_thm
   , or_true_thm
   , and_true_thm
+  , and_0_thm_1
+  , and_0_thm_2
+  , and_complement_0_thm_1
+  , and_complement_0_thm_2
+  , xor_0_thm
+  , xor_self_thm
+  , or_0_thm_1
+  , or_0_thm_2
   ];
 
 let
@@ -341,12 +335,10 @@ ECDSA_do_sign_ov <- llvm_verify m "ECDSA_do_sign"
     simplify (addsimp jacobian_affine_0_thm empty_ss);
     simplify (addsimps mod_thms empty_ss);
     goal_eval_unint ["inv0", "ec_point_affine_scalar_mul"];
-    simplify (addsimp append_assoc_thm empty_ss);
-    simplify (addsimp append_assoc_thm2 empty_ss);
-    simplify (addsimp append_at_thm empty_ss);
-    simplify (addsimps append_slice_384_thms empty_ss);
+    simplify (addsimps [append_assoc_thm_1, append_assoc_thm_2, append_at_thm] empty_ss);
     hoist_ifs_in_goal;
     simplify (addsimps minor_touchup_thms empty_ss);
+    simplify (addsimps append_slice_384_thms empty_ss);
     simplify (addsimps [add_negate_thm, toInteger_sub_thm0] empty_ss);
     hoist_ifs_in_goal;
     simplify (addsimps minor_touchup_thms empty_ss);
