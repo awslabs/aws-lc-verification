@@ -8,7 +8,7 @@ set -e
 PATH=/lc/bin:/go/bin:$PATH
 PATCH=$(realpath ./patch)
 
-function apply_patch() {
+apply_patch() {
   PATCH_NAME=$1
 
   (cd ../src; patch -p1 -r - --forward < "$PATCH"/"$PATCH_NAME".patch || true)
