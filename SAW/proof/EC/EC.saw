@@ -22,6 +22,7 @@ let EVP_PKEY_OP_PARAMGEN = eval_int {{ (1 << 9) : [64] }};
 
 
 include "memory.saw";
+include "../common/goal-rewrites.saw";
 
 
 let points_to_p384_bignum_st ptr d_ptr flags = points_to_bignum_st ptr d_ptr ec_words ec_words flags;
@@ -771,26 +772,18 @@ bn_select_words_same_res_left_false_ov <- llvm_verify
     w4_unint_z3 [];
   });
 
-let prove_folding_theorem t = prove_print abc (rewrite (cryptol_ss ()) t);
-let prove_folding_theorem_w4 t = prove_print w4 (rewrite (cryptol_ss ()) t);
-
-let slice_0_64_320 = parse_core "\\(x : Vec 384 Bool) -> slice Bool 0 64 320 x";
-let slice_64_64_256 = parse_core "\\(x : Vec 384 Bool) -> slice Bool 64 64 256 x";
-let slice_128_64_192 = parse_core "\\(x : Vec 384 Bool) -> slice Bool 128 64 192 x";
-let slice_192_64_128 = parse_core "\\(x : Vec 384 Bool) -> slice Bool 192 64 128 x";
-let slice_256_64_64 = parse_core "\\(x : Vec 384 Bool) -> slice Bool 256 64 64 x";
-let slice_320_64_0 = parse_core "\\(x : Vec 384 Bool) -> slice Bool 320 64 0 x";
-
-coup_de_grace_thm_1 <- prove_folding_theorem_w4
+// These theorems are used to move an if-expression inside an application of
+// integerToBV in the proof for bn_reduce_once_in_place.
+bn_reduce_once_in_place_thm_1 <- prove_folding_theorem_w4
   {{ \(b : Bit) (x : Bit) (y1 : Bit) (y2 : Bit) ->
      (if b then (x || y1) else (x || y2)) == (x || (if b then y1 else y2)) }};
-coup_de_grace_thm_2 <- prove_print w4 (rewrite (add_cryptol_defs ["ecEq"] (cryptol_ss ()))
+bn_reduce_once_in_place_thm_2 <- prove_print w4 (rewrite (add_cryptol_defs ["ecEq"] (cryptol_ss ()))
   {{ \(b : Bit) (x : [384]) (y1 : [384]) (y2 : [384]) ->
      (if b then (x == y1) else (x == y2)) == (x == (if b then y1 else y2)) }});
-coup_de_grace_thm_3 <- prove_folding_theorem_w4
+bn_reduce_once_in_place_thm_3 <- prove_folding_theorem_w4
   {{ \(x : Integer) (y : [384]) (b : Bit) ->
      (if b then integerToBV`{384} x else y) == (if b then integerToBV`{384} x else integerToBV (integerFromBV y)) }};
-coup_de_grace_thm_4 <- prove_print
+bn_reduce_once_in_place_thm_4 <- prove_print
   (do {
     w4_unint_z3 ["integerToBV"];
   })
@@ -798,60 +791,12 @@ coup_de_grace_thm_4 <- prove_print
   {{ \(x : Integer) (y : [384]) (b : Bit) ->
      (if b then integerToBV`{384} x else integerToBV (integerFromBV y)) == integerToBV`{384} (if b then x else integerFromBV y) }});
 
-let coup_de_grace_thms =
-  [ coup_de_grace_thm_1
-  , coup_de_grace_thm_2
-  , coup_de_grace_thm_3
-  , coup_de_grace_thm_4
+let bn_reduce_once_in_place_thms =
+  [ bn_reduce_once_in_place_thm_1
+  , bn_reduce_once_in_place_thm_2
+  , bn_reduce_once_in_place_thm_3
+  , bn_reduce_once_in_place_thm_4
   ];
-
-complement_false_thm <- prove_folding_theorem
-  {{ complement False == True }};
-complement_true_thm <- prove_folding_theorem
-  {{ complement True == False }};
-or_false_thm <- prove_folding_theorem
-  {{ \(x : Bit) -> False || x == x }};
-or_true_thm <- prove_folding_theorem
-  {{ \(x : Bit) -> True || x == True }};
-and_true_thm <- prove_folding_theorem
-  {{ \(x : Bit) -> True && x == x }};
-and_same_thm <- prove_folding_theorem
-  {{ \(x : Bit) -> x && x == x }};
-and_0_thm_1 <- prove_folding_theorem
-  {{ \(x : [64]) -> 0 && x == 0 }};
-and_0_thm_2 <- prove_folding_theorem
-  {{ \(x : [64]) -> x && 0 == 0 }};
-and_complement_0_thm_1 <- prove_folding_theorem
-  {{ \(x : [64]) -> (~0) && x == x }};
-and_complement_0_thm_2 <- prove_folding_theorem
-  {{ \(x : [64]) -> x && (~0) == x }};
-xor_0_thm <- prove_folding_theorem
-  {{ \(x : [64]) -> x ^ 0 == x }};
-xor_self_thm <- prove_folding_theorem
-  {{ \(x : [64]) -> x ^ x == 0 }};
-or_0_thm_1 <- prove_folding_theorem
-  {{ \(x : [64]) -> 0 || x == x }};
-or_0_thm_2 <- prove_folding_theorem
-  {{ \(x : [64]) -> x || 0 == x }};
-
-let minor_touchup_thms =
-  [ complement_false_thm
-  , complement_true_thm
-  , or_false_thm
-  , or_true_thm
-  , and_true_thm
-  , and_0_thm_1
-  , and_0_thm_2
-  , and_complement_0_thm_1
-  , and_complement_0_thm_2
-  , xor_0_thm
-  , xor_self_thm
-  , or_0_thm_1
-  , or_0_thm_2
-  ];
-
-append_slice_thm <- prove_folding_theorem
-  {{ \x -> (slice_0_64_320 x) # ((slice_64_64_256 x) # (((slice_128_64_192 x) # (slice_192_64_128 x)) # ((slice_256_64_64 x) # (slice_320_64_0 x)))) == x }};
 
 bn_reduce_once_in_place_true_ov <- crucible_llvm_unsafe_assume_spec
   m
@@ -874,7 +819,7 @@ bn_reduce_once_in_place_false_ov <- llvm_verify
     hoist_ifs_in_goal;
     simplify (addsimps minor_touchup_thms empty_ss);
     simplify (addsimp append_slice_thm empty_ss);
-    simplify (addsimps coup_de_grace_thms empty_ss);
+    simplify (addsimps bn_reduce_once_in_place_thms empty_ss);
     w4_unint_z3 ["integerToBV", "integerFromBV"];
   });
 

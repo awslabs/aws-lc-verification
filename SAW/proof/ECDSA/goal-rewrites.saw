@@ -161,3 +161,30 @@ mod_2_384_thm <- prove_print
     w4_unint_z3 [];
   })
   (rewrite (cryptol_ss ()) {{ \(x : Integer) -> ((x % `P384_n) % `exp_2_384) == (x % `P384_n) }});
+
+let
+{{
+apply : {s, t} (s -> t) -> s -> t
+apply f x = f x
+}};
+
+add_negate_thm <- prove_folding_theorem_w4
+  {{ \(x : Integer) (y : Integer) -> (x + negate y) == (x - y) }};
+fromToInteger_thm <- prove_folding_theorem_w4
+  {{ \(x : [384]) -> fromInteger (toInteger x) == x }};
+eq_modulo_arith_thm <- prove_folding_theorem_w4
+  {{ \(x : Integer) (y : Integer) (z : Integer) ->
+    ((x * ((y - `P384_n) + z)) % `P384_n) == ((x * (y + z)) % `P384_n) }};
+
+// These theorems are true, but every SMT solver I've tried takes a really long time to prove them.
+// (It's possible to prove a similar theorem on a bitvector of a smaller length, such as 8.)
+// The uses of `apply` are to ensure that rewriting does not go into an infinite loop.
+let intLe = parse_core "\\(x y : Integer) -> intLe x y";
+toInteger_sub_thm_1 <- assume_folding_theorem
+  {{ \(x : [384]) ->
+    (toInteger x - `P384_n) ==
+    (if (intLe `P384_n (toInteger x)) then (toInteger (x - `P384_n)) else (apply (-) (toInteger x) `P384_n)) }};
+toInteger_sub_thm_2 <- assume_folding_theorem
+  {{ \(x : [384]) ->
+    (toInteger (x - `P384_n)) ==
+    (if (intLe `P384_n (toInteger x)) then (toInteger x - `P384_n) else (apply toInteger (x - `P384_n))) }};
