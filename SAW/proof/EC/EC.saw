@@ -775,21 +775,21 @@ bn_select_words_same_res_left_false_ov <- llvm_verify
 // These theorems are used to move an if-expression inside an application of
 // integerToBV in the proof for bn_reduce_once_in_place.
 bn_reduce_once_in_place_thm_1 <- prove_folding_theorem_w4
-  {{ \(b : Bit) (x : Bit) (y1 : Bit) (y2 : Bit) ->
-     (if b then (x || y1) else (x || y2)) == (x || (if b then y1 else y2)) }};
+  {{ \(c : Bit) (x : Bit) (y1 : Bit) (y2 : Bit) ->
+     (if c then (x || y1) else (x || y2)) == (x || (if c then y1 else y2)) }};
 bn_reduce_once_in_place_thm_2 <- prove_print w4 (rewrite (add_cryptol_defs ["ecEq"] (cryptol_ss ()))
-  {{ \(b : Bit) (x : [384]) (y1 : [384]) (y2 : [384]) ->
-     (if b then (x == y1) else (x == y2)) == (x == (if b then y1 else y2)) }});
+  {{ \(c : Bit) (x : [384]) (y1 : [384]) (y2 : [384]) ->
+     (if c then (x == y1) else (x == y2)) == (x == (if c then y1 else y2)) }});
 bn_reduce_once_in_place_thm_3 <- prove_folding_theorem_w4
-  {{ \(x : Integer) (y : [384]) (b : Bit) ->
-     (if b then integerToBV`{384} x else y) == (if b then integerToBV`{384} x else integerToBV (integerFromBV y)) }};
+  {{ \(x : Integer) (y : [384]) (c : Bit) ->
+     (if c then integerToBV`{384} x else y) == (if c then integerToBV`{384} x else integerToBV (integerFromBV y)) }};
 bn_reduce_once_in_place_thm_4 <- prove_print
   (do {
     w4_unint_z3 ["integerToBV"];
   })
   (rewrite (cryptol_ss ())
-  {{ \(x : Integer) (y : [384]) (b : Bit) ->
-     (if b then integerToBV`{384} x else integerToBV (integerFromBV y)) == integerToBV`{384} (if b then x else integerFromBV y) }});
+  {{ \(x : Integer) (y : [384]) (c : Bit) ->
+     (if c then integerToBV`{384} x else integerToBV (integerFromBV y)) == integerToBV`{384} (if c then x else integerFromBV y) }});
 
 let bn_reduce_once_in_place_thms =
   [ bn_reduce_once_in_place_thm_1
@@ -818,7 +818,7 @@ bn_reduce_once_in_place_false_ov <- llvm_verify
     simplify (addsimp ite_integerToBV_thm empty_ss);
     hoist_ifs_in_goal;
     simplify (addsimps minor_touchup_thms empty_ss);
-    simplify (addsimp append_slice_thm empty_ss);
+    simplify (addsimp append_slice_384_thm empty_ss);
     simplify (addsimps bn_reduce_once_in_place_thms empty_ss);
     w4_unint_z3 ["integerToBV", "integerFromBV"];
   });

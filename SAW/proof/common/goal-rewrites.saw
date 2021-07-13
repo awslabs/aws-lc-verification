@@ -62,9 +62,6 @@ let slice_192_64_128 = parse_core "\\(x : Vec 384 Bool) -> slice Bool 192 64 128
 let slice_256_64_64 = parse_core "\\(x : Vec 384 Bool) -> slice Bool 256 64 64 x";
 let slice_320_64_0 = parse_core "\\(x : Vec 384 Bool) -> slice Bool 320 64 0 x";
 
-append_slice_thm <- prove_folding_theorem
-  {{ \x -> (slice_0_64_320 x) # ((slice_64_64_256 x) # (((slice_128_64_192 x) # (slice_192_64_128 x)) # ((slice_256_64_64 x) # (slice_320_64_0 x)))) == x }};
-
 append_at_slice_384_thm_1 <- prove_folding_theorem
   {{ \(x : [48][8]) -> ((x @ (0 : [8])) # ((x @ (1 : [8])) # ((x @ (2 : [8])) # ((x @ (3 : [8])) # ((x @ (4 : [8])) # ((x @ (5 : [8])) # ((x @ (6 : [8])) # (x @ (7 : [8]))))))))) == slice_0_64_320 (join x) }};
 append_at_slice_384_thm_2 <- prove_folding_theorem
