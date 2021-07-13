@@ -324,17 +324,6 @@ let RAND_bytes_spec size = do {
   crucible_return (crucible_term {{ 1 : [32] }});
 };
 
-let RAND_bytes_with_additional_data_spec size = do {
-  out <- crucible_fresh_cryptol_var "out" {| [size][8] |};
-  crucible_ghost_value random_out out;
-
-  out_ptr <- crucible_alloc (llvm_array size i8);
-  user_additional_data <- llvm_alloc_readonly (llvm_array 32 i8);
-  crucible_execute_func [out_ptr, crucible_term {{ `size : [64] }}, user_additional_data];
-
-  crucible_points_to out_ptr (crucible_term out);
-};
-
 let RSA_padding_add_PKCS1_PSS_mgf1_spec = do {
   salt <- crucible_fresh_cryptol_var "salt" {| [salt_len][8] |};
   crucible_ghost_value random_out salt;
@@ -487,17 +476,11 @@ RAND_bytes_ov <- crucible_llvm_unsafe_assume_spec
   "RAND_bytes"
   (RAND_bytes_spec salt_len);
 
-RAND_bytes_with_additional_data_ov <- crucible_llvm_unsafe_assume_spec
-  m
-  "RAND_bytes_with_additional_data"
-  (RAND_bytes_with_additional_data_spec salt_len);
-
 RSA_padding_add_PKCS1_PSS_mgf1_ov <- llvm_verify
   m
   "RSA_padding_add_PKCS1_PSS_mgf1"
   [ sha512_block_data_order_spec
   , RAND_bytes_ov
-  , RAND_bytes_with_additional_data_ov
   , BN_num_bits_n_bits_ov
   , OPENSSL_malloc_ov
   , OPENSSL_free_nonnull_salt_ov
@@ -526,29 +509,25 @@ EVP_DigestFinal_ex_0x68_ov <- llvm_verify m "EVP_DigestFinal_ex"
   (w4_unint_z3 ["processBlock_Common"]);
 
 enable_smt_array_memory_model;
-// RSA_verify_PKCS1_PSS_mgf1_ov <- llvm_verify
-//   m
-//   "RSA_verify_PKCS1_PSS_mgf1"
-//   [ EVP_DigestFinal_ex_0x34_ov
-//   , EVP_DigestFinal_ex_0x68_ov
-//   , sha512_block_data_order_spec
-//   , BN_num_bits_n_bits_ov
-//   , OPENSSL_malloc_ov
-//   , OPENSSL_free_nonnull_salt_ov
-//   , OPENSSL_free_null_ov
-//   , OPENSSL_cleanse_ov
-//   , memcmp_ov
-//   , ERR_put_error_ov
-//   ]
-//   true
-//   RSA_verify_PKCS1_PSS_mgf1_spec
-//   (do {
-//     w4_unint_z3 ["processBlock_Common"];
-//   });
-RSA_verify_PKCS1_PSS_mgf1_ov <- llvm_unsafe_assume_spec
+RSA_verify_PKCS1_PSS_mgf1_ov <- llvm_verify
   m
   "RSA_verify_PKCS1_PSS_mgf1"
-  RSA_verify_PKCS1_PSS_mgf1_spec;
+  [ EVP_DigestFinal_ex_0x34_ov
+  , EVP_DigestFinal_ex_0x68_ov
+  , sha512_block_data_order_spec
+  , BN_num_bits_n_bits_ov
+  , OPENSSL_malloc_ov
+  , OPENSSL_free_nonnull_salt_ov
+  , OPENSSL_free_null_ov
+  , OPENSSL_cleanse_ov
+  , memcmp_ov
+  , ERR_put_error_ov
+  ]
+  true
+  RSA_verify_PKCS1_PSS_mgf1_spec
+  (do {
+    w4_unint_z3 ["processBlock_Common"];
+  });
 disable_smt_array_memory_model;
 
 rsa_blinding_get_ov <- crucible_llvm_unsafe_assume_spec
@@ -580,7 +559,7 @@ let RSA_sign_pss_mgf1_ovs =
   , bn_uadd_consttime_n_p_ov
   , bn_mul_consttime_p_ov
   , bn_mod_sub_consttime_p_ov
-  // , bn_from_montgomery_in_place_p_ov
+  , bn_from_montgomery_in_place_p_ov
   , bn_mul_mont_with_N_p_ov
   , bn_mul_mont_with_N_same_res_left_p_ov
   , bn_mul_mont_with_N_same_res_left_n_ov
@@ -600,128 +579,106 @@ let RSA_sign_pss_mgf1_ovs =
   , OPENSSL_cleanse_ov
   ];
 
-// llvm_verify
-//   m
-//   "RSA_sign_pss_mgf1"
-//   RSA_sign_pss_mgf1_ovs
-//   true
-//   (RSA_sign_pss_mgf1_spec false false)
-//   (do {
-//     sign_pss_mgf1_base_tactic;
-//     goal_num_when 0 (simplify (addsimp PSS_mgf1_encode_0_thm empty_ss));
-//     goal_num_when 1 vrfy_no_blinding_tactic;
-//     goal_num_when 2 sign_tactic;
-//     goal_num_when 3 vrfy_no_blinding_tactic;
-//     goal_num_when 4 vrfy_no_blinding_tactic;
-//     goal_eval_unint ["PSS_mgf1_encode", "processBlock_Common", "mont_R_inv_with_N", "bn_mont_n0_with_N", "exp", "inv", "phi", "rad", "integerToBV", "integerFromBV"];
-//     w4_unint_z3 ["PSS_mgf1_encode", "processBlock_Common", "mont_R_inv_with_N", "bn_mont_n0_with_N", "exp", "inv", "phi", "rad", "integerToBV", "integerFromBV"];
-//   });
-llvm_unsafe_assume_spec
+llvm_verify
   m
   "RSA_sign_pss_mgf1"
-  (RSA_sign_pss_mgf1_spec false false);
+  RSA_sign_pss_mgf1_ovs
+  true
+  (RSA_sign_pss_mgf1_spec false false)
+  (do {
+    sign_pss_mgf1_base_tactic;
+    goal_num_when 0 (simplify (addsimp PSS_mgf1_encode_0_thm empty_ss));
+    goal_num_when 1 vrfy_no_blinding_tactic;
+    goal_num_when 2 sign_tactic;
+    goal_num_when 3 vrfy_no_blinding_tactic;
+    goal_num_when 4 vrfy_no_blinding_tactic;
+    goal_eval_unint ["PSS_mgf1_encode", "processBlock_Common", "mont_R_inv_with_N", "bn_mont_n0_with_N", "exp", "inv", "phi", "rad", "integerToBV", "integerFromBV"];
+    w4_unint_z3 ["PSS_mgf1_encode", "processBlock_Common", "mont_R_inv_with_N", "bn_mont_n0_with_N", "exp", "inv", "phi", "rad", "integerToBV", "integerFromBV"];
+  });
 
-// llvm_verify
-//   m
-//   "RSA_sign_pss_mgf1"
-//   RSA_sign_pss_mgf1_ovs
-//   true
-//   (RSA_sign_pss_mgf1_spec true false)
-//   (do {
-//     sign_pss_mgf1_base_tactic;
-//     goal_num_when 0 (simplify (addsimp PSS_mgf1_encode_0_thm empty_ss));
-//     goal_num_when 2 vrfy_no_blinding_tactic;
-//     goal_num_when 3 sign_tactic;
-//     goal_num_when 4 vrfy_no_blinding_tactic;
-//     goal_num_when 5 vrfy_no_blinding_tactic;
-//     goal_eval_unint ["PSS_mgf1_encode", "processBlock_Common", "mont_R_inv_with_N", "bn_mont_n0_with_N", "exp", "inv", "phi", "rad", "integerToBV", "integerFromBV"];
-//     w4_unint_z3 ["PSS_mgf1_encode", "processBlock_Common", "mont_R_inv_with_N", "bn_mont_n0_with_N", "exp", "inv", "phi", "rad", "integerToBV", "integerFromBV"];
-//   });
-llvm_unsafe_assume_spec
+llvm_verify
   m
   "RSA_sign_pss_mgf1"
-  (RSA_sign_pss_mgf1_spec true false);
+  RSA_sign_pss_mgf1_ovs
+  true
+  (RSA_sign_pss_mgf1_spec true false)
+  (do {
+    sign_pss_mgf1_base_tactic;
+    goal_num_when 0 (simplify (addsimp PSS_mgf1_encode_0_thm empty_ss));
+    goal_num_when 2 vrfy_no_blinding_tactic;
+    goal_num_when 3 sign_tactic;
+    goal_num_when 4 vrfy_no_blinding_tactic;
+    goal_num_when 5 vrfy_no_blinding_tactic;
+    goal_eval_unint ["PSS_mgf1_encode", "processBlock_Common", "mont_R_inv_with_N", "bn_mont_n0_with_N", "exp", "inv", "phi", "rad", "integerToBV", "integerFromBV"];
+    w4_unint_z3 ["PSS_mgf1_encode", "processBlock_Common", "mont_R_inv_with_N", "bn_mont_n0_with_N", "exp", "inv", "phi", "rad", "integerToBV", "integerFromBV"];
+  });
 
-// llvm_verify
-//   m
-//   "RSA_sign_pss_mgf1"
-//   RSA_sign_pss_mgf1_ovs
-//   true
-//   (RSA_sign_pss_mgf1_spec false true)
-//   (do {
-//     sign_pss_mgf1_base_tactic;
-//     goal_num_when 0 (simplify (addsimp PSS_mgf1_encode_0_thm empty_ss));
-//     goal_num_when 1 vrfy_tactic;
-//     goal_num_when 2 sign_tactic;
-//     goal_num_when 3 vrfy_tactic;
-//     goal_num_when 4 vrfy_tactic;
-//     goal_eval_unint ["PSS_mgf1_encode", "processBlock_Common", "mont_R_inv_with_N", "bn_mont_n0_with_N", "exp", "inv", "phi", "rad", "integerToBV", "integerFromBV"];
-//     w4_unint_z3 ["PSS_mgf1_encode", "processBlock_Common", "mont_R_inv_with_N", "bn_mont_n0_with_N", "exp", "inv", "phi", "rad", "integerToBV", "integerFromBV"];
-//   });
-llvm_unsafe_assume_spec
+llvm_verify
   m
   "RSA_sign_pss_mgf1"
-  (RSA_sign_pss_mgf1_spec false true);
+  RSA_sign_pss_mgf1_ovs
+  true
+  (RSA_sign_pss_mgf1_spec false true)
+  (do {
+    sign_pss_mgf1_base_tactic;
+    goal_num_when 0 (simplify (addsimp PSS_mgf1_encode_0_thm empty_ss));
+    goal_num_when 1 vrfy_tactic;
+    goal_num_when 2 sign_tactic;
+    goal_num_when 3 vrfy_tactic;
+    goal_num_when 4 vrfy_tactic;
+    goal_eval_unint ["PSS_mgf1_encode", "processBlock_Common", "mont_R_inv_with_N", "bn_mont_n0_with_N", "exp", "inv", "phi", "rad", "integerToBV", "integerFromBV"];
+    w4_unint_z3 ["PSS_mgf1_encode", "processBlock_Common", "mont_R_inv_with_N", "bn_mont_n0_with_N", "exp", "inv", "phi", "rad", "integerToBV", "integerFromBV"];
+  });
 
-// RSA_sign_pss_mgf1_ov <- llvm_verify
-//   m
-//   "RSA_sign_pss_mgf1"
-//   RSA_sign_pss_mgf1_ovs
-//   true
-//   (RSA_sign_pss_mgf1_spec true true)
-//   (do {
-//     sign_pss_mgf1_base_tactic;
-//     goal_num_when 0 (simplify (addsimp PSS_mgf1_encode_0_thm empty_ss));
-//     goal_num_when 3 vrfy_tactic;
-//     goal_num_when 4 sign_tactic;
-//     goal_num_when 5 vrfy_tactic;
-//     goal_num_when 6 vrfy_tactic;
-//     goal_eval_unint ["PSS_mgf1_encode", "processBlock_Common", "mont_R_inv_with_N", "bn_mont_n0_with_N", "exp", "inv", "phi", "rad", "integerToBV", "integerFromBV"];
-//     w4_unint_z3 ["PSS_mgf1_encode", "processBlock_Common", "mont_R_inv_with_N", "bn_mont_n0_with_N", "exp", "inv", "phi", "rad", "integerToBV", "integerFromBV"];
-//   });
-RSA_sign_pss_mgf1_ov <- llvm_unsafe_assume_spec
+RSA_sign_pss_mgf1_ov <- llvm_verify
   m
   "RSA_sign_pss_mgf1"
-  (RSA_sign_pss_mgf1_spec true true);
+  RSA_sign_pss_mgf1_ovs
+  true
+  (RSA_sign_pss_mgf1_spec true true)
+  (do {
+    sign_pss_mgf1_base_tactic;
+    goal_num_when 0 (simplify (addsimp PSS_mgf1_encode_0_thm empty_ss));
+    goal_num_when 3 vrfy_tactic;
+    goal_num_when 4 sign_tactic;
+    goal_num_when 5 vrfy_tactic;
+    goal_num_when 6 vrfy_tactic;
+    goal_eval_unint ["PSS_mgf1_encode", "processBlock_Common", "mont_R_inv_with_N", "bn_mont_n0_with_N", "exp", "inv", "phi", "rad", "integerToBV", "integerFromBV"];
+    w4_unint_z3 ["PSS_mgf1_encode", "processBlock_Common", "mont_R_inv_with_N", "bn_mont_n0_with_N", "exp", "inv", "phi", "rad", "integerToBV", "integerFromBV"];
+  });
 
-// RSA_verify_pss_mgf1_ov <- llvm_verify
-//   m
-//   "RSA_verify_pss_mgf1"
-//   [ RSA_verify_PKCS1_PSS_mgf1_ov
-//   , BN_mod_exp_mont_n_1_ov
-//   , BN_bn2bin_padded_n_ov
-//   , BN_bin2bn_n_ov
-//   , BN_ucmp_n_ov
-//   , BN_ucmp_gt_n_e_ov
-//   , BN_num_bits_n_bits_ov
-//   , BN_num_bits_e_bits_ov
-//   , BN_is_odd_ov
-//   , sha512_block_data_order_spec
-//   , value_barrier_w_ov
-//   , ERR_put_error_ov
-//   , CRYPTO_MUTEX_lock_read_ov
-//   , CRYPTO_MUTEX_unlock_read_ov
-//   , CRYPTO_MUTEX_lock_write_ov
-//   , CRYPTO_MUTEX_unlock_write_ov
-//   , OPENSSL_malloc_ov
-//   , OPENSSL_free_nonnull_1_ov
-//   , OPENSSL_free_null_ov
-//   , OPENSSL_cleanse_ov
-//   , OPENSSL_realloc_null_ov
-//   , OPENSSL_realloc_nonnull_ov
-//   ]
-//   true
-//   RSA_verify_pss_mgf1_spec
-//   (do {
-//     goal_eval_unint ["PSS_mgf1_verify", "processBlock_Common", "bn_mont_n0_with_N", "exp", "integerToBV", "integerFromBV"];
-//     goal_num_ite 0
-//       (w4_unint_z3 ["PSS_mgf1_verify", "processBlock_Common", "bn_mont_n0_with_N", "exp", "phi", "rad"])
-//       (w4_unint_z3 ["PSS_mgf1_verify", "processBlock_Common", "bn_mont_n0_with_N", "exp", "phi", "rad", "integerToBV", "integerFromBV"]);
-//   });
-RSA_verify_pss_mgf1_ov <- llvm_unsafe_assume_spec
+RSA_verify_pss_mgf1_ov <- llvm_verify
   m
   "RSA_verify_pss_mgf1"
-  RSA_verify_pss_mgf1_spec;
+  [ RSA_verify_PKCS1_PSS_mgf1_ov
+  , BN_mod_exp_mont_n_1_ov
+  , BN_bn2bin_padded_n_ov
+  , BN_bin2bn_n_ov
+  , BN_ucmp_n_ov
+  , BN_ucmp_gt_n_e_ov
+  , BN_num_bits_n_bits_ov
+  , BN_num_bits_e_bits_ov
+  , BN_is_odd_ov
+  , sha512_block_data_order_spec
+  , value_barrier_w_ov
+  , ERR_put_error_ov
+  , CRYPTO_MUTEX_lock_read_ov
+  , CRYPTO_MUTEX_unlock_read_ov
+  , CRYPTO_MUTEX_lock_write_ov
+  , CRYPTO_MUTEX_unlock_write_ov
+  , OPENSSL_malloc_ov
+  , OPENSSL_free_nonnull_1_ov
+  , OPENSSL_free_null_ov
+  , OPENSSL_cleanse_ov
+  ]
+  true
+  RSA_verify_pss_mgf1_spec
+  (do {
+    goal_eval_unint ["PSS_mgf1_verify", "processBlock_Common", "bn_mont_n0_with_N", "exp", "integerToBV", "integerFromBV"];
+    goal_num_ite 0
+      (w4_unint_z3 ["PSS_mgf1_verify", "processBlock_Common", "bn_mont_n0_with_N", "exp", "phi", "rad"])
+      (w4_unint_z3 ["PSS_mgf1_verify", "processBlock_Common", "bn_mont_n0_with_N", "exp", "phi", "rad", "integerToBV", "integerFromBV"]);
+  });
 
 
 llvm_verify m "EVP_DigestSignInit"
