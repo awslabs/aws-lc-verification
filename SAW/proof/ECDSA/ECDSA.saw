@@ -201,7 +201,6 @@ ECDSA_do_sign_ov <- llvm_verify m "ECDSA_do_sign"
   [ sha512_block_data_order_spec
   , ec_bignum_to_scalar_ov
   , ec_simple_scalar_inv0_montgomery_ov
-  , ec_random_nonzero_scalar_ov
   , ec_get_x_coordinate_as_scalar_ov
   , ec_scalar_is_zero_false_ov
   , BN_is_zero_false_ov
@@ -256,7 +255,6 @@ ECDSA_do_verify_ov <- llvm_verify m "ECDSA_do_verify"
   , ec_bignum_to_scalar_ov
   , ec_simple_scalar_inv0_montgomery_ov
   , ec_scalar_is_zero_ov
-  , ec_random_nonzero_scalar_ov
   , ec_get_x_coordinate_as_scalar_ov
   , bn_reduce_once_in_place_false_ov
   , bn_from_montgomery_small_ov
@@ -350,7 +348,6 @@ llvm_verify m "EVP_DigestVerifyFinal"
     , OPENSSL_cleanse_ov
     , CRYPTO_refcount_inc_ov
     , CRYPTO_refcount_dec_and_test_zero_ov
-    , memcmp_ov
     , bcmp_ov
     , sha512_block_data_order_spec
     , BN_num_bits_r_bits_ov

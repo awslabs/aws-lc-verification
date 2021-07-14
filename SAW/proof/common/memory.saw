@@ -87,6 +87,9 @@ let memcmp_spec count = do {
   crucible_return (crucible_term {{ if (join lhs) < (join rhs) then (0 - 1) : [32] else if (join lhs) == (join rhs) then 0 else 1 }});
 };
 
+// This spec is very similar to that of memcmp, as that function directly
+// invokes bcmp. When compiled with optimizations, memcmp will be inlined away,
+// exposing a call site to bcmp.
 let bcmp_spec count = do {
   (lhs, lhs_ptr) <- ptr_to_fresh_readonly "lhs" (llvm_array count i8);
   (rhs, rhs_ptr) <- ptr_to_fresh_readonly "rhs" (llvm_array count i8);

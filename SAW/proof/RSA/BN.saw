@@ -31,6 +31,9 @@ let BN_is_odd_spec num = do {
   crucible_return (crucible_term {{ if (integerFromBV bn) % 2 == 1 then (1 : [32]) else 0 }});
 };
 
+// We include this spec in RSA/BN.saw rather than BN/BN.saw because the latter
+// is used to prove optimized code, but Clang will completely inline away
+// bn_from_montgomery_in_place with optimizations enabled.
 let bn_from_montgomery_in_place_spec num = do {
   let num_bits = eval_size {| num * 64 |};
   let a_num = eval_size {| 2 * num |};
