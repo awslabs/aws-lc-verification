@@ -10,6 +10,8 @@
  * verification result.
  */
 
+include "../common/helpers.saw";
+
 fieldElementBV_thm <- prove_print
   (do {
     w4_unint_z3 [];
