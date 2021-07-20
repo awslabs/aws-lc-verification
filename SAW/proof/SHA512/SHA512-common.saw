@@ -115,6 +115,8 @@ let sha512_block_data_order_array_spec = do {
   let len = {{ num * `SHA512_CBLOCK }};
   (data, data_ptr) <- ptr_to_fresh_array_readonly "data" len;
 
+  crucible_precond {{ len != 0 }};
+
   // Call function with `state_ptr`, `data_ptr`, and `num`
   crucible_execute_func [state_ptr, data_ptr, (crucible_term num)];
 
@@ -206,7 +208,8 @@ let fresh_sha512_state_st_array name = do {
   // Message block
   block <- crucible_fresh_cryptol_var (str_concat name ".block") {| ByteArray |};
   // Index
-  n <- crucible_fresh_var (str_concat name ".n") i32;
+  n' <- crucible_fresh_var (str_concat name ".n") i8;
+  let n = {{ (0 # n') : [32] }};
   // Size
   sz <- crucible_fresh_var (str_concat name ".sz") i128;
   // Build SHAState
@@ -226,13 +229,13 @@ let fresh_sha512_state_st_array name = do {
  */
 // Specify the sha512_state_st_array struct from a SHAState
 let points_to_sha512_state_st_common_array ptr (h, sz, block, n) = do {
-  crucible_points_to (crucible_field ptr "h") (crucible_term h);
+  crucible_points_to_array_prefix (crucible_field ptr "p") block {{ `SHA512_CBLOCK : [64] }};
 
   // Specify `sha512_state_st.Nl` and `sha512_state_st.Nh` contain `sz`
   //llvm_points_to_at_type (crucible_field ptr "Nl") i128 (crucible_term sz);
   llvm_points_to_untyped (crucible_field ptr "Nl") (crucible_term sz);
 
-  crucible_points_to_array_prefix (crucible_field ptr "p") block {{ `SHA512_CBLOCK : [64] }};
+  crucible_points_to (crucible_field ptr "h") (crucible_term h);
 
   crucible_points_to (crucible_field ptr "num") (crucible_term n);
   crucible_points_to (crucible_field ptr "md_len") (crucible_term {{ `SHA_DIGEST_LENGTH : [32] }});
@@ -240,7 +243,7 @@ let points_to_sha512_state_st_common_array ptr (h, sz, block, n) = do {
 
 // Specify the sha512_state_st struct from a SHAState
 let points_to_sha512_state_st_array ptr state = do {
- points_to_sha512_state_st_common_array ptr ({{ state.h }}, {{ state.sz }}, {{ state.block }}, {{ state.n }});
+  points_to_sha512_state_st_common_array ptr ({{ state.h }}, {{ state.sz }}, {{ state.block }}, {{ state.n }});
 };
 
 let pointer_to_fresh_sha512_state_st_array name = do {
@@ -249,14 +252,15 @@ let pointer_to_fresh_sha512_state_st_array name = do {
   // Message block
   block <- crucible_fresh_cryptol_var (str_concat name ".block") {| ByteArray |};
   // Index
-  n <- crucible_fresh_var (str_concat name ".n") i32;
+  n' <- crucible_fresh_var (str_concat name ".n") i8;
+  let n = {{ (0 # n') : [32] }};
   // Size
   sz <- crucible_fresh_var (str_concat name ".sz") i128;
   // Build SHAState
   let state = {{ { h = h, block = block, n = n, sz = sz } : SHAState_Array }};
 
   // `ptr` is a pointer to a `sha512_state_st` struct
-  ptr <- crucible_alloc (llvm_struct "struct.sha512_state_st");
+  ptr <- llvm_alloc_sym_init (llvm_struct "struct.sha512_state_st");
   points_to_sha512_state_st_common_array ptr (h, sz, block, n);
 
   return (state, ptr);
@@ -304,24 +308,41 @@ include "memory.saw";
 // Include rewrite rules
 include "sha512_block_data_order-goal-rewrites.saw";
 
-enable_what4_hash_consing;
-
 // Verify the block data function assembly satisfies the
 // `sha512_block_data_order_spec` specification
-sha512_block_data_order_spec <- crucible_llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "sha512_block_data_order"
+
+enable_what4_hash_consing;
+
+//sha512_block_data_order_ov <- llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "sha512_block_data_order"
+//  [ ("K512", 5120) // Initializes the global for round constants, called K, at a size of 5120 bytes
+//  ]
+//  true
+//  sha512_block_data_order_spec
+//  (do {
+//    simplify (cryptol_ss ());
+//    simplify (addsimps thms empty_ss);
+//    simplify (addsimp concat_assoc_thm empty_ss);
+//    goal_eval_unint ["S0", "S1", "s0", "s1", "Ch"];
+//    print_goal;
+//    w4_unint_z3 ["S0", "S1", "s0", "s1", "Ch"];
+//  });
+
+enable_x86_what4_hash_consing;
+
+sha512_block_data_order_array_ov <- llvm_unsafe_assume_spec m  "sha512_block_data_order" sha512_block_data_order_array_spec;
+
+sha512_block_data_order_array_ov <- llvm_verify_fixpoint_x86 m "../../build/x86/crypto/crypto_test" "sha512_block_data_order"
   [ ("K512", 5120) // Initializes the global for round constants, called K, at a size of 5120 bytes
   ]
   true
-  sha512_block_data_order_spec
+  {{ processBlocksLoop }}
+  sha512_block_data_order_array_spec
   (do {
     simplify (cryptol_ss ());
     simplify (addsimps thms empty_ss);
     simplify (addsimp concat_assoc_thm empty_ss);
-    w4_unint_yices ["S0", "S1", "s0", "s1", "Ch"];
+    goal_eval_unint ["processBlocksLoop", "S0", "S1", "s0", "s1", "Ch"];
+    print_goal;
+    w4_unint_z3 ["processBlocksLoop", "S0", "S1", "s0", "s1", "Ch"];
   });
-
-sha512_block_data_order_array_ov <- crucible_llvm_unsafe_assume_spec
-  m
-  "sha512_block_data_order"
-  sha512_block_data_order_array_spec;
 
