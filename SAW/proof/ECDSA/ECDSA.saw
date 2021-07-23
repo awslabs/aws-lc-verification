@@ -239,11 +239,11 @@ ECDSA_do_sign_ov <- llvm_verify m "ECDSA_do_sign"
     hoist_ifs_in_goal;
     simplify (addsimps minor_touchup_thms empty_ss);
     simplify (addsimps append_slice_384_thms empty_ss);
-    simplify (addsimps [add_negate_thm, toInteger_sub_thm_1] empty_ss);
+    simplify (addsimps [add_negate_thm, toInteger_sub_384_thm_1] empty_ss);
     hoist_ifs_in_goal;
     simplify (addsimps minor_touchup_thms empty_ss);
     simplify (addsimp fromToInteger_thm empty_ss);
-    simplify (addsimp toInteger_sub_thm_2 empty_ss);
+    simplify (addsimp toInteger_sub_384_thm_2 empty_ss);
     hoist_ifs_in_goal;
     simplify (addsimps minor_touchup_thms empty_ss);
     simplify (addsimp eq_modulo_arith_thm empty_ss);
