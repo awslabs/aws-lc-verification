@@ -8,7 +8,7 @@
  * This file contains specs for OpenSSL memory management functions.
  */
 
-import "../../../cryptol-specs/Common/Array.cry";
+import "../../../cryptol-specs/Common/ByteArray.cry";
 
 ////////////////////////////////////////////////////////////////////////////////
 // Specifications

@@ -44,6 +44,12 @@ arraySet_zero_thm <- prove_print
   })
   (rewrite (cryptol_ss ()) {{ \a i v n -> arrayEq (if bvEq_64 0 n then a else arraySet a i v n) (arraySet a i v n) }});
 
+let block_size_minus_n_width_64 = normalize_term {{ 2 * `w - `w / 4 : [64] }};
+let block_size_minus_n_width_minus_1_32 = normalize_term {{ 2 * `w - `w / 4 - 1 : [32] }};
+bvult_64_32_thm <- prove_print
+  (w4_unint_z3 [])
+  (rewrite (cryptol_ss ()) {{ \(x : [8]) -> (bvult block_size_minus_n_width_64 (1 + (0 # x))) == block_size_minus_n_width_minus_1_32 < (0 # x) }});
+
 append_ite_8_8_thm <- prove_print
   (w4_unint_z3 [])
   (rewrite (cryptol_ss ()) {{ \c (x : [8]) y (u : [8]) v -> (if c then x else y) # (if c then u else v) == (if c then x # u else y # v) }});

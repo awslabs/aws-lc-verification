@@ -191,6 +191,7 @@ let verify_final_with_length withLength = do {
     (do {
       goal_eval_unint ["processBlock_Common"];
       simplify (addsimps [arrayUpdate_arrayCopy_thm, arraySet_zero_thm] empty_ss);
+      simplify (addsimps [bvult_64_32_thm] empty_ss);
       simplify (addsimps append_ite_thms empty_ss);
       goal_eval_unint ["processBlock_Common"];
       w4_unint_z3 ["processBlock_Common"];
