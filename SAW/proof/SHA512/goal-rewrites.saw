@@ -5,7 +5,7 @@
 
 /*
  * Rewrite rules proofs and goal tactics. This does not
- * contain any specifications or assumtions, thus it does
+ * contain any specifications or assumptions, thus it does
  * not require inspection in order to trust the
  * verification result.
  */

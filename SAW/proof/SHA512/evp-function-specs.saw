@@ -257,11 +257,9 @@ let EVP_DigestUpdate_array_spec = do {
   points_to_env_md_st digest_ptr;
 
   // Precondition: `sha512_ctx_ptr` is a pointer to a `sha512_state_st` struct
-  sha512_ctx_ptr <- llvm_alloc_sym_init (llvm_struct "struct.sha512_state_st");
   // Precondition: `sha512_ctx` is a fresh Cryptol SHAState
-  sha512_ctx <- fresh_sha512_state_st_array "sha512_ctx";
   // Precondition: `sha512_ctx_ptr` matches `sha512_ctx`.
-  points_to_sha512_state_st_array sha512_ctx_ptr sha512_ctx;
+  (sha512_ctx, sha512_ctx_ptr) <- pointer_to_fresh_sha512_state_st_array "sha512_ctx";
   crucible_precond {{ sha512_ctx.n < `SHA512_CBLOCK }};
 
   // Precondition: Struct pointed to by `ctx_ptr` points to `digest_ptr` and
@@ -317,10 +315,7 @@ let EVP_DigestFinalCommon_array_spec is_ex withLength = do {
   // Precondition: `sha512_ctx_ptr` is a pointer to a `sha512_state_st` struct
   // Precondition: `sha512_ctx` is a fresh Cryptol SHAState
   // Precondition: `sha512_ctx_ptr` matches `sha512_ctx`.
-  //(sha512_ctx, sha512_ctx_ptr) <- pointer_to_fresh_sha512_state_st_array "sha512_ctx";
-  sha512_ctx_ptr <- llvm_alloc_sym_init (llvm_struct "struct.sha512_state_st");
-  sha512_ctx <- fresh_sha512_state_st_array "sha512_ctx";
-  points_to_sha512_state_st_array sha512_ctx_ptr sha512_ctx;
+  (sha512_ctx, sha512_ctx_ptr) <- pointer_to_fresh_sha512_state_st_array "sha512_ctx";
   crucible_precond {{ sha512_ctx.n < `SHA512_CBLOCK }};
 
   // Precondition: Struct pointed to by `ctx_ptr` points to `digest_ptr` and

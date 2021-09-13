@@ -16,6 +16,8 @@ import "../../../cryptol-specs/Common/ByteArray.cry";
 /*
  * Specification of OPENSSL memory management functions
  */
+// if `is_init` is true then the allocated memory is initialized with fresh
+// symbolic bytes
 let OPENSSL_malloc_spec is_init = do {
   // Precondition: `size` is a non-zero 64-bit integer
   size <- crucible_fresh_var "size" i64;
@@ -115,10 +117,14 @@ let bcmp_spec count = do {
 
 
 // Assume `OPENSSL_malloc` satisfies `OPENSSL_malloc_spec`
+// the allocated memory is uninitialized, and a read before a write would cause
+// a verification failure
 OPENSSL_malloc_ov <- crucible_llvm_unsafe_assume_spec
   m
   "OPENSSL_malloc"
   (OPENSSL_malloc_spec false);
+// the allocated memory is initialized with fresh symbolic bytes, and a read
+// before a write would succeed
 OPENSSL_malloc_init_ov <- crucible_llvm_unsafe_assume_spec
   m
   "OPENSSL_malloc"
