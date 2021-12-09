@@ -11,6 +11,6 @@ mkdir -p build_src/x86
 cd build_src/x86
 export CC=clang
 export CXX=clang++
-cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBUILD_TESTING=OFF -DBUILD_LIBSSL=OFF ../../../src
+cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE -DBUILD_LIBSSL=OFF ../../../src
 NUM_CPU_THREADS=$(grep -c ^processor /proc/cpuinfo)
 make -j $NUM_CPU_THREADS
