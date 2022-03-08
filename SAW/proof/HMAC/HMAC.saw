@@ -5,88 +5,86 @@
 
 enable_experimental;
 
+let MDS = ["SHA256", "SHA1", "SHA384", "SHA512", "MD5", "SHA224", "SHA512_256"];
+let EVP_MDS = ["EVP_sha256", "EVP_sha1", "EVP_sha384", "EVP_sha512", "EVP_md5", "EVP_sha224", "EVP_sha512_256"];
+let MD_INDICES = [0, 1, 2, 3, 4, 5, 6];
 
-let HMAC_STATE_UNINITIALIZED = 0;
-let HMAC_STATE_INIT_NO_DATA = 1;
-let HMAC_STATE_IN_PROGRESS = 2;
+let HMAC_MD = (nth MDS HMAC_MD_INDEX);
+let HMAC_MD_TRAMPOLINE = (str_concat "AWS_LC_TRAMPOLINE_" HMAC_MD);
+let HMAC_MD_INIT = (str_concat HMAC_MD_TRAMPOLINE "_Init");
+let HMAC_MD_UPDATE = (str_concat HMAC_MD_TRAMPOLINE "_Update");
+let HMAC_MD_FINAL = (str_concat HMAC_MD_TRAMPOLINE "_Final");
 
-let evp_md_methods_others_spec name = do {
-  crucible_alloc_global (str_concat name "_storage");
-  crucible_alloc_global (str_concat name "_once");
+let md_storage index = (str_concat (nth EVP_MDS index) "_storage");
+let md_once index = (str_concat (nth EVP_MDS index) "_once");
+let md_init index = (str_concat (nth EVP_MDS index) "_init");
+
+let evp_md_methods_spec index = do {
+  crucible_alloc_global (md_storage index);
+  crucible_alloc_global (md_once index);
   crucible_execute_func
-    [ (crucible_global (str_concat name "_once"))
-    , (crucible_global (str_concat name "_init"))
+    [ (crucible_global (md_once index))
+    , (crucible_global (md_init index))
     ];
+
+  if (eval_bool {{`index == `HMAC_MD_INDEX}}) then do {
+    points_to_env_md_st (crucible_global (md_storage index));
+  } else do {
+    return ();
+  };
+  
 };
 
-let evp_md_methods_spec name = do {
-  crucible_alloc_global (str_concat name "_storage");
-  crucible_alloc_global (str_concat name "_once");
-  crucible_execute_func
-    [ (crucible_global (str_concat name "_once"))
-    , (crucible_global (str_concat name "_init"))
-    ];
-  points_to_env_md_st (crucible_global (str_concat name "_storage"));
-};
-
-let evp_methods_others_ov name = do { 
+let evp_methods_ov index = do { 
   llvm_unsafe_assume_spec
     m
     "CRYPTO_once"
-    (evp_md_methods_spec name);
+    (evp_md_methods_spec index);
 };
 
-evp_methods_others_ovs <- for ["EVP_sha256", "EVP_sha1", "EVP_sha512", "EVP_md5", "EVP_sha224", "EVP_sha512_256"] evp_methods_others_ov;
+evp_methods_ovs <- for MD_INDICES evp_methods_ov;
 
-evp_methods_ov <- 
-  llvm_unsafe_assume_spec
-  m 
-  "CRYPTO_once"
-  (evp_md_methods_spec "EVP_sha384");
-
-let points_to_md_methods ptr md_ptr = do {
+let points_to_md_methods md ptr md_ptr = do {
 
   crucible_points_to (crucible_elem ptr 0) md_ptr;
 
-  crucible_points_to (crucible_elem ptr 1) (crucible_global HMAC_MD_INIT);
-  crucible_points_to (crucible_elem ptr 2) (crucible_global HMAC_MD_UPDATE);
-  crucible_points_to (crucible_elem ptr 3) (crucible_global HMAC_MD_FINAL);
-
+  if md then do {
+    crucible_points_to (crucible_elem ptr 1) (crucible_global HMAC_MD_INIT);
+    crucible_points_to (crucible_elem ptr 2) (crucible_global HMAC_MD_UPDATE);
+    crucible_points_to (crucible_elem ptr 3) (crucible_global HMAC_MD_FINAL);
+  } else do {
+    return ();
+  };
 };
 
-let points_to_md_methods_md_only ptr md_ptr = do {
-  crucible_points_to (crucible_elem ptr 0) md_ptr;
+
+let alloc_md_global index = do {
+  crucible_alloc_global (md_storage index);
+  crucible_alloc_global (md_once index);
 };
 
 let alloc_md_globals = do {
-  crucible_alloc_global "EVP_sha256_storage";
-  crucible_alloc_global "EVP_sha1_storage";
-  crucible_alloc_global "EVP_sha384_storage";
-  crucible_alloc_global "EVP_sha512_storage";
-  crucible_alloc_global "EVP_md5_storage";
-  crucible_alloc_global "EVP_sha224_storage";
-  crucible_alloc_global "EVP_sha512_256_storage";
 
-  crucible_alloc_global "EVP_sha256_once";
-  crucible_alloc_global "EVP_sha1_once";
-  crucible_alloc_global "EVP_sha384_once";
-  crucible_alloc_global "EVP_sha512_once";
-  crucible_alloc_global "EVP_md5_once";
-  crucible_alloc_global "EVP_sha224_once";
-  crucible_alloc_global "EVP_sha512_256_once";
+  for MD_INDICES alloc_md_global;
+
+};
+
+let points_to_md_methods_index ptr index = do {
+  points_to_md_methods (eval_bool {{`index == `HMAC_MD_INDEX}}) (crucible_elem ptr index) (crucible_global (md_storage index));
 };
 
 let points_to_hmac_in_place_methods ptr = do {
+
+  // The global for the digest that is actually used is correct
+  points_to_env_md_st (crucible_global (md_storage HMAC_MD_INDEX)); 
+
   // The evp_md pointers are used as identifiers, and we search through them in order.
-  // So we need a predicate stating that the pointer values do not equal
+  // So we need a spec stating that the pointer values do not equal
   // the value for which we are searching.
   // Because these pointers have separate allocations, they must have different values.
 
-  points_to_md_methods_md_only (crucible_elem ptr 0) (crucible_global "EVP_sha256_storage");
-  points_to_md_methods_md_only (crucible_elem ptr 1) (crucible_global "EVP_sha1_storage");
-
-  points_to_env_md_st (crucible_global "EVP_sha384_storage");
-  points_to_md_methods (crucible_elem ptr 2) (crucible_global "EVP_sha384_storage");
+  for MD_INDICES (\x -> points_to_md_methods_index ptr x);
+  return ();
 
 };
 
@@ -112,8 +110,6 @@ let hmac_in_place_methods_spec = do {
   points_to_hmac_in_place_methods (crucible_elem (crucible_global "AWSLC_hmac_in_place_methods_storage") 0);
 };
 
-evp_methods_ovs <- (concat [evp_methods_ov] evp_methods_others_ovs);
-
 llvm_verify m "AWSLC_hmac_in_place_methods_init"
   evp_methods_ovs
   true
@@ -125,25 +121,10 @@ hmac_in_place_methods_ov <- llvm_unsafe_assume_spec
   "CRYPTO_once"
   hmac_in_place_methods_spec;
 
-/*
-
-let AWSLC_hmac_in_place_methods_spec = do {
-  crucible_alloc_global "AWSLC_hmac_in_place_methods_storage";
-  crucible_alloc_global "AWSLC_hmac_in_place_methods_once";
-
-  crucible_execute_func
-    [ (crucible_global "AWSLC_hmac_in_place_methods_once")
-    , (crucible_global "AWSLC_hmac_in_place_methods_init")
-    ];
-
-  points_to_AWSLC_hmac_in_place_methods;
-};
-*/
-
 let global_md_methods = (crucible_elem (crucible_field (crucible_global "AWSLC_hmac_in_place_methods_storage") "methods") 2);
 
 let points_to_AWSLC_hmac_in_place_methods md_ptr = do {
-  points_to_md_methods global_md_methods md_ptr;
+  points_to_md_methods true global_md_methods md_ptr;
 };
 
 let GetInPlaceMethods_spec = do {
@@ -153,7 +134,7 @@ let GetInPlaceMethods_spec = do {
   crucible_alloc_global "AWSLC_hmac_in_place_methods_storage";
   crucible_alloc_global "AWSLC_hmac_in_place_methods_once";
 
-  crucible_execute_func [(crucible_global "EVP_sha384_storage")];
+  crucible_execute_func [(crucible_global (md_storage HMAC_MD_INDEX))];
 
   points_to_hmac_in_place_methods (crucible_elem (crucible_global "AWSLC_hmac_in_place_methods_storage") 0);
 
@@ -201,11 +182,11 @@ let zeroed_hmac_ctx_st ptr = do {
 };
 
 // Specify the relation between hmac_ctx_st and HMACState
-let points_to_hmac_ctx_st ptr md_ptr context num = do {
+let points_to_hmac_ctx_st ptr context num = do {
   // Check that `i_ctx`, `o_ctx`, and `md_ctx` match the spec.  We set the
   // `num` argument for `i_ctx` and `o_ctx` to 0 because HMAC_Init_ex pads or
   // hashes the key to make it exactly 128 bytes, so the `block` field of these
-  // structs is uninitialized by the SHA384 update function.  No other function
+  // structs is uninitialized by the digest update function.  No other function
   // modifies `i_ctx` or `o_ctx`.
 
   let i_ctx_ptr = llvm_cast_pointer (llvm_field ptr "i_ctx") (llvm_alias "struct.sha512_state_st");
@@ -217,11 +198,11 @@ let points_to_hmac_ctx_st ptr md_ptr context num = do {
   points_to_sha512_state_st md_ctx_ptr {{ context.md_ctx }} num;
 
   // Specify that `ptr.md` matches `md_ptr`
-  crucible_points_to (crucible_field ptr "md") md_ptr;
+  crucible_points_to (crucible_field ptr "md") (crucible_global (md_storage HMAC_MD_INDEX));
 
   // Methods struct is correct
   crucible_alloc_global "AWSLC_hmac_in_place_methods_storage";
-  points_to_AWSLC_hmac_in_place_methods md_ptr;
+  points_to_AWSLC_hmac_in_place_methods (crucible_global (md_storage HMAC_MD_INDEX));
   crucible_points_to (crucible_field ptr "methods") global_md_methods;
 
 };
@@ -268,16 +249,15 @@ let HMAC_Init_ex_spec key_len = do {
   // `key`.
   (key, key_ptr) <- ptr_to_fresh_readonly "key" (llvm_array key_len (llvm_int 8));
 
-  // Precondition: `md_ptr` points to the correct global satisfying the
-  // `env_md_st` specification.
-  points_to_env_md_st (crucible_global "EVP_sha384_storage");
+  // Precondition: the global digest struct holds the correct values
+  points_to_env_md_st (crucible_global (md_storage HMAC_MD_INDEX));
 
-  // Call function with `hmac_ctx_ptr`, `key_ptr`, `key_len`, `md_ptr`, and NULL
+  // Call function with `hmac_ctx_ptr`, `key_ptr`, `key_len`, the global digest struct pointer, and NULL
   crucible_execute_func
     [ hmac_ctx_ptr
     , key_ptr
     , crucible_term {{ `key_len : [64] }}
-    , (crucible_global "EVP_sha384_storage")
+    , (crucible_global (md_storage HMAC_MD_INDEX))
     , crucible_null
     ];
 
@@ -287,7 +267,7 @@ let HMAC_Init_ex_spec key_len = do {
 
   // Postcondition: The data pointed to by `hmac_ctx_ptr` matches the context
   // returned by the cryptol function `HMACInit` when applied to `key`.
-  points_to_hmac_ctx_st hmac_ctx_ptr (crucible_global "EVP_sha384_storage") {{ HMACInit key }} 0;
+  points_to_hmac_ctx_st hmac_ctx_ptr {{ HMACInit key }} 0;
 
   // Postcondition: The function returns 1
   crucible_return (crucible_term {{ 1 : [32] }});
@@ -305,17 +285,16 @@ let HMAC_Update_spec num len = do {
   // Precondition: The function uses the AVX+shrd code path
   global_alloc_init "OPENSSL_ia32cap_P" {{ ia32cap }};
 
-  // Precondition: `digest_ptr` is a pointer to a const `env_md_st` satisfying the
-  // `points_to_env_md_st` specification
-  digest_ptr <- crucible_alloc_readonly (llvm_struct "struct.env_md_st");
-  points_to_env_md_st digest_ptr;
+  // Precondition: The global digest struct is allocated and holds the correct values
+  alloc_md_globals;
+  points_to_env_md_st (crucible_global (md_storage HMAC_MD_INDEX));
 
   // Precondition: `hmac_ctx_ptr` is a pointer to an `hmac_ctx_st`
   hmac_ctx_ptr <- crucible_alloc (llvm_struct "struct.hmac_ctx_st");
   // Precondition: `hmac_ctx` is a fresh Cryptol HMACState
   hmac_ctx <- fresh_hmac_state_st "hmac_ctx" num;
   // Precondition: `hmac_ctx_ptr` matches `hmac_ctx`
-  points_to_hmac_ctx_st hmac_ctx_ptr digest_ptr hmac_ctx num;
+  points_to_hmac_ctx_st hmac_ctx_ptr hmac_ctx num;
 
   // Precondition: state must be initialized
   hmac_ctx_is_initialized hmac_ctx_ptr;
@@ -334,7 +313,7 @@ let HMAC_Update_spec num len = do {
   // Postcondition: The data pointed to by `hmac_ctx_ptr` matches the context
   // returned by the cryptol function `HMACInit` when applied to `hmac_ctx` and
   // `data`.
-  points_to_hmac_ctx_st hmac_ctx_ptr digest_ptr {{ HMACUpdate hmac_ctx data }} (eval_size {| (num + len) % SHA512_CBLOCK |});
+  points_to_hmac_ctx_st hmac_ctx_ptr {{ HMACUpdate hmac_ctx data }} (eval_size {| (num + len) % SHA512_CBLOCK |});
 
   // Postcondition: The function returns 1
   crucible_return (crucible_term {{ 1 : [32] }});
@@ -345,17 +324,16 @@ let HMAC_Final_spec withLength num = do {
   // Precondition: The function uses the AVX+shrd code path
   global_alloc_init "OPENSSL_ia32cap_P" {{ ia32cap }};
 
-  // Precondition: `digest_ptr` is a pointer to a const `env_md_st` satisfying the
-  // `points_to_env_md_st` specification
-  digest_ptr <- crucible_alloc_readonly (llvm_struct "struct.env_md_st");
-  points_to_env_md_st digest_ptr;
+  // Precondition: The global digest struct is allocated and holds the correct values
+  alloc_md_globals;
+  points_to_env_md_st (crucible_global (md_storage HMAC_MD_INDEX));
 
   // Precondition: `hmac_ctx_ptr` is a pointer to an `hmac_ctx_st`
   hmac_ctx_ptr <- crucible_alloc (llvm_struct "struct.hmac_ctx_st");
   // Precondition: `hmac_ctx` is a fresh Cryptol HMACState
   hmac_ctx <- fresh_hmac_state_st "hmac_ctx" num;
   // Precondition: `hmac_ctx_ptr` matches `hmac_ctx`
-  points_to_hmac_ctx_st hmac_ctx_ptr digest_ptr hmac_ctx num;
+  points_to_hmac_ctx_st hmac_ctx_ptr hmac_ctx num;
   // Precondition: state must be initialized
   hmac_ctx_is_initialized hmac_ctx_ptr;
 
@@ -390,8 +368,8 @@ let HMAC_spec withLength key_len data_len = do {
   crucible_alloc_global "AWSLC_hmac_in_place_methods_storage";
   crucible_alloc_global "AWSLC_hmac_in_place_methods_once";
 
-  // Precondition: The correct digest structure satisfies the `points_to_env_md_st` specification
-  points_to_env_md_st (crucible_global "EVP_sha384_storage");
+  // Precondition: The global digest struct holds the corerct values
+  points_to_env_md_st (crucible_global (md_storage HMAC_MD_INDEX));
 
   // Precondition: `key` is a fresh const array of `key_len` bytes, and
   // `key_ptr` points to `key`
@@ -405,10 +383,10 @@ let HMAC_spec withLength key_len data_len = do {
   // md_out_len_ptr is null or points to an int.
   (md_out_ptr, md_out_len_ptr) <- digestOut_pre withLength;
 
-  // Call function with arguments `type_ptr`, `key_ptr`, `key_len`, `data_ptr`,
-  // `data_len`, `md_out_ptr`, and `md_out_len_ptr`
+  // Call function with arguments the global digest struct pointer, `key_ptr`, `key_len`, 
+  // `data_ptr`, `data_len`, `md_out_ptr`, and `md_out_len_ptr`
   crucible_execute_func
-    [ (crucible_global "EVP_sha384_storage")
+    [ (crucible_global (md_storage HMAC_MD_INDEX))
     , key_ptr
     , crucible_term {{ `key_len : [64] }}
     , data_ptr

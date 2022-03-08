@@ -3,6 +3,4 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 
-let HMAC_MD_INIT = "AWS_LC_TRAMPOLINE_SHA384_Init";
-let HMAC_MD_UPDATE = "AWS_LC_TRAMPOLINE_SHA384_Update";
-let HMAC_MD_FINAL = "AWS_LC_TRAMPOLINE_SHA384_Final";
+let HMAC_MD_INDEX = 2;
