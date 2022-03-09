@@ -368,7 +368,6 @@ sha512_block_data_order_ov <- llvm_verify_x86 m "../../build/x86/crypto/crypto_t
 enable_what4_eval;
 enable_x86_what4_hash_consing;
 
-/*
 sha512_block_data_order_array_ov <- llvm_verify_fixpoint_x86 m "../../build/x86/crypto/crypto_test" "sha512_block_data_order"
   [ ("K512", 5120) // Initializes the global for round constants, called K, at a size of 5120 bytes
   ]
@@ -382,8 +381,6 @@ sha512_block_data_order_array_ov <- llvm_verify_fixpoint_x86 m "../../build/x86/
     goal_eval_unint ["processBlocksLoop", "S0", "S1", "s0", "s1", "Ch"];
     w4_unint_z3 ["processBlocksLoop", "S0", "S1", "s0", "s1", "Ch"];
   });
-
-  */
 
 disable_what4_eval;
 disable_x86_what4_hash_consing;
