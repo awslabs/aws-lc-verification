@@ -32,6 +32,10 @@ let HMAC_METHODS_INIT = (str_concat HMAC_METHODS "_init");
 // "storage" global is set correctly after the function returns.
 // The init functions are verified, and then we assume a similar
 // spec on CRYPTO_once.
+
+// The init function spec states that the function produces the 
+// correct struct for the digests used with HMAC. For other digests,
+// the spec says nothing about the content of the struct.
 let evp_md_methods_init_spec index = do {
 
   crucible_alloc_global (md_storage index);
@@ -46,6 +50,8 @@ let evp_md_methods_init_spec index = do {
   };
 };
 
+// This is the spec for the invocation of CRYPTO_once that produces
+// the digest structs. It matches the spec of the init function.
 let evp_md_methods_spec index = do {
   crucible_alloc_global (md_storage index);
   crucible_alloc_global (md_once index);
@@ -62,6 +68,7 @@ let evp_md_methods_spec index = do {
   
 };
 
+// Prove that the init function used to produce each MD struct is correct.
 let evp_methods_init_ov index = do { 
   llvm_verify m (md_init index)
     []
@@ -69,16 +76,15 @@ let evp_methods_init_ov index = do {
     (evp_md_methods_init_spec index)
     (w4_unint_z3 []);
 };
-
 for MD_INDICES evp_methods_init_ov;
 
+// Assume that MD struct produced/returned by CRYPTO_once is correct.
 let evp_methods_ov index = do { 
   llvm_unsafe_assume_spec
     m
     "CRYPTO_once"
     (evp_md_methods_spec index);
 };
-
 evp_methods_ovs <- for MD_INDICES evp_methods_ov;
 
 let points_to_md_methods md ptr md_ptr = do {
@@ -131,6 +137,7 @@ let points_to_hmac_in_place_methods ptr = do {
 
 };
 
+// The spec of the init function that produces the HMAC in place methods struct
 let hmac_in_place_methods_init_spec = do {
 
   alloc_md_globals;
@@ -141,9 +148,13 @@ let hmac_in_place_methods_init_spec = do {
   points_to_hmac_in_place_methods (crucible_elem (crucible_global HMAC_METHODS_STORAGE) 0);
 };
 
+// The spec for the invocation of CRYPTO_once that produces the HMAC in place
+// methods struct. This spec matches the spec for the init function that
+// produces this struct.
 let hmac_in_place_methods_spec = do {
-  crucible_alloc_global HMAC_METHODS_STORAGE;
-  crucible_alloc_global HMAC_METHODS_ONCE;
+  alloc_md_globals;
+  alloc_hmac_globals;
+
   crucible_execute_func
     [ (crucible_global HMAC_METHODS_ONCE)
     , (crucible_global HMAC_METHODS_INIT)
@@ -151,12 +162,16 @@ let hmac_in_place_methods_spec = do {
   points_to_hmac_in_place_methods (crucible_elem (crucible_global HMAC_METHODS_STORAGE) 0);
 };
 
+// Prove that the init function that produces the HMAC in place methods struct
+// is correct.
 llvm_verify m HMAC_METHODS_INIT
   evp_methods_ovs
   true
   hmac_in_place_methods_init_spec
   (w4_unint_z3 []);
 
+// Assume that the the HMAC in place methods struct produced/returned by
+// CRYPTO_once is correct.
 hmac_in_place_methods_ov <- llvm_unsafe_assume_spec
   m
   "CRYPTO_once"
