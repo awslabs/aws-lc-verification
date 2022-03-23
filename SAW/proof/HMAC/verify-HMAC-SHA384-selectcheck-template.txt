@@ -5,6 +5,12 @@
 
 let HMAC_quick_check = false;
 
+// |HMAC_select_check_start_indx| and |HMAC_select_check_end_indx| are used to
+// create index range [HMAC_select_check_start_indx, HMAC_select_check_end_indx].
+// The range should be within [0, 127].
+let HMAC_select_check_start_indx = RANGE_START_INDX_PLACEHOLDER;
+let HMAC_select_check_end_indx = RANGE_END_INDX_PLACEHOLDER;
+
 // Import HMAC cryptol spec
 import "../../../cryptol-specs/Primitive/Keyless/Hash/HMAC.cry";
 

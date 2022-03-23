@@ -37,8 +37,10 @@ func main() {
 	for i := selectcheck_range_start; i <= selectcheck_range_end; i++ {
 		wg.Add(1)
 		saw_template := "verify-AES-GCM-selectcheck-template.txt"
-		placeholder_name := "TARGET_LEN_PLACEHOLDER"
-		go utility.CreateAndRunSawScript(saw_template, placeholder_name, i, &wg)
+		placeholder_map := map[string]int{
+			"TARGET_LEN_PLACEHOLDER": i,
+		}
+		go utility.CreateAndRunSawScript(saw_template, placeholder_map, &wg)
 		utility.Wait(&process_count, num_parallel_process, &wg)
 	}
 

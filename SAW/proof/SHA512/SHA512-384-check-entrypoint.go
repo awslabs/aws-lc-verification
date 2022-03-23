@@ -34,8 +34,10 @@ func main() {
 	for _, num := range target_nums {
 		wg.Add(1)
 		saw_template := "verify-SHA512-384-selectcheck-template.txt"
-		placeholder_name := "TARGET_NUM_PLACEHOLDER"
-		go utility.CreateAndRunSawScript(saw_template, placeholder_name, num, &wg)
+		placeholder_map := map[string]int{
+			"TARGET_NUM_PLACEHOLDER": num,
+		}
+		go utility.CreateAndRunSawScript(saw_template, placeholder_map, &wg)
 		utility.Wait(&process_count, sha_process_limit, &wg)
 	}
 

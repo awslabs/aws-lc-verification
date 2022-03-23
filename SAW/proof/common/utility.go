@@ -6,6 +6,7 @@
 package common
 
 import (
+	"crypto/rand"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -41,24 +42,38 @@ func ParseSelectCheckRange(env_var_name string, default_val int) int {
 	return ret
 }
 
-// A function to create a saw script, replace `placeholder_key` with value, and then execute the script.
-func CreateAndRunSawScript(path_to_template string, placeholder_key string, value int, wg *sync.WaitGroup) {
-	log.Printf("Start creating saw script for target value %s based on template %s.", value, path_to_template)
+func genRandFileName() string {
+	b := make([]byte, 20)
+	_, err := rand.Read(b)
+	if err != nil {
+		log.Fatal("Failed to generate random string.")
+	}
+	s := fmt.Sprintf("%X.saw", b)
+	return s
+}
+
+// A function to create a saw script, replace placeholders with the target value, and then execute the script.
+func CreateAndRunSawScript(path_to_template string, placeholder_map map[string]int, wg *sync.WaitGroup) {
 	// Create a new saw script.
-	file_name := fmt.Sprint(value, ".saw")
+	file_name := genRandFileName()
 	file, err := os.Create(file_name)
 	CheckError(err)
+	log.Printf("Start creating saw script %s given placeholder_map %s and the template %s.", file_name, placeholder_map, path_to_template)
 	// Read file content of verification template.
 	content, err := ioutil.ReadFile(path_to_template)
 	CheckError(err)
-	verification_template := string(content)
+	verification_code := string(content)
 	// Replace some placeholders of the file content with target values.
-	text := strings.Replace(verification_template, placeholder_key, strconv.Itoa(value), 1)
+	for placeholder_key, value := range placeholder_map {
+		verification_code = strings.Replace(verification_code, placeholder_key, strconv.Itoa(value), 1)
+	}
 	defer file.Close()
-	file.WriteString(text)
+	file.WriteString(verification_code)
 	defer os.Remove(file_name)
 	// Run saw script.
-	defer wg.Done()
+	if wg != nil {
+		defer wg.Done()
+	}
 	RunSelectCheckScript(file_name, path_to_template)
 }
 

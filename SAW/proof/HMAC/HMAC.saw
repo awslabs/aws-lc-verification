@@ -351,8 +351,11 @@ if HMAC_quick_check then do {
   for [false, true] verify_final_with_length;
   return();
 } else do {
-  // range of valid indices in the internal block ([0 .. (SHA512_CBLOCK - 1)])
-  nums <- for (eval_list {{ [0 .. (SHA512_CBLOCK - 1)] : [SHA512_CBLOCK][64] }})
+  // range of valid indices in the internal block ([i .. j])
+  // i: HMAC_select_check_start_indx
+  // j: HMAC_select_check_end_indx
+  let range_len = {{ HMAC_select_check_end_indx - HMAC_select_check_start_indx + 1 }};
+  nums <- for (eval_list {{ [HMAC_select_check_start_indx .. HMAC_select_check_end_indx] : [range_len][64] }})
     (\x -> (return (eval_int x)) : (TopLevel Int));
   for nums verify_final_with_num;
   return();
