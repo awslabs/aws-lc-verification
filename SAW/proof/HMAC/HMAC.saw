@@ -472,27 +472,20 @@ let verify_HMAC_Init_ex_spec key_len = do {
 };
 
 // Verify the `HMAC_Init_ex` C function satisfies the `HMAC_Init_ex_spec` specification.  
-if HMAC_quick_check then do {
-  // There are two cases to consider.
-  // Case 1: key_len=128 covers the case where the key is less than or equal to 128
-  // bytes long and will be used as-is when XORed to create the pad inputs to
-  // the SHA384 update function calls
-  // Case 2: key_len=129 covers the case where the key is greater than 128 bytes long
-  // and will be hashed before being XORed to create the pad inputs to the
-  // SHA384 update function calls
-  for [128, 129] verify_HMAC_Init_ex_spec;
-  return ();
-} else do {
-  key_lens <- for (eval_list {{ [0 .. (SHA512_CBLOCK + 1)] : [SHA512_CBLOCK + 2][64] }})
-    (\x -> (return (eval_int x)) : (TopLevel Int));
-  for key_lens verify_HMAC_Init_ex_spec;
-  return ();
-};
-
+// There are two cases to consider.
+// Case 1: key_len=128 covers the case where the key is less than or equal to 128
+// bytes long and will be used as-is when XORed to create the pad inputs to
+// the SHA384 update function calls
+// Case 2: key_len=129 covers the case where the key is greater than 128 bytes long
+// and will be hashed before being XORed to create the pad inputs to the
+// SHA384 update function calls
+for [128, 129] verify_HMAC_Init_ex_spec;
 
 // Verify the `HMAC_Update` C function satisfies the `HMAC_Update_spec`
 // specification.  There are 3 cases to consider to ensure the proof covers all
 // possible code paths through the update function.
+// Input length and buffer position are not exercised exhaustively, because this
+// is done in the proof of the underlying hash function.
 crucible_llvm_verify m "HMAC_Update"
   [ sha512_block_data_order_ov
   , OPENSSL_malloc_ov
@@ -559,6 +552,9 @@ let verify_final_with_num target_num = do {
   (verify_HMAC_Final_spec true target_num);
 };
 
+// Checking all buffer positions does not take that long, so this is done
+// in select check, even though similar checks are done when verifying the
+// underlying hash function.
 if HMAC_quick_check then do {
   for [false, true] verify_final_with_length;
   return();
