@@ -136,7 +136,6 @@ let ECDSA_do_sign_spec = do {
   crucible_return res_ptr;
 };
 
-
 let ECDSA_do_verify_spec = do {
   (digest, digest_ptr) <- ptr_to_fresh_readonly "digest" (llvm_array SHA_DIGEST_LENGTH i8);
 
@@ -250,7 +249,7 @@ ECDSA_do_sign_ov <- llvm_verify m "ECDSA_do_sign"
     w4_unint_z3 ["inv0", "ec_point_affine_scalar_mul"];
   });
 
-ECDSA_do_verify_ov <- llvm_verify m "ECDSA_do_verify"
+ECDSA_do_verify_ov <- llvm_verify m "ecdsa_do_verify_no_self_test"
   [ BN_is_zero_ov
   , ec_bignum_to_scalar_ov
   , ec_simple_scalar_inv0_montgomery_ov
