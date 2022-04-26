@@ -199,23 +199,21 @@ let points_to_gcm128_key_st ptr ctx = do {
   crucible_points_to (crucible_elem ptr 5) (crucible_term {{ 1 : [8] }});
 };
 
-let points_to_GCM128_CONTEXT ptr ctx mres = do {
+let points_to_GCM128_CONTEXT ptr ctx = do {
+  let {{ mres = drop`{32} (ctx.len % `AES_BLOCK_SIZE) }};
+
   crucible_points_to_untyped (crucible_elem ptr 0) (crucible_term {{ get_Yi ctx }});
-  if eval_bool {{ `mres == 0 }} then do {
-    return ();
-  } else do {
-    crucible_points_to_untyped (crucible_elem ptr 1) (crucible_term {{ get_EKi ctx }});
-  };
+  llvm_points_to_untyped (crucible_elem ptr 1) (crucible_term {{ if mres == 0 then zero else get_EKi ctx }});
   crucible_points_to_untyped (crucible_elem ptr 2) (crucible_term {{ get_EK0 ctx }});
   crucible_points_to_untyped (crucible_elem ptr 3) (crucible_term {{ [(0 : [64]), ctx.len] }});
   crucible_points_to_untyped (crucible_elem ptr 4) (crucible_term {{ ctx.Xi }});
   points_to_gcm128_key_st (crucible_elem ptr 5) ctx;
-  crucible_points_to (crucible_elem ptr 6) (crucible_term {{ `mres : [32] }});
+  crucible_points_to (crucible_elem ptr 6) (crucible_term {{ mres : [32] }});
   crucible_points_to (crucible_elem ptr 7) (crucible_term {{ 0 : [32] }});
 };
 
-let points_to_EVP_AES_GCM_CTX ptr ctx mres iv_set taglen = do {
-  points_to_GCM128_CONTEXT (crucible_field ptr "gcm") ctx mres;
+let points_to_EVP_AES_GCM_CTX ptr ctx iv_set taglen = do {
+  points_to_GCM128_CONTEXT (crucible_field ptr "gcm") ctx;
   points_to_aes_key_st (crucible_field ptr "ks") {{ ctx.key }};
   crucible_points_to (crucible_field ptr "key_set") (crucible_term {{ 1 : [32] }});
   crucible_points_to (crucible_field ptr "iv_set") (crucible_term iv_set);
