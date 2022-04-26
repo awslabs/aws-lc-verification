@@ -197,21 +197,21 @@ let concat_assoc_2_thms =
   ];
 
 
-gcm_pmult_pmod_thm <- prove_print rme (rewrite (cryptol_ss ()) {{ \x y -> gcm_pmult_pmod x y == gcm_polyval (gcm_init_H x) y }});
+gcm_pmult_pmod_thm <- prove_theorem rme (rewrite (cryptol_ss ()) {{ \x y -> gcm_pmult_pmod x y == gcm_polyval (gcm_init_H x) y }});
 
 
-polyval_avx_thm <- prove_print rme (rewrite (cryptol_ss ()) {{ \H Xi -> gcm_polyval H Xi == gcm_polyval_avx H Xi }});
-ghash_mul_thm <- prove_print rme (rewrite (cryptol_ss ()) {{ \(x : [128]) y -> gcm_polyval_mul x y == gcm_polyval_mul_pmult3 x y }});
-ghash_red_thm <- prove_print rme (rewrite (cryptol_ss ()) {{ \x -> gcm_polyval_red x == gcm_polyval_red_pmult x }});
+polyval_avx_thm <- prove_theorem rme (rewrite (cryptol_ss ()) {{ \H Xi -> gcm_polyval H Xi == gcm_polyval_avx H Xi }});
+ghash_mul_thm <- prove_theorem rme (rewrite (cryptol_ss ()) {{ \(x : [128]) y -> gcm_polyval_mul x y == gcm_polyval_mul_pmult3 x y }});
+ghash_red_thm <- prove_theorem rme (rewrite (cryptol_ss ()) {{ \x -> gcm_polyval_red x == gcm_polyval_red_pmult x }});
 
 
-gcm_polyval_mul_0_thm <- prove_print rme (rewrite (cryptol_ss ()) {{ \(x : [128]) (y : [128]) -> gcm_polyval_mul_pmult3 x y == gcm_polyval_mul x y }});
-gcm_polyval_mul_1_thm <- prove_print rme (rewrite (cryptol_ss ()) {{ \(x : [128]) (y : [128]) -> gcm_polyval_mul_pmult4 x y == gcm_polyval_mul x y }});
-gcm_polyval_red_thm <- prove_print rme (rewrite (cryptol_ss ()) {{ \x -> gcm_polyval_red_pmult x == gcm_polyval_red x }});
-gcm_polyval_red_xor_thm <- prove_print rme (rewrite (cryptol_ss ()) {{ \x y -> gcm_polyval_red (x ^ y) == (gcm_polyval_red x) ^ (gcm_polyval_red y) }});
-gcm_polyval_mul_red_thm <- prove_print rme (rewrite (cryptol_ss ()) {{ \x y -> gcm_polyval_red (gcm_polyval_mul x y) == gcm_polyval x y }});
-gcm_polyval_assoc_thm <- prove_print rme (rewrite (cryptol_ss ()) {{ \x y z -> gcm_polyval x (gcm_polyval y z) == gcm_polyval (gcm_polyval x y) z }});
-gcm_polyval_xor_thm <- prove_print rme (rewrite (cryptol_ss ()) {{ \(x : [128]) y z -> gcm_polyval x (y ^ z) == (gcm_polyval x y) ^ (gcm_polyval x z) }});
+gcm_polyval_mul_0_thm <- prove_theorem rme (rewrite (cryptol_ss ()) {{ \(x : [128]) (y : [128]) -> gcm_polyval_mul_pmult3 x y == gcm_polyval_mul x y }});
+gcm_polyval_mul_1_thm <- prove_theorem rme (rewrite (cryptol_ss ()) {{ \(x : [128]) (y : [128]) -> gcm_polyval_mul_pmult4 x y == gcm_polyval_mul x y }});
+gcm_polyval_red_thm <- prove_theorem rme (rewrite (cryptol_ss ()) {{ \x -> gcm_polyval_red_pmult x == gcm_polyval_red x }});
+gcm_polyval_red_xor_thm <- prove_theorem rme (rewrite (cryptol_ss ()) {{ \x y -> gcm_polyval_red (x ^ y) == (gcm_polyval_red x) ^ (gcm_polyval_red y) }});
+gcm_polyval_mul_red_thm <- prove_theorem rme (rewrite (cryptol_ss ()) {{ \x y -> gcm_polyval_red (gcm_polyval_mul x y) == gcm_polyval x y }});
+gcm_polyval_assoc_thm <- prove_theorem rme (rewrite (cryptol_ss ()) {{ \x y z -> gcm_polyval x (gcm_polyval y z) == gcm_polyval (gcm_polyval x y) z }});
+gcm_polyval_xor_thm <- prove_theorem rme (rewrite (cryptol_ss ()) {{ \(x : [128]) y z -> gcm_polyval x (y ^ z) == (gcm_polyval x y) ^ (gcm_polyval x z) }});
 append_xor_thm <- prove_folding_theorem
   {{ \(x0 : [8]) (x1 : [8]) (x2 : [8]) (x3 : [8]) (x4 : [8]) (x5 : [8]) (x6 : [8]) (x7 : [8]) (x8 : [8]) (x9 : [8]) (x10 : [8]) (x11 : [8]) (x12 : [8]) (x13 : [8]) (x14 : [8]) (x15 : [8]) y0 y1 y2 y3 y4 y5 y6 y7 y8 y9 y10 y11 y12 y13 y14 y15 -> ((((((((((((((((x0 ^ y0) # (x1 ^ y1)) # (x2 ^ y2)) # (x3 ^ y3)) # (x4 ^ y4)) # (x5 ^ y5)) # (x6 ^ y6)) # (x7 ^ y7)) # (x8 ^ y8)) # (x9 ^ y9)) # (x10 ^ y10)) # (x11 ^ y11)) # (x12 ^ y12)) # (x13 ^ y13)) # (x14 ^ y14)) # (x15 ^ y15)) == (x0 # x1 # x2 # x3 # x4 # x5 # x6 # x7 # x8 # x9 # x10 # x11 # x12 # x13 # x14 # x15) ^ (y0 # y1 # y2 # y3 # y4 # y5 # y6 # y7 # y8 # y9 # y10 # y11 # y12 # y13 # y14 # y15) }};
 append_slice_thm <- prove_folding_theorem
@@ -228,7 +228,7 @@ let gcm_polyval_thms =
   , append_slice_thm
   ];
 
-let prove_gcm_ghash_avx_thm len = prove_print
+let prove_gcm_ghash_avx_thm len = prove_theorem
   (do {
     goal_eval_unint ["pmult", "pmod", "gcm_polyval", "gcm_polyval_mul", "gcm_polyval_mul_pmult3", "gcm_polyval_mul_pmult4", "gcm_polyval_red", "gcm_polyval_red_pmult"];
     simplify (addsimps gcm_polyval_thms empty_ss);
@@ -244,7 +244,7 @@ let gcm_ghash_avx_thms =
   , gcm_ghash_avx_decrypt_thm
   ];
 
-let prove_ctr32_encrypt_thm gcm_len len = prove_print
+let prove_ctr32_encrypt_thm gcm_len len = prove_theorem
   (do {
     w4_unint_yices ["aes_hw_encrypt"];
   })
@@ -257,7 +257,7 @@ let ctr32_encrypt_thms =
   , ctr32_encrypt_decrypt_thm
   ];
 
-let prove_cipher_update_avx_thm enc gcm_len len = prove_print
+let prove_cipher_update_avx_thm enc gcm_len len = prove_theorem
   (do {
     unfolding ["cipher_update", "cipher_update_byte"];
     simplify (cryptol_ss ());
@@ -278,22 +278,22 @@ let cipher_update_avx_thms =
   , decrypt_update_avx_thm
   ];
 
-aesenc_key0_0_thm <- prove_print
+aesenc_key0_0_thm <- prove_theorem
   (do {
     w4_unint_yices ["AESRound", "AESFinalRound"];
   })
   (rewrite (cryptol_ss ()) {{ \(x : [96]) (y : [32]) key0 key1 -> aesenc ((x # y) ^ key0) key1 == aesenc (key0 ^ (x # y)) key1 }});
-aesenc_key0_1_thm <- prove_print
+aesenc_key0_1_thm <- prove_theorem
   (do {
     w4_unint_yices ["AESRound", "AESFinalRound"];
   })
   (rewrite (cryptol_ss ()) {{ \(x : [120]) (y : [8]) key0 key1 -> aesenc ((x # y) ^ key0) key1 == aesenc (key0 ^ (x # y)) key1 }});
-aesenclast_thm <- prove_print
+aesenclast_thm <- prove_theorem
   (do {
     w4_unint_yices ["ShiftRows", "SubBytes"];
   })
   (rewrite (cryptol_ss ()) {{ \x y z -> aesenclast x (y ^ z) == (aesenclast x y) ^ z }});
-aesenc_aesenclast_thm <- prove_print
+aesenc_aesenclast_thm <- prove_theorem
   (do {
     w4_unint_yices ["AESRound", "AESFinalRound"];
   })
