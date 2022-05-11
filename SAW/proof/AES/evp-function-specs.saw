@@ -18,6 +18,24 @@ let aes_256_gcm_generic_init_spec = do {
  * EVP_DecryptUpdate, EVP_EncryptFinal_ex, and EVP_DecryptFinal_ex functions
  * for AES-GCM.
  */
+
+
+/*
+ * == include/openssl/cipher.h:155 ==
+ * == crypto/fipsmodule/cipher.c:135 ==
+ *
+ * // EVP_CipherInit_ex configures |ctx| for a fresh encryption (or decryption, if
+ * // |enc| is zero) operation using |cipher|. If |ctx| has been previously
+ * // configured with a cipher then |cipher|, |key| and |iv| may be |NULL| and
+ * // |enc| may be -1 to reuse the previous values. The operation will use |key|
+ * // as the key and |iv| as the IV (if any). These should have the correct
+ * // lengths given by |EVP_CIPHER_key_length| and |EVP_CIPHER_iv_length|. It
+ * // returns one on success and zero on error.
+ * OPENSSL_EXPORT int EVP_CipherInit_ex(EVP_CIPHER_CTX *ctx,
+ *                                      const EVP_CIPHER *cipher, ENGINE *engine,
+ *                                      const uint8_t *key, const uint8_t *iv,
+ *                                      int enc);
+ */
 let EVP_CipherInit_ex_spec enc = do {
   global_alloc_init "OPENSSL_ia32cap_P" {{ ia32cap }};
 
@@ -42,41 +60,82 @@ let EVP_CipherInit_ex_spec enc = do {
   points_to_evp_cipher_ctx_st ctx_ptr cipher_ptr cipher_data_ptr enc;
 };
 
-let EVP_CipherUpdate_spec enc gcm_len len = do {
+
+/* == include/openssl/cipher.h:227 ==
+ * == crypto/fipmodule/cipher.c:509
+ * // EVP_CipherUpdate calls either |EVP_EncryptUpdate| or |EVP_DecryptUpdate|
+ * // depending on how |ctx| has been setup.
+ * OPENSSL_EXPORT int EVP_CipherUpdate(EVP_CIPHER_CTX *ctx, uint8_t *out,
+ *                                     int *out_len, const uint8_t *in,
+ *                                     int in_len);
+ */
+let EVP_CipherUpdate_spec enc = do {
   global_alloc_init "OPENSSL_ia32cap_P" {{ ia32cap }};
 
   cipher_ptr <- crucible_alloc_readonly (llvm_struct "struct.evp_cipher_st");
   points_to_evp_cipher_st cipher_ptr;
 
+  len <- llvm_fresh_var "len" (llvm_int 32);
+
   cipher_data_ptr <- crucible_alloc_aligned 16 (llvm_struct "struct.EVP_AES_GCM_CTX");
-  ctx <- fresh_aes_gcm_ctx gcm_len;
+  ctx <- fresh_aes_gcm_ctx;
+  // llvm_equal (crucible_term {{ ctx.len }}) (crucible_term {{ 0:[64] }});
+  llvm_precond {{ len >=$ 0 }};
+  //llvm_precond {{ len < 1000 }};
+  llvm_precond {{ ctx.len < `TOTAL_MESSAGE_MAX_LENGTH }};
+  llvm_precond {{ ctx.len + (sext len) < `TOTAL_MESSAGE_MAX_LENGTH }};
+
   points_to_EVP_AES_GCM_CTX cipher_data_ptr ctx {{ 1 : [32] }} 0xffffffff;
 
   ctx_ptr <- crucible_alloc_readonly (llvm_struct "struct.evp_cipher_ctx_st");
   points_to_evp_cipher_ctx_st ctx_ptr cipher_ptr cipher_data_ptr enc;
 
-  (in_, in_ptr) <- ptr_to_fresh_readonly "in" (llvm_array len (llvm_int 8));
-  out_ptr <- crucible_alloc (llvm_array len (llvm_int 8));
+  // This ensures that we are always working with complete blocks
+  // TODO, remove this restriction...
+  llvm_precond {{ len % 16 == 0 }};
+  llvm_precond {{ ctx.len % 16 == 0 }};
+
+  (in_, in_ptr) <- ptr_to_fresh_array_readonly "in" {{ (sext len):[64] }};
+
+  /* TODO, this isn't great, we require that the caller initialize the output
+   * buffer with bytes. We need to fix asMemAllocationArrayStore or somesuch
+   * if we want to avoid this.
+   */
+  // out_ptr <- llvm_symbolic_alloc false 1 {{ (sext len):[64] }};
+  (out_, out_ptr) <- ptr_to_fresh_array "out" {{ (sext len):[64] }};
+
   out_len_ptr <- crucible_alloc (llvm_int 32);
 
-  crucible_execute_func [ctx_ptr, out_ptr, out_len_ptr, in_ptr, (crucible_term {{ `len : [32] }})];
+  crucible_execute_func [ctx_ptr, out_ptr, out_len_ptr, in_ptr, crucible_term len];
 
-  let ctx' = {{ cipher_update enc ctx in_ }};
-  points_to_EVP_AES_GCM_CTX cipher_data_ptr ctx' {{ 1 : [32] }} 0xffffffff;
+//  let ctx' = {{ cipher_update enc ctx in_ }};
+//  points_to_EVP_AES_GCM_CTX cipher_data_ptr ctx' {{ 1 : [32] }} 0xffffffff;
+//  crucible_points_to out_ptr (crucible_term {{ ctr32_encrypt ctx in_ }});
 
-  crucible_points_to out_ptr (crucible_term {{ ctr32_encrypt ctx in_ }});
-
-  crucible_points_to out_len_ptr (crucible_term {{ `len : [32] }});
-
+  crucible_points_to out_len_ptr (crucible_term len);
   crucible_return (crucible_term {{ 1 : [32] }});
 };
 
-let EVP_EncryptFinal_ex_spec gcm_len = do {
+
+/* == include/openssl/cipher.h:187 ==
+ * == crypto/fipmodule/cipher.c:324 ==
+ * // EVP_EncryptFinal_ex writes at most a block of ciphertext to |out| and sets
+ * // |*out_len| to the number of bytes written. If padding is enabled (the
+ * // default) then standard padding is applied to create the final block. If
+ * // padding is disabled (with |EVP_CIPHER_CTX_set_padding|) then any partial
+ * // block remaining will cause an error. The function returns one on success and
+ * // zero otherwise.
+ * OPENSSL_EXPORT int EVP_EncryptFinal_ex(EVP_CIPHER_CTX *ctx, uint8_t *out,
+ *                                        int *out_len);
+ */
+let EVP_EncryptFinal_ex_spec = do {
   cipher_ptr <- crucible_alloc_readonly (llvm_struct "struct.evp_cipher_st");
   points_to_evp_cipher_st cipher_ptr;
 
   cipher_data_ptr <- crucible_alloc_aligned 16 (llvm_struct "struct.EVP_AES_GCM_CTX");
-  ctx <- fresh_aes_gcm_ctx gcm_len;
+  ctx <- fresh_aes_gcm_ctx;
+  llvm_precond {{ ctx.len < `TOTAL_MESSAGE_MAX_LENGTH }};
+
   points_to_EVP_AES_GCM_CTX cipher_data_ptr ctx {{ 1 : [32] }} 0xffffffff;
 
   ctx_ptr <- crucible_alloc (llvm_struct "struct.evp_cipher_ctx_st");
@@ -100,12 +159,24 @@ let EVP_EncryptFinal_ex_spec gcm_len = do {
   crucible_return (crucible_term {{ 1 : [32] }});
 };
 
-let EVP_DecryptFinal_ex_spec gcm_len = do {
+/* == include/openssl/cipher.h:204 ==
+ * == crypto/fipmodule/cipher.c:436 ==
+ * // EVP_DecryptFinal_ex writes at most a block of ciphertext to |out| and sets
+ * // |*out_len| to the number of bytes written. If padding is enabled (the
+ * // default) then padding is removed from the final block.
+ * //
+ * // WARNING: it is unsafe to call this function with unauthenticated
+ * // ciphertext if padding is enabled.
+ * OPENSSL_EXPORT int EVP_DecryptFinal_ex(EVP_CIPHER_CTX *ctx, uint8_t *out,
+ *                                        int *out_len);
+ */
+let EVP_DecryptFinal_ex_spec = do {
   cipher_ptr <- crucible_alloc_readonly (llvm_struct "struct.evp_cipher_st");
   points_to_evp_cipher_st cipher_ptr;
 
   cipher_data_ptr <- crucible_alloc_aligned 16 (llvm_struct "struct.EVP_AES_GCM_CTX");
-  ctx <- fresh_aes_gcm_ctx gcm_len;
+  ctx <- fresh_aes_gcm_ctx;
+  llvm_precond {{ ctx.len < `TOTAL_MESSAGE_MAX_LENGTH }};
   points_to_EVP_AES_GCM_CTX cipher_data_ptr ctx {{ 1 : [32] }} AES_BLOCK_SIZE;
 
   ctx_ptr <- crucible_alloc_readonly (llvm_struct "struct.evp_cipher_ctx_st");
@@ -129,4 +200,3 @@ let EVP_DecryptFinal_ex_spec gcm_len = do {
 
   crucible_return (crucible_term {{ (if ret then 1 else 0) : [32] }});
 };
-

@@ -132,12 +132,12 @@ let add_xor_slice_thms =
   , slice_xor_27_thm
   ];
 
-aesenclast_0_thm <- prove_print
+aesenclast_0_thm <- prove_theorem
   (do {
     w4_unint_yices ["ShiftRows", "SubBytes"];
   })
   (rewrite (cryptol_ss ()) {{ \(x : [8]) y z key -> aesenclast key ((x # y) ^ z) == (x # y) ^ (aesenclast key z) }});
-aesenclast_1_thm <- prove_print
+aesenclast_1_thm <- prove_theorem
   (do {
     w4_unint_yices ["ShiftRows", "SubBytes"];
   })

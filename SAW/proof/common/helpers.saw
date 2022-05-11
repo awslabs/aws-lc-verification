@@ -6,6 +6,17 @@
 // Using experimental proof command "crucible_llvm_verify_x86"
 enable_experimental;
 
+let interactive u =
+  callcc (\ (done : () -> TopLevel ()) ->
+    rec retry (u:()) : TopLevel () =
+      do { reset <- checkpoint;
+           print "<<Interactive Subshell>>";
+   	   subshell ();
+	   reset ();
+	   retry ();
+         }
+     in (retry u));
+
 /*
  * SAW helpers
  */
