@@ -1,0 +1,276 @@
+
+////////////////////////////////////////////////////////////////////////////////
+// Specifications
+
+let EVP_AES_GCM_CTX_PADDING = 8;
+let EVP_AES_GCM_CTX_size = llvm_sizeof m (llvm_struct "struct.EVP_AES_GCM_CTX");
+let ctx_size = eval_size {| EVP_AES_GCM_CTX_size + EVP_AES_GCM_CTX_PADDING |};
+
+
+/*
+ * Helpers for specifying the AES-GCM structs
+ *
+ * see == include/openssl/cipher.h:341-390 ==
+ */
+let EVP_CIPH_GCM_MODE = 0x6;
+let EVP_CIPH_ALWAYS_CALL_INIT = 0x80;
+let EVP_CIPH_CUSTOM_IV = 0x100;
+let EVP_CIPH_CTRL_INIT = 0x200;
+let EVP_CIPH_FLAG_CUSTOM_CIPHER = 0x400;
+let EVP_CIPH_FLAG_AEAD_CIPHER = 0x800;
+let EVP_CIPH_CUSTOM_COPY = 0x1000;
+
+/* *** Data structure invariant for struct evp_cipher_st ***
+ *
+ * This data structure identifies a particular cipher, identifies
+ * some parameters of the cipher, and contains function pointers
+ * to the methods implementing it. This data structure is constant
+ * throughout a particular cipher operation.  This spec fixes the
+ * various parameters and flags for a particular AES-256 GCM operation,
+ * which is the operation we verify here.
+ *
+ * == include/openssl/base.h:421 ==
+ * typedef struct evp_cipher_st EVP_CIPHER;
+ * 
+ * == include/openssl/cipher.h:585 ==
+ *
+ * struct evp_cipher_st {
+ *   // type contains a NID identifing the cipher. (e.g. NID_aes_128_gcm.)
+ *   int nid;
+ * 
+ *   // block_size contains the block size, in bytes, of the cipher, or 1 for a
+ *   // stream cipher.
+ *   unsigned block_size;
+ * 
+ *   // key_len contains the key size, in bytes, for the cipher. If the cipher
+ *   // takes a variable key size then this contains the default size.
+ *   unsigned key_len;
+ * 
+ *   // iv_len contains the IV size, in bytes, or zero if inapplicable.
+ *   unsigned iv_len;
+ * 
+ *   // ctx_size contains the size, in bytes, of the per-key context for this
+ *   // cipher.
+ *   unsigned ctx_size;
+ * 
+ *   // flags contains the OR of a number of flags. See |EVP_CIPH_*|.
+ *   uint32_t flags;
+ * 
+ *   // app_data is a pointer to opaque, user data.
+ *   void *app_data;
+ * 
+ *   int (*init)(EVP_CIPHER_CTX *ctx, const uint8_t *key, const uint8_t *iv,
+ *               int enc);
+ * 
+ *   int (*cipher)(EVP_CIPHER_CTX *ctx, uint8_t *out, const uint8_t *in,
+ *                 size_t inl);
+ * 
+ *   // cleanup, if non-NULL, releases memory associated with the context. It is
+ *   // called if |EVP_CTRL_INIT| succeeds. Note that |init| may not have been
+ *   // called at this point.
+ *   void (*cleanup)(EVP_CIPHER_CTX *);
+ * 
+ *   int (*ctrl)(EVP_CIPHER_CTX *, int type, int arg, void *ptr);
+ * };
+ */
+let points_to_evp_cipher_st ptr = do {
+  crucible_points_to (crucible_elem ptr 0) (crucible_term {{ `NID_aes_256_gcm : [32] }});
+  crucible_points_to (crucible_elem ptr 1) (crucible_term {{ `aes_block_size : [32] }});
+  crucible_points_to (crucible_elem ptr 2) (crucible_term {{ `aes_key_len : [32] }});
+  crucible_points_to (crucible_elem ptr 3) (crucible_term {{ `aes_iv_len : [32] }});
+  crucible_points_to (crucible_elem ptr 4) (crucible_term {{ `ctx_size : [32] }});
+
+  let flags = eval_size {| EVP_CIPH_GCM_MODE + EVP_CIPH_CUSTOM_IV + EVP_CIPH_CUSTOM_COPY +
+                           EVP_CIPH_FLAG_CUSTOM_CIPHER + EVP_CIPH_ALWAYS_CALL_INIT +
+                           EVP_CIPH_CTRL_INIT + EVP_CIPH_FLAG_AEAD_CIPHER |};
+  crucible_points_to (crucible_elem ptr 5) (crucible_term {{ `flags : [32] }});
+
+  crucible_points_to (crucible_elem ptr 6) crucible_null;
+  crucible_points_to (crucible_elem ptr 7) (crucible_global "aes_gcm_init_key");
+  crucible_points_to (crucible_elem ptr 8) (crucible_global "aes_gcm_cipher");
+  crucible_points_to (crucible_elem ptr 9) (crucible_global "aes_gcm_cleanup");
+  crucible_points_to (crucible_elem ptr 10) (crucible_global "aes_gcm_ctrl");
+};
+
+/* == include/openssl/base.h:420 ==
+ * typedef struct evp_cipher_ctx_st EVP_CIPHER_CTX;
+ * 
+ * == include/openssl/cipher.h:536 ==
+ *
+ * struct evp_cipher_ctx_st {
+ *   // cipher contains the underlying cipher for this context.
+ *   const EVP_CIPHER *cipher;
+ * 
+ *   // app_data is a pointer to opaque, user data.
+ *   void *app_data;      // application stuff
+ * 
+ *   // cipher_data points to the |cipher| specific state.
+ *   void *cipher_data;
+ * 
+ *   // key_len contains the length of the key, which may differ from
+ *   // |cipher->key_len| if the cipher can take a variable key length.
+ *   unsigned key_len;
+ * 
+ *   // encrypt is one if encrypting and zero if decrypting.
+ *   int encrypt;
+ * 
+ *   // flags contains the OR of zero or more |EVP_CIPH_*| flags, above.
+ *   uint32_t flags;
+ * 
+ *   // oiv contains the original IV value.
+ *   uint8_t oiv[EVP_MAX_IV_LENGTH];
+ * 
+ *   // iv contains the current IV value, which may have been updated.
+ *   uint8_t iv[EVP_MAX_IV_LENGTH];
+ * 
+ *   // buf contains a partial block which is used by, for example, CTR mode to
+ *   // store unused keystream bytes.
+ *   uint8_t buf[EVP_MAX_BLOCK_LENGTH];
+ * 
+ *   // buf_len contains the number of bytes of a partial block contained in
+ *   // |buf|.
+ *   int buf_len;
+ * 
+ *   // num contains the number of bytes of |iv| which are valid for modes that
+ *   // manage partial blocks themselves.
+ *   unsigned num;
+ * 
+ *   // final_used is non-zero if the |final| buffer contains plaintext.
+ *   int final_used;
+ * 
+ *   uint8_t final[EVP_MAX_BLOCK_LENGTH];  // possible final block
+ * } /* EVP_CIPHER_CTX */;
+ */
+let points_to_evp_cipher_ctx_st ptr cipher_ptr cipher_data_ptr enc = do {
+  crucible_points_to (crucible_field ptr "cipher") cipher_ptr;
+  crucible_points_to (crucible_field ptr "cipher_data") cipher_data_ptr;
+  crucible_points_to (crucible_field ptr "key_len") (crucible_term {{ `aes_key_len : [32] }});
+  crucible_points_to (crucible_field ptr "encrypt") (crucible_term enc);
+  crucible_points_to (crucible_field ptr "flags") (crucible_term {{ 0 : [32] }});
+  crucible_points_to (crucible_field ptr "buf_len") (crucible_term {{ 0 : [32] }});
+  crucible_points_to (crucible_field ptr "final_used") (crucible_term {{ 0 : [32] }});
+};
+
+/* == cryptol-specs/Primitive/Symmetric/Cipher/Authenticated/AES_256_GCM.cry ==
+ *
+ * type AES_GCM_Ctx =
+ *  { key : [32][8]
+ *  , iv : [12][8]
+ *  , Xi : [16][8]
+ *  , len : [64]
+ *  }
+ */
+let fresh_aes_gcm_ctx = do {
+  key <- fresh_aes_key_st;
+  iv <- crucible_fresh_var "iv" (llvm_array aes_iv_len (llvm_int 8));
+  Xi <- crucible_fresh_var "Xi" (llvm_array AES_BLOCK_SIZE (llvm_int 8));
+
+  gcm_len <- crucible_fresh_var "gcm_len" (llvm_int 64);
+  return {{ { key = key, iv = iv, Xi = Xi, len = gcm_len } : AES_GCM_Ctx }};
+};
+
+
+/* This data structure contains some precomputed data related to the
+ * encrypt/decrypt key, and contains function pointers that implement
+ * the blockwise sub-operations.
+ *
+ * == crypto/fipsmodule/modes/internal.h:129 ==
+ *
+ * typedef struct gcm128_key_st {
+ *   // Note the MOVBE-based, x86-64, GHASH assembly requires |H| and |Htable| to
+ *   // be the first two elements of this struct. Additionally, some assembly
+ *   // routines require a 16-byte-aligned |Htable| when hashing data, but not
+ *   // initialization. |GCM128_KEY| is not itself aligned to simplify embedding in
+ *   // |EVP_AEAD_CTX|, but |Htable|'s offset must be a multiple of 16.
+ *   u128 H;
+ *   u128 Htable[16];
+ *   gmult_func gmult;
+ *   ghash_func ghash;
+ * 
+ *   block128_f block;
+ * 
+ *   // use_aesni_gcm_crypt is true if this context should use the assembly
+ *   // functions |aesni_gcm_encrypt| and |aesni_gcm_decrypt| to process data.
+ *   unsigned use_aesni_gcm_crypt:1;
+ * } GCM128_KEY;
+ */
+let points_to_gcm128_key_st ptr ctx = do {
+  crucible_points_to_untyped (crucible_elem ptr 0) (crucible_term {{ get_H ctx }});
+  crucible_points_to_untyped (crucible_elem ptr 1) (crucible_term {{ get_Htable ctx }});
+  crucible_points_to (crucible_elem ptr 2) (crucible_global "gcm_gmult_avx");
+  crucible_points_to (crucible_elem ptr 3) (crucible_global "gcm_ghash_avx");
+  crucible_points_to (crucible_elem ptr 4) (crucible_global "aes_hw_encrypt");
+  crucible_points_to (crucible_elem ptr 5) (crucible_term {{ 1 : [8] }});
+};
+
+/* == crypto/fipsmodule/modes/internal.h:147 ==
+ *
+ * // GCM128_CONTEXT contains state for a single GCM operation. The structure
+ * // should be zero-initialized before use.
+ * typedef struct {
+ *   // The following 5 names follow names in GCM specification
+ *   union {
+ *     uint64_t u[2];
+ *     uint32_t d[4];
+ *     uint8_t c[16];
+ *     crypto_word_t t[16 / sizeof(crypto_word_t)];
+ *   } Yi, EKi, EK0, len, Xi;
+ * 
+ *   // Note that the order of |Xi| and |gcm_key| is fixed by the MOVBE-based,
+ *   // x86-64, GHASH assembly. Additionally, some assembly routines require
+ *   // |gcm_key| to be 16-byte aligned. |GCM128_KEY| is not itself aligned to
+ *   // simplify embedding in |EVP_AEAD_CTX|.
+ *   alignas(16) GCM128_KEY gcm_key;
+ * 
+ *   unsigned mres, ares;
+ * } GCM128_CONTEXT;
+ * 
+ */
+let points_to_GCM128_CONTEXT ptr ctx = do {
+  let {{ mres = drop`{32} (ctx.len % `AES_BLOCK_SIZE) }};
+
+  crucible_points_to_untyped (crucible_elem ptr 0) (crucible_term {{ get_Yi ctx }});
+
+  // When there is a partial block still in process, the EKi field is
+  // required to have it's proper values. At other times, it is unspecified.
+  EKi_bytes <- llvm_fresh_var "EKi_val" (llvm_array 16 (llvm_int 8));
+  llvm_points_to_untyped (crucible_elem ptr 1) (crucible_term EKi_bytes);
+  llvm_equal (crucible_term {{ [mres == 0 \/ EKi_bytes == get_EKi ctx] }})
+             (crucible_term {{ 1:[1] }});
+
+  crucible_points_to_untyped (crucible_elem ptr 2) (crucible_term {{ get_EK0 ctx }});
+  crucible_points_to_untyped (crucible_elem ptr 3) (crucible_term {{ [(0 : [64]), ctx.len] }});
+  crucible_points_to_untyped (crucible_elem ptr 4) (crucible_term {{ ctx.Xi }});
+  points_to_gcm128_key_st (crucible_elem ptr 5) ctx;
+  crucible_points_to (crucible_elem ptr 6) (crucible_term {{ mres : [32] }});
+  crucible_points_to (crucible_elem ptr 7) (crucible_term {{ 0 : [32] }});
+};
+
+/* == crypto/fipsmodule/cipher/e_aes.c ==
+ *
+ * typedef struct {
+ *   GCM128_CONTEXT gcm;
+ *   union {
+ *     double align;
+ *     AES_KEY ks;
+ *   } ks;         // AES key schedule to use
+ *   int key_set;  // Set if key initialised
+ *   int iv_set;   // Set if an iv is set
+ *   uint8_t *iv;  // Temporary IV store
+ *   int ivlen;         // IV length
+ *   int taglen;
+ *   int iv_gen;      // It is OK to generate IVs
+ *   ctr128_f ctr;
+ * } EVP_AES_GCM_CTX;
+ *
+ */
+let points_to_EVP_AES_GCM_CTX ptr ctx iv_set taglen = do {
+  points_to_GCM128_CONTEXT (crucible_field ptr "gcm") ctx;
+  points_to_aes_key_st (crucible_field ptr "ks") {{ ctx.key }};
+  crucible_points_to (crucible_field ptr "key_set") (crucible_term {{ 1 : [32] }});
+  crucible_points_to (crucible_field ptr "iv_set") (crucible_term iv_set);
+  crucible_points_to (crucible_field ptr "ivlen") (crucible_term {{ `aes_iv_len : [32] }});
+  crucible_points_to (crucible_field ptr "taglen") (crucible_term {{ `taglen : [32] }});
+  crucible_points_to (crucible_field ptr "iv_gen") (crucible_term {{ 0 : [32] }});
+  crucible_points_to (crucible_field ptr "ctr") (crucible_global "aes_hw_ctr32_encrypt_blocks");
+};
