@@ -97,15 +97,14 @@ let EVP_CipherUpdate_spec enc = do {
   llvm_precond {{ ctx.len <= `TOTAL_MESSAGE_MAX_LENGTH }};
   llvm_precond {{ ctx.len + (sext len) <= `TOTAL_MESSAGE_MAX_LENGTH }};
 
+  // TODO, remove this restiction on full blocks
+  llvm_precond {{ ctx.len % 16 == 0 }};
+  llvm_precond {{ len % 16 == 0 }};
+
   points_to_EVP_AES_GCM_CTX cipher_data_ptr ctx {{ 1 : [32] }} 0xffffffff;
 
   ctx_ptr <- crucible_alloc_readonly (llvm_struct "struct.evp_cipher_ctx_st");
   points_to_evp_cipher_ctx_st ctx_ptr cipher_ptr cipher_data_ptr enc;
-
-  // This ensures that we are always working with complete blocks
-  // TODO, remove this restriction...
-  // llvm_precond {{ len % 16 == 0 }};
-  // llvm_precond {{ ctx.len % 16 == 0 }};
 
   (in_, in_ptr) <- ptr_to_fresh_array_readonly "in" {{ (sext len):[64] }};
 
@@ -119,17 +118,16 @@ let EVP_CipherUpdate_spec enc = do {
   out_len_ptr <- crucible_alloc (llvm_int 32);
 
   crucible_execute_func [ctx_ptr, out_ptr, out_len_ptr, in_ptr, crucible_term len];
-
   
-  // For now, let's just prove that we update the length correctly, and there's some
+  // TODO For now, let's just prove that we update the length correctly, and there's some
   // data in the right places
   Xi_out <- llvm_fresh_var "Xi_out" (llvm_array 16 (llvm_int 8));
   let ctx' = {{ { key = ctx.key, iv = ctx.iv, Xi = Xi_out, len = ctx.len + sext len } : AES_GCM_Ctx }};
 
+  // let ctx' = {{ cipher_update_array enc ctx in_ 0 (sext len) }};
   points_to_EVP_AES_GCM_CTX cipher_data_ptr ctx' {{ 1 : [32] }} 0xffffffff;
 
 //  TODO, fix this spec
-//  let ctx' = {{ cipher_update enc ctx in_ }};
 //  crucible_points_to out_ptr (crucible_term {{ ctr32_encrypt ctx in_ }});
 
   crucible_points_to out_len_ptr (crucible_term len);
@@ -173,8 +171,7 @@ let EVP_EncryptFinal_ex_spec = do {
 
   points_to_evp_cipher_ctx_st ctx_ptr cipher_ptr cipher_data_ptr {{ 1 : [32]}};
 
-  // TODO: reenable!
-//  crucible_points_to_untyped (crucible_field ctx_ptr "buf") (crucible_term {{ cipher_final ctx }});
+  crucible_points_to_untyped (crucible_field ctx_ptr "buf") (crucible_term {{ cipher_final ctx }});
 
   crucible_points_to out_len_ptr (crucible_term {{ 0 : [32] }});
 
@@ -199,29 +196,27 @@ let EVP_DecryptFinal_ex_spec = do {
   cipher_data_ptr <- crucible_alloc_aligned 16 (llvm_struct "struct.EVP_AES_GCM_CTX");
   ctx <- fresh_aes_gcm_ctx;
   llvm_precond {{ ctx.len <= `TOTAL_MESSAGE_MAX_LENGTH }};
-  points_to_EVP_AES_GCM_CTX cipher_data_ptr ctx {{ 1 : [32] }} AES_BLOCK_SIZE;
 
   ctx_ptr <- crucible_alloc_readonly (llvm_struct "struct.evp_cipher_ctx_st");
-  points_to_evp_cipher_ctx_st ctx_ptr cipher_ptr cipher_data_ptr {{ 0 : [32]}};
+  points_to_evp_cipher_ctx_st ctx_ptr cipher_ptr cipher_data_ptr {{ 0 : [32] }};
 
   // This "buf" value contains the expected authentication tag.
-  // It must be set using the EVP_CTRL_AEAD_SET_TAG command
+  // It must be set using the EVP_CTRL_AEAD_SET_TAG command, which also
+  // sets the tag_length field to AES_BLOCK_SIZE, seen below in the EVP_AES_GCM_CTX.
   buf <- crucible_fresh_var "buf" (llvm_array AES_BLOCK_SIZE (llvm_int 8));
   crucible_points_to_untyped (crucible_field ctx_ptr "buf") (crucible_term buf);
+
+  points_to_EVP_AES_GCM_CTX cipher_data_ptr ctx {{ 1 : [32] }} AES_BLOCK_SIZE;
 
   out_ptr <- crucible_fresh_pointer (llvm_array AES_BLOCK_SIZE (llvm_int 8));
   out_len_ptr <- crucible_alloc (llvm_int 32);
 
   crucible_execute_func [ctx_ptr, out_ptr, out_len_ptr];
 
-  let {{ tag_match = buf == cipher_final ctx
-    //     ret    = if tag_match then 0:[32] else -1
-    //	 iv_set = if tag_match then 0:[32] else 1
-    }};
-
-  // TODO, compute these as above when the overrides are piping out their correct values
-  ret <- llvm_fresh_var "ret" (llvm_int 32);
-  iv_set <- llvm_fresh_var "iv_set" (llvm_int 32);
+  // TODO? Why can't I put these lets inside the Cryptol brackets?
+  let tag_match = {{ buf == cipher_final ctx }};
+  let ret    = {{ if tag_match then 1:[32] else 0:[32] }};
+  let iv_set = {{ if tag_match then 0:[32] else 1:[32] }};
 
   // NB, we underspecify the results of Xi here.  We could probably put
   // the actual value instead, if we cared to figure it out.

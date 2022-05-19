@@ -95,6 +95,8 @@ let aesni_gcm_cipher_tactic = do {
  * size_t aesni_gcm_decrypt(const uint8_t *in, uint8_t *out, size_t len,
  *                          const AES_KEY *key, uint8_t ivec[16], uint64_t *Xi);
  * 
+ * The enc parameter determines if this is the encryption or decryption specification.
+ * enc = 1 means encryption; enc = 0 means decryption.
  */
 let aesni_gcm_cipher_spec (enc:Term) : LLVMSetup () = do {
 
@@ -114,7 +116,7 @@ let aesni_gcm_cipher_spec (enc:Term) : LLVMSetup () = do {
   (in_, in_ptr) <- ptr_to_fresh_array_readonly "in" {{ len64 }};
 
   // Output ciphertext bytes, length "len"
-  out_ptr <- llvm_symbolic_alloc false 1 {{ len64 }};
+  (out_, out_ptr) <- ptr_to_fresh_array "out" {{ len64 }};
 
   // AES key structure, containing the expanded key
   key <- fresh_aes_key_st;
@@ -158,7 +160,7 @@ let aesni_gcm_cipher_spec (enc:Term) : LLVMSetup () = do {
 
   crucible_execute_func [in_ptr, out_ptr, crucible_term len64, key_ptr, ivec_ptr, Xi_ptr];
 
-  // Assert that the function returns the total number of bytes processed so far.
+  // Assert that the function returns the number of bytes processed
   crucible_return (crucible_term {{ (zext res_len):[64] }});
 
   // Assert the result values for ivec_ptr and Xi_ptr.  ivec_ptr only changes in
@@ -166,24 +168,15 @@ let aesni_gcm_cipher_spec (enc:Term) : LLVMSetup () = do {
   // NB big-endian counter
   crucible_points_to ivec_ptr (crucible_term {{ iv # (split res_ctr) }});
 
-  // For now, just assert that Xi points to something
-  postXi <- llvm_fresh_var "aesni-postXi" (llvm_array AES_BLOCK_SIZE (llvm_int 8));
-  crucible_points_to_untyped (crucible_elem Xi_ptr 0) (crucible_term postXi);
-
   // the "H" and "Htable" values are constant.
   crucible_points_to_untyped (crucible_elem Xi_ptr 1) (crucible_term {{ get_H ctx }});
   crucible_points_to_untyped (crucible_elem Xi_ptr 2) (crucible_term {{ get_Htable ctx }});
 
-  // TODO! reenable!
-  // if eval_bool {{ `do_bulk == 0 }} then do {
-  //   // If we did no bulk encryption (because there were not enough bytes) then Xi also does not change
-  //   crucible_points_to_untyped (crucible_elem Xi_ptr 0) (crucible_term Xi);
-  // } else do {
-  //   // Otherwise Xi and the output buffer are updated with the result of the en/decrypt operation
-  //   crucible_points_to_untyped out_ptr (crucible_term {{ ctr32_encrypt ctx in_seq }});
-  //   crucible_points_to_untyped (crucible_elem Xi_ptr 0) (crucible_term {{ (cipher_update enc ctx in_seq).Xi }} );
-  // };
+  crucible_points_to_untyped (crucible_elem Xi_ptr 0)
+    (crucible_term {{ (cipher_update_array enc ctx in_ 0 (zext res_len)).Xi }});
 
+  let out_data = {{ aes_hw_ctr32_encrypt_blocks_array in_ key ivec_bytes 0 (zext res_len) out_ }};
+  crucible_points_to_array_prefix out_ptr out_data {{ (zext res_len):[64] }};
 };
 
 
@@ -200,14 +193,14 @@ aesni_gcm_encrypt_ov <- llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "
   [ ("aesni_gcm_encrypt", 1200) // we need .Lbswap_mask, which lives in .text after aesni_gcm_encrypt (1081 bytes itself). 1200 bytes is an arbitrary size that I guessed would be large enough to contain the right bytes after alignment.
   ]
   true
-  (aesni_gcm_cipher_spec {{ 1 : [32] }})
+  (aesni_gcm_cipher_spec {{ 1 : [32] }}) // NB enc = 1 is the spec for encryption
   aesni_gcm_cipher_tactic;
 
 aesni_gcm_decrypt_ov <- llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "aesni_gcm_decrypt"
   [ ("aesni_gcm_encrypt", 1200) // we need .Lbswap_mask, which lives in .text after aesni_gcm_encrypt (1081 bytes itself). 1200 bytes is an arbitrary size that I guessed would be large enough to contain the right bytes after alignment.
   ]
   true
-  (aesni_gcm_cipher_spec {{ 0 : [32] }})
+  (aesni_gcm_cipher_spec {{ 0 : [32] }}) // NB enc = 1 is the spec for decryption
   aesni_gcm_cipher_tactic;
 
 disable_what4_hash_consing;

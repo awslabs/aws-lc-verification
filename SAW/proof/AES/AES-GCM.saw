@@ -21,6 +21,10 @@
  *    out of the source code itself?
  * 7) SAW improvement: specification statements should capture metadata about
  *    where they were asserted, and those should go into the goal summaries.
+ * 8) In decryption mode, it would be nice if the specification would allow
+ *    the authentication tag to be asserted before OR after the updates.
+ *    Right now, the spec only allows the tag to be set immediately before
+ *    finalization.
  */
 
 import "../../../cryptol-specs/Primitive/Symmetric/Cipher/Block/AES.cry";
@@ -68,6 +72,8 @@ let aes_block_size = 1;
 let aes_iv_len = 12;
 
 include "AES.saw";
+
+interactive ();
 
 include "GHASH.saw";
 

@@ -5,6 +5,8 @@
 
 module AES_GCM where
 
+import Array
+
 import Primitive::Symmetric::Cipher::Block::AES
 import Primitive::Symmetric::Cipher::Authenticated::AES_256_GCM
 import X86
@@ -51,6 +53,48 @@ aes_hw_ctr32_encrypt_blocks : {n} (fin n) => [16*n][8] -> [32][8] -> [16][8] -> 
 aes_hw_ctr32_encrypt_blocks in key (iv # ctr) =
   join [ blk ^ (aes_hw_encrypt (iv # (split ((join ctr) + i))) key) | blk <- split in | i <- [(0 : [32]) ...]]
 
+aes_hw_ctr32_encrypt_blocks_array : Array [64] [8] -> [32][8] -> [16][8] -> [64] -> [64] -> Array [64] [8] -> Array [64] [8]
+aes_hw_ctr32_encrypt_blocks_array inp key (iv # ctr) i blocks buf =
+  if i < blocks then
+    aes_hw_ctr32_encrypt_blocks_array inp key (iv # ctr) (i+1) blocks buf'
+      where
+        blk  = arrayRangeLookup inp (i*16) : [16][8]
+	blk' = blk ^ (aes_hw_encrypt (iv # (split ((join ctr) + i))) key)
+	buf' = arrayRangeUpdate buf (i*16) blk'
+  else
+    buf
+
+EK_byte : AES_GCM_Ctx -> [8]
+EK_byte ctx = (EKi ctx i) @ j
+  where
+    i : [32]
+    i = take`{32} (drop`{28} ctx.len) + 1
+
+    j : [4]
+    j = drop`{60} ctx.len
+
+cipher_update_array : [32] -> AES_GCM_Ctx -> Array [64] [8] -> [64] -> [64] -> AES_GCM_Ctx
+cipher_update_array enc ctx in i len = { ctx | Xi = Xi', len = ctx.len + len }
+ where
+   Xi' = cipher_update_Xi_array enc ctx in i len ctx.Xi
+
+cipher_update_Xi_array :
+  [32] -> AES_GCM_Ctx -> Array [64] [8] -> [64] -> [64] -> [16][8] -> [16][8]
+cipher_update_Xi_array enc ctx in i len Xi =
+  if i < len then
+    cipher_update_Xi_array enc ctx in (i+1) len Xi''
+      where
+        H    = join (get_H ctx)
+	n    = (ctx.len+i) % 16
+        Xi'  = update Xi n ((Xi@n)^b)
+	Xi'' = if (ctx.len+(i+1))%16 == 0
+	        then split (gcm_pmult_pmod H (join Xi'))
+	        else Xi'
+        b    = if enc ! 0 then (b0 ^ EK_byte ctx) else b0
+        b0   = arrayLookup in i
+  else
+    Xi
+
 /*
  * GCM specifications.
  */
@@ -77,6 +121,13 @@ gcm_gmult H Xi = split (gcm_polyval H (join Xi))
 
 gcm_ghash : {n} (fin n) => [128] -> [16][8] -> [n * 16][8] -> [16][8]
 gcm_ghash H Xi inp = foldl (gcm_ghash_block H) Xi (split inp)
+
+gcm_ghash_array : [128] -> [16][8] -> Array [64] [8] -> [64] -> [64] -> [16][8]
+gcm_ghash_array H Xi inp i blocks =
+  if i < blocks then
+    gcm_ghash_array H (gcm_ghash_block H Xi (arrayRangeLookup inp (i * 16) : [16][8])) inp (i+1) blocks
+  else
+    Xi
 
 gcm_ghash_block : [128] -> [16][8] -> [16][8] -> [16][8]
 gcm_ghash_block H Xi inp = split (gcm_polyval H ((join Xi) ^ (join inp)))

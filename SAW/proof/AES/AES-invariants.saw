@@ -235,6 +235,7 @@ let points_to_GCM128_CONTEXT ptr ctx = do {
   // required to have it's proper values. At other times, it is unspecified.
   EKi_bytes <- llvm_fresh_var "EKi_val" (llvm_array 16 (llvm_int 8));
   llvm_points_to_untyped (crucible_elem ptr 1) (crucible_term EKi_bytes);
+  // TODO, this is gross, use llvm_assert instead when it exists...
   llvm_equal (crucible_term {{ [mres == 0 \/ EKi_bytes == get_EKi ctx] }})
              (crucible_term {{ 1:[1] }});
 
