@@ -93,7 +93,7 @@ let EVP_CipherUpdate_spec enc = do {
   cipher_data_ptr <- crucible_alloc_aligned 16 (llvm_struct "struct.EVP_AES_GCM_CTX");
   ctx <- fresh_aes_gcm_ctx;
 
-  llvm_precond {{ len >=$ 0 }};
+  llvm_precond {{ len >$ 0 }};
   llvm_precond {{ ctx.len <= `TOTAL_MESSAGE_MAX_LENGTH }};
   llvm_precond {{ ctx.len + (sext len) <= `TOTAL_MESSAGE_MAX_LENGTH }};
 
@@ -119,16 +119,17 @@ let EVP_CipherUpdate_spec enc = do {
 
   crucible_execute_func [ctx_ptr, out_ptr, out_len_ptr, in_ptr, crucible_term len];
   
-  // TODO For now, let's just prove that we update the length correctly, and there's some
-  // data in the right places
-  Xi_out <- llvm_fresh_var "Xi_out" (llvm_array 16 (llvm_int 8));
-  let ctx' = {{ { key = ctx.key, iv = ctx.iv, Xi = Xi_out, len = ctx.len + sext len } : AES_GCM_Ctx }};
-
-  // let ctx' = {{ cipher_update_array enc ctx in_ 0 (sext len) }};
-  points_to_EVP_AES_GCM_CTX cipher_data_ptr ctx' {{ 1 : [32] }} 0xffffffff;
-
-//  TODO, fix this spec
-//  crucible_points_to out_ptr (crucible_term {{ ctr32_encrypt ctx in_ }});
+  if eval_bool {{ enc == 0 }} then
+    // TODO
+    return ()
+  else do {
+    points_to_EVP_AES_GCM_CTX cipher_data_ptr
+       {{ update_enc_array_ctx in_ ctx out_ 0 (sext len) }}
+       {{ 1 : [32] }} 0xffffffff;
+    crucible_points_to_array_prefix out_ptr
+       {{ update_enc_array_buf in_ ctx out_ 0 (sext len) }}
+       {{ (sext len):[64] }};
+  };
 
   crucible_points_to out_len_ptr (crucible_term len);
   crucible_return (crucible_term {{ 1 : [32] }});

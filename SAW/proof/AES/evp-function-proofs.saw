@@ -14,7 +14,7 @@ let evp_cipher_tactic = do {
   unfolding ["cipher_update", "cipher_update_byte", "cipher_final", "cipher_update_array"];
   simplify (addsimp gcm_pmult_pmod_thm empty_ss);
   print_goal_summary;
-  w4_unint_yices ["pmult", "pmod", "gcm_polyval", "aes_hw_encrypt","aes_hw_ctr32_encrypt_blocks_array", "cipher_update_Xi_array" ];
+  w4_unint_yices ["pmult", "pmod", "gcm_polyval", "aes_hw_encrypt","aes_hw_ctr32_encrypt_blocks_array", "cipher_update_Xi_array", "gcm_ghash_array" ];
 };
 
 
@@ -29,7 +29,7 @@ let evp_cipher_ovs =
   , gcm_gmult_avx_ov
   , gcm_ghash_avx_ov
   , aesni_gcm_encrypt_ov
-  , aesni_gcm_decrypt_ov
+//  , aesni_gcm_decrypt_ov
   ];
 
 
@@ -46,14 +46,48 @@ let evp_cipher_ovs =
 //   evp_cipher_tactic;
  
 enable_what4_hash_consing;
+disable_safety_proofs;
+
+// iteprop <- parse_core "(n:Nat) -> (x : Vec n Bool) -> (z: Vec n Bool) -> (c1 : Bool) -> (c2 : Bool) -> EqTrue (vecEq n Bool boolEq (ite (Vec n Bool) c1 x (ite (Vec n Bool) c2 x z)) (ite (Vec n Bool) (or c1 c2) x z))";
+
+iteprop8 <- parse_core "(x : Vec 8 Bool) -> (z: Vec 8 Bool) -> (c1 : Bool) -> (c2 : Bool) -> EqTrue (vecEq 8 Bool boolEq (ite (Vec 8 Bool) c1 x (ite (Vec 8 Bool) c2 x z)) (ite (Vec 8 Bool) (or c1 c2) x z))";
+itethm8 <- prove_extcore z3 iteprop8;
+
+iteprop32 <- parse_core "(x : Vec 32 Bool) -> (z: Vec 32 Bool) -> (c1 : Bool) -> (c2 : Bool) -> EqTrue (vecEq 32 Bool boolEq (ite (Vec 32 Bool) c1 x (ite (Vec 32 Bool) c2 x z)) (ite (Vec 32 Bool) (or c1 c2) x z))";
+itethm32 <- prove_extcore z3 iteprop32;
+
+iteprop64 <- parse_core "(x : Vec 64 Bool) -> (z: Vec 64 Bool) -> (c1 : Bool) -> (c2 : Bool) -> EqTrue (vecEq 64 Bool boolEq (ite (Vec 64 Bool) c1 x (ite (Vec 64 Bool) c2 x z)) (ite (Vec 64 Bool) (or c1 c2) x z))";
+itethm64 <- prove_extcore z3 iteprop64;
+
+iteprop128 <- parse_core "(x : Vec 128 Bool) -> (z: Vec 128 Bool) -> (c1 : Bool) -> (c2 : Bool) -> EqTrue (vecEq 128 Bool boolEq (ite (Vec 128 Bool) c1 x (ite (Vec 128 Bool) c2 x z)) (ite (Vec 128 Bool) (or c1 c2) x z))";
+itethm128 <- prove_extcore z3 iteprop128;
+
+
+// gcm_pmult_pmod_thm <- prove_theorem rme
+  (rewrite (cryptol_ss ())
+  {{ \x y -> gcm_pmult_pmod x y == gcm_polyval (gcm_init_H x) y }});
+
+enable_what4_eval;
 
 llvm_verify m "EVP_EncryptUpdate"
   evp_cipher_ovs
   true
   (EVP_CipherUpdate_spec {{ 1 : [32] }})
-  evp_cipher_tactic;
-
-//  do { goal_num_when 7 (write_goal "hardgoal.txt");
+  do { n <- goal_num;
+       if eval_bool {{ `n == 2 \/ `n == 8 \/ `n == 9 \/ `n == 11 }} then
+//       if eval_bool {{ `n == 15 }} then
+//       if eval_bool {{ `n == 7 }} then
+         do { print_goal_summary;
+	      unfolding ["cipher_update", "cipher_update_byte", "cipher_final", "cipher_update_array", "get_Yi" ];
+              simplify (addsimps [gcm_pmult_pmod_thm, itethm8, itethm32, itethm64, itethm128] (cryptol_ss ()));
+	      let nm = str_concat (str_concat "hardgoal" (show n)) ".txt";
+	      goal_eval_unint ["pmult", "pmod", "gcm_polyval", "aes_hw_encrypt","aes_hw_ctr32_encrypt_blocks_array", "cipher_update_Xi_array", "gcm_ghash_array"];
+              write_goal nm;
+  	      w4_unint_z3 ["pmult", "pmod", "gcm_polyval", "aes_hw_encrypt","aes_hw_ctr32_encrypt_blocks_array", "cipher_update_Xi_array", "gcm_ghash_array" ];
+	      // admit "Spins forever before getting to the solver...";
+	    }
+       else evp_cipher_tactic;
+     };
 
 // llvm_verify m "EVP_DecryptUpdate"
 //    evp_cipher_ovs

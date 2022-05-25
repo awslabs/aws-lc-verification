@@ -73,16 +73,17 @@ EK_byte ctx = (EKi ctx i) @ j
     j : [4]
     j = drop`{60} ctx.len
 
-cipher_update_array : [32] -> AES_GCM_Ctx -> Array [64] [8] -> [64] -> [64] -> AES_GCM_Ctx
-cipher_update_array enc ctx in i len = { ctx | Xi = Xi', len = ctx.len + len }
+cipher_update_array : AES_GCM_Ctx -> Array [64] [8] -> [64] -> [64] -> AES_GCM_Ctx
+cipher_update_array ctx in i len =
+  { key = ctx.key, iv = ctx.iv, Xi = Xi', len = ctx.len + len }
  where
-   Xi' = cipher_update_Xi_array enc ctx in i len ctx.Xi
+   Xi' = cipher_update_Xi_array ctx in i len ctx.Xi
 
 cipher_update_Xi_array :
-  [32] -> AES_GCM_Ctx -> Array [64] [8] -> [64] -> [64] -> [16][8] -> [16][8]
-cipher_update_Xi_array enc ctx in i len Xi =
+  AES_GCM_Ctx -> Array [64] [8] -> [64] -> [64] -> [16][8] -> [16][8]
+cipher_update_Xi_array ctx in i len Xi =
   if i < len then
-    cipher_update_Xi_array enc ctx in (i+1) len Xi''
+    cipher_update_Xi_array ctx in (i+1) len Xi''
       where
         H    = join (get_H ctx)
 	n    = (ctx.len+i) % 16
@@ -90,8 +91,7 @@ cipher_update_Xi_array enc ctx in i len Xi =
 	Xi'' = if (ctx.len+(i+1))%16 == 0
 	        then split (gcm_pmult_pmod H (join Xi'))
 	        else Xi'
-        b    = if enc ! 0 then (b0 ^ EK_byte ctx) else b0
-        b0   = arrayLookup in i
+        b    = arrayLookup in i
   else
     Xi
 
@@ -151,3 +151,145 @@ get_EKi ctx = EKi ctx (get_i ctx)
 get_EK0 : AES_GCM_Ctx -> [16][8]
 get_EK0 ctx = EKi ctx 0
 
+update_enc_array_buf :
+  Array [64] [8] ->
+  AES_GCM_Ctx ->
+  Array [64] [8] ->
+  [64] ->
+  [64] ->
+  Array [64] [8]
+update_enc_array_buf in ctx buf i len =
+  (update_enc_array in ctx buf i len).1
+
+update_enc_array_ctx :
+  Array [64] [8] ->
+  AES_GCM_Ctx ->
+  Array [64] [8] ->
+  [64] ->
+  [64] ->
+  AES_GCM_Ctx
+update_enc_array_ctx in ctx buf i len =
+  (update_enc_array in ctx buf i len).0
+
+update_enc_array :
+  Array [64] [8] ->
+  AES_GCM_Ctx ->
+  Array [64] [8] ->
+  [64] ->
+  [64] ->
+  (AES_GCM_Ctx, Array [64] [8])
+update_enc_array in ctx buf i len =
+  update_bulk_encrypt in ctx buf i len
+
+  //  if n != 0 then
+  //    update_enc_prephase in ctx buf n 15 i len
+  //  else
+  //    update_bulk_encrypt in ctx buf i len
+
+  // where
+  //  n = ctx.len % 16
+
+
+update_enc_prephase :
+  Array [64] [8] ->
+  AES_GCM_Ctx ->
+  Array [64] [8] ->
+  [64] ->
+  [64] -> // concrete bound to force termination
+  [64] ->
+  [64] ->
+  (AES_GCM_Ctx, Array [64] [8])
+update_enc_prephase in ctx buf n bnd i len =
+  if (n > 0 /\ len > 0 /\ bnd > 0) then
+    update_enc_prephase in
+      { key = ctx.key, iv = ctx.iv, Xi = Xi', len = ctx.len + 1 }
+      buf'
+      ((n+1)%16) (bnd-1) (i+1) (len-1)
+     where
+       Xi'  = update ctx.Xi n (ctx.Xi@n ^ b)
+       buf' = arrayUpdate buf i b
+       b    = arrayLookup in i ^ EK_byte ctx
+
+   | n == 0 then update_bulk_encrypt in ctx buf i len
+
+   else (ctx, buf)
+
+
+update_bulk_encrypt :
+  Array [64] [8] ->
+  AES_GCM_Ctx ->
+  Array [64] [8] ->
+  [64] ->
+  [64] ->
+  (AES_GCM_Ctx, Array [64] [8])
+// Precondition ctx.len is a multiple of 16
+update_bulk_encrypt in ctx buf i len =
+   update_postbulk_encrypt
+     in 
+     { key = ctx.key, iv = ctx.iv, Xi = Xi_final, len = ctx.len + res_len }
+     out_data
+     (i + res_len)
+     (len - res_len)
+
+  where
+    out_data = aes_hw_ctr32_encrypt_blocks_array in ctx.key (get_Yi ctx) i (res_len/16) buf
+    Xi_final = cipher_update_Xi_array ctx out_data 0 res_len ctx.Xi
+
+    bulk_len = max `(18 * 16)
+                    ((len / `(6 * 16)) * `(6 * 16))
+    do_bulk  = len / bulk_len
+    res_len  = do_bulk * bulk_len
+    
+update_postbulk_encrypt :
+  Array [64] [8] ->
+  AES_GCM_Ctx ->
+  Array [64] [8] ->
+  [64] ->
+  [64] ->
+  (AES_GCM_Ctx, Array [64] [8])
+// Precondition ctx.len is a multiple of 16
+// len < 18*AES_BLOCK_SIZE
+update_postbulk_encrypt in ctx buf i len =
+  (if len_blocks != 0 then
+     update_cleanup_encrypt in
+       { key = ctx.key, iv = ctx.iv, Xi = Xi_final, len = ctx.len + len_blocks }
+       out_data
+       (i + len_blocks)
+       (len - len_blocks)
+       15
+
+      where
+        out_data = aes_hw_ctr32_encrypt_blocks_array
+	              in ctx.key (get_Yi ctx) i (len_blocks/16) buf
+        Xi_final = gcm_ghash_array (join (get_H ctx)) ctx.Xi in i (len_blocks/16)
+
+   else
+     update_cleanup_encrypt in ctx buf i len 15)
+
+  where
+    len_blocks = len && 0xFFFFFFFFFFFFFFF0
+    
+update_cleanup_encrypt :
+  Array [64] [8] ->
+  AES_GCM_Ctx ->
+  Array [64] [8] ->
+  [64] ->
+  [64] ->
+  [64] -> // concrete bound to force termination
+  (AES_GCM_Ctx, Array [64] [8])
+// Precondition ctx.len is a multiple of 16
+// len < 16
+update_cleanup_encrypt in ctx buf i len bnd = (ctx, buf)
+
+  // if len != 0 /\ bnd > 0 then
+  //   update_cleanup_encrypt in
+  //     { key = ctx.key, iv = ctx.iv, Xi = Xi', len = ctx.len+1 }
+  //     buf' (i+1) (len-1) (bnd-1)
+  //    where
+  //     Xi'  = update ctx.Xi n (ctx.Xi@n ^ b)
+  //     buf' = arrayUpdate buf i b
+  //     b    = arrayLookup in i ^ EK_byte ctx
+  //     n    = ctx.len % 16
+
+  // else
+  //   (ctx, buf)

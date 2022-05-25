@@ -227,7 +227,9 @@ let points_to_gcm128_key_st ptr ctx = do {
  * 
  */
 let points_to_GCM128_CONTEXT ptr ctx = do {
-  let {{ mres = drop`{32} (ctx.len % `AES_BLOCK_SIZE) }};
+  // TODO, relax this
+  // let {{ mres = drop`{32} (ctx.len % `AES_BLOCK_SIZE) }};
+  let mres = {{ 0:[32] }};
 
   crucible_points_to_untyped (crucible_elem ptr 0) (crucible_term {{ get_Yi ctx }});
 
@@ -235,9 +237,7 @@ let points_to_GCM128_CONTEXT ptr ctx = do {
   // required to have it's proper values. At other times, it is unspecified.
   EKi_bytes <- llvm_fresh_var "EKi_val" (llvm_array 16 (llvm_int 8));
   llvm_points_to_untyped (crucible_elem ptr 1) (crucible_term EKi_bytes);
-  // TODO, this is gross, use llvm_assert instead when it exists...
-  llvm_equal (crucible_term {{ [mres == 0 \/ EKi_bytes == get_EKi ctx] }})
-             (crucible_term {{ 1:[1] }});
+  llvm_assert {{ mres == 0 \/ EKi_bytes == get_EKi ctx }};
 
   crucible_points_to_untyped (crucible_elem ptr 2) (crucible_term {{ get_EK0 ctx }});
   crucible_points_to_untyped (crucible_elem ptr 3) (crucible_term {{ [(0 : [64]), ctx.len] }});

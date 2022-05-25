@@ -172,10 +172,17 @@ let aesni_gcm_cipher_spec (enc:Term) : LLVMSetup () = do {
   crucible_points_to_untyped (crucible_elem Xi_ptr 1) (crucible_term {{ get_H ctx }});
   crucible_points_to_untyped (crucible_elem Xi_ptr 2) (crucible_term {{ get_Htable ctx }});
 
-  crucible_points_to_untyped (crucible_elem Xi_ptr 0)
-    (crucible_term {{ (cipher_update_array enc ctx in_ 0 (zext res_len)).Xi }});
-
   let out_data = {{ aes_hw_ctr32_encrypt_blocks_array in_ key ivec_bytes 0 (zext res_len) out_ }};
+
+  if eval_bool {{ enc == 0 }} then
+    // for decryption, hash the input (which is the ciphertext)
+    crucible_points_to_untyped (crucible_elem Xi_ptr 0)
+      (crucible_term {{ cipher_update_Xi_array ctx in_ 0 (zext res_len) ctx.Xi }})
+  else
+    // for encryption, hash the output (which is the ciphertext)
+    crucible_points_to_untyped (crucible_elem Xi_ptr 0)
+      (crucible_term {{ cipher_update_Xi_array ctx out_data 0 (zext res_len) ctx.Xi }});
+
   crucible_points_to_array_prefix out_ptr out_data {{ (zext res_len):[64] }};
 };
 

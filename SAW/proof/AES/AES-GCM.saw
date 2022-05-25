@@ -35,6 +35,7 @@ import "../../spec/AES/AES-GCM.cry";
 
 enable_experimental;
 
+set_path_sat_solver "yices";
 
 // Disable debug intrinsics to avoid https://github.com/GaloisInc/crucible/issues/778
 disable_debug_intrinsics;
