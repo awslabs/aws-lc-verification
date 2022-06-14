@@ -119,3 +119,11 @@ arrayEq_ite_decompose_right64_8 : Prop;
 arrayEq_ite_decompose_right64_8 =
   arrayEq_ite_decompose_right (Vec 64 Bool) (Vec 8 Bool);
 
+
+bvEq_slice_xor : Prop;
+bvEq_slice_xor =
+  ( x : Vec 64 Bool ) ->
+  ( y : Vec 64 Bool ) ->
+  EqTrue (bvEq 8
+    (slice Bool 0 8 56 (bvXor 64 x y))
+    (bvXor 8 (slice Bool 0 8 56 x) (slice Bool 0 8 56 y)));

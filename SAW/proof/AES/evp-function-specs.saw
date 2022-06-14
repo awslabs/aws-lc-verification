@@ -147,7 +147,7 @@ let EVP_CipherUpdate_spec enc = do {
 
 
 /* == include/openssl/cipher.h:187 ==
- * == crypto/fipmodule/cipher.c:324 ==
+ * == crypto/fipmodule/cipher/cipher.c:324 ==
  * // EVP_EncryptFinal_ex writes at most a block of ciphertext to |out| and sets
  * // |*out_len| to the number of bytes written. If padding is enabled (the
  * // default) then standard padding is applied to create the final block. If
@@ -173,19 +173,25 @@ let EVP_EncryptFinal_ex_spec = do {
   out_ptr <- crucible_fresh_pointer (llvm_array AES_BLOCK_SIZE (llvm_int 8));
   out_len_ptr <- crucible_alloc (llvm_int 32);
 
+  // TODO, remove this restiction on full blocks
+  llvm_setup_with_tag "16-byte aligned" do {
+     llvm_precond {{ ctx.len % 16 == 0 }};
+  };
+
   crucible_execute_func [ctx_ptr, out_ptr, out_len_ptr];
 
-  Xi' <- crucible_fresh_var "Xi" (llvm_array AES_BLOCK_SIZE (llvm_int 8));
+  // We underspecify the final result of Xi
+  Xi' <- llvm_fresh_var "Xi'" (llvm_array AES_BLOCK_SIZE (llvm_int 8));
   let ctx' = {{ { key = ctx.key, iv = ctx.iv, Xi = Xi', len = ctx.len } : AES_GCM_Ctx }};
-
   points_to_EVP_AES_GCM_CTX cipher_data_ptr ctx' {{ 0 : [32] }} AES_BLOCK_SIZE;
 
   points_to_evp_cipher_ctx_st ctx_ptr cipher_ptr cipher_data_ptr {{ 1 : [32]}};
 
-  crucible_points_to_untyped (crucible_field ctx_ptr "buf") (crucible_term {{ cipher_final ctx }});
+  let tag = {{ cipher_final ctx }};
+  llvm_setup_with_tag "cipher final"
+    (crucible_points_to_untyped (crucible_field ctx_ptr "buf") (crucible_term tag));
 
   crucible_points_to out_len_ptr (crucible_term {{ 0 : [32] }});
-
   crucible_return (crucible_term {{ 1 : [32] }});
 };
 
@@ -221,6 +227,11 @@ let EVP_DecryptFinal_ex_spec = do {
 
   out_ptr <- crucible_fresh_pointer (llvm_array AES_BLOCK_SIZE (llvm_int 8));
   out_len_ptr <- crucible_alloc (llvm_int 32);
+
+  // TODO, remove this restiction on full blocks
+  llvm_setup_with_tag "16-byte aligned" do {
+     llvm_precond {{ ctx.len % 16 == 0 }};
+  };
 
   crucible_execute_func [ctx_ptr, out_ptr, out_len_ptr];
 
