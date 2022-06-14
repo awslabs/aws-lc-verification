@@ -11,9 +11,9 @@ llvm_verify m "aes_256_gcm_generic_init" [] true aes_256_gcm_generic_init_spec (
 
 
 let evp_cipher_tactic = do {
-  unfolding ["cipher_update", "cipher_update_byte", "cipher_final", "cipher_update_array"];
-  simplify (addsimp gcm_pmult_pmod_thm empty_ss);
-  print_goal_summary;
+  // unfolding ["cipher_update", "cipher_update_byte", "cipher_final", "cipher_update_array"];
+  // simplify (addsimp gcm_pmult_pmod_thm empty_ss);
+  // print_goal_summary;
   w4_unint_yices ["pmult", "pmod", "gcm_polyval", "aes_hw_encrypt","aes_hw_ctr32_encrypt_blocks_array", "cipher_update_Xi_array", "gcm_ghash_array" ];
 };
 
@@ -46,7 +46,6 @@ let evp_cipher_ovs =
 //   evp_cipher_tactic;
  
 enable_what4_hash_consing;
-disable_safety_proofs;
 
 // iteprop <- parse_core "(n:Nat) -> (x : Vec n Bool) -> (z: Vec n Bool) -> (c1 : Bool) -> (c2 : Bool) -> EqTrue (vecEq n Bool boolEq (ite (Vec n Bool) c1 x (ite (Vec n Bool) c2 x z)) (ite (Vec n Bool) (or c1 c2) x z))";
 
@@ -67,26 +66,102 @@ itethm128 <- prove_extcore z3 iteprop128;
   (rewrite (cryptol_ss ())
   {{ \x y -> gcm_pmult_pmod x y == gcm_polyval (gcm_init_H x) y }});
 
-enable_what4_eval;
+// enable_what4_eval;
+// disable_safety_proofs;
+
+load_sawcore_from_file "LemmaStatements.sawcore";
+
+let prove_lemma nm unfolds =
+  prove_extcore (w4_unint_z3 [])
+    (beta_reduce_term
+      (unfold_term (concat [nm] unfolds) (parse_core_mod "LemmaStatements" nm)));
+
+or_left  <- prove_lemma "or_left" [];
+or_right <- prove_lemma "or_right" [];
+
+arrayEq_ite_conguence <- prove_lemma
+  "arrayEq_ite_congruence64_8" ["arrayEq_ite_congruence"];
+
+arrayEq_arrayCopy_conguence <- prove_lemma
+  "arrayEq_arrayCopy_congruence64_8" ["arrayEq_arrayCopy_congruence"];
+
+arrayEq_ite_decompose_left <- prove_lemma
+  "arrayEq_ite_decompose_left64_8" ["arrayEq_ite_decompose_left"];
+
+arrayEq_ite_decompose_right <- prove_lemma
+  "arrayEq_ite_decompose_right64_8" ["arrayEq_ite_decompose_right"];
+
+arrayEq_arrayUpdate_congruence <- prove_lemma
+  "arrayEq_arrayUpdate_congruence" [];
+
+aes_hw_ctr32_congruence_tm <- congruence_for {{ aes_hw_ctr32_encrypt_blocks_array }};
+aes_hw_ctr32_congruence <-
+    prove_extcore (w4_unint_z3 ["aes_hw_ctr32_encrypt_blocks_array"]) aes_hw_ctr32_congruence_tm;
+
+at_16_15_bv8_congruence_tm <- congruence_for (parse_core " \\ (xs : Vec 16 (Vec 8 Bool)) -> at 16 (Vec 8 Bool) xs 15");
+at_16_15_bv8_congruence <- prove_extcore (w4_unint_z3 []) (beta_reduce_term at_16_15_bv8_congruence_tm);
+
+gcm_ghash_array_congruence_tm <- congruence_for {{ gcm_ghash_array }};
+gcm_ghash_array_congruence <-
+  prove_extcore (w4_unint_z3 ["gcm_ghash_array"]) gcm_ghash_array_congruence_tm;
+
+bv8_ite_decompose_left <-
+  prove_extcore (w4_unint_z3 [])
+    (beta_reduce_term
+      (unfold_term ["bv_ite_decompose_left"]
+       (parse_core_mod "LemmaStatements" "bv_ite_decompose_left 8")));
+
+bv8_ite_decompose_right <-
+  prove_extcore (w4_unint_z3 [])
+    (beta_reduce_term
+      (unfold_term ["bv_ite_decompose_right"]
+       (parse_core_mod "LemmaStatements" "bv_ite_decompose_right 8")));
+
+  
+
+enable_single_override_special_case;
+enable_sequent_goals;
 
 llvm_verify m "EVP_EncryptUpdate"
   evp_cipher_ovs
   true
   (EVP_CipherUpdate_spec {{ 1 : [32] }})
   do { n <- goal_num;
-       if eval_bool {{ `n == 2 \/ `n == 8 \/ `n == 9 \/ `n == 11 }} then
-//       if eval_bool {{ `n == 15 }} then
-//       if eval_bool {{ `n == 7 }} then
-         do { print_goal_summary;
-	      unfolding ["cipher_update", "cipher_update_byte", "cipher_final", "cipher_update_array", "get_Yi" ];
-              simplify (addsimps [gcm_pmult_pmod_thm, itethm8, itethm32, itethm64, itethm128] (cryptol_ss ()));
-	      let nm = str_concat (str_concat "hardgoal" (show n)) ".txt";
-	      goal_eval_unint ["pmult", "pmod", "gcm_polyval", "aes_hw_encrypt","aes_hw_ctr32_encrypt_blocks_array", "cipher_update_Xi_array", "gcm_ghash_array"];
-              write_goal nm;
-  	      w4_unint_z3 ["pmult", "pmod", "gcm_polyval", "aes_hw_encrypt","aes_hw_ctr32_encrypt_blocks_array", "cipher_update_Xi_array", "gcm_ghash_array" ];
-	      // admit "Spins forever before getting to the solver...";
-	    }
-       else evp_cipher_tactic;
+       hard_goal <- goal_has_some_tag
+                    ["Yi value",
+		     "Xi value",
+		     "ctr value",
+		     "update output buffer"];
+
+       let arraySolve = 
+         w4_unint_z3
+	   ["pmult", "pmod", "gcm_polyval", "aes_hw_encrypt","aes_hw_ctr32_encrypt_blocks_array",
+	   "cipher_update_Xi_array", "gcm_ghash_array", "arrayCopy" ];
+
+       if hard_goal then do {
+
+           print_goal_summary;
+	   unfolding ["cipher_update", "cipher_update_byte", "cipher_final", "cipher_update_array", "get_Yi", "update_enc_array", "update_bulk_encrypt", "update_postbulk_encrypt" ];
+           simplify (addsimps [gcm_pmult_pmod_thm, itethm8, itethm32, itethm64, itethm128] (cryptol_ss ()));
+	   goal_eval_unint ["pmult", "pmod", "gcm_polyval", "aes_hw_encrypt","aes_hw_ctr32_encrypt_blocks_array", "cipher_update_Xi_array", "gcm_ghash_array", "arrayCopy" ];
+	   //let nm = str_concat (str_concat "hardgoal" (show n)) ".smt2";
+           // write_goal nm;
+	   arraySolve;
+
+       // } else if hard_goal then do {
+
+       //     print_goal_summary;
+       // 	   unfolding ["cipher_update", "cipher_update_byte", "cipher_final", "cipher_update_array", "get_Yi" ];
+       //     simplify (addsimps [gcm_pmult_pmod_thm, itethm8, itethm32, itethm64, itethm128] (cryptol_ss ()));
+       // 	   goal_eval_unint ["pmult", "pmod", "gcm_polyval", "aes_hw_encrypt","aes_hw_ctr32_encrypt_blocks_array", "cipher_update_Xi_array", "gcm_ghash_array", "arrayCopy"];
+       // 	   proof_subshell ();
+       // 	   //let nm = str_concat (str_concat "hardgoal" (show n)) ".txt";
+       //     //write_goal nm;
+       // 	   // admit "Hard...";
+       // 	   //arraySolve;
+
+       } else evp_cipher_tactic;
+
      };
 
 // llvm_verify m "EVP_DecryptUpdate"

@@ -85,7 +85,7 @@ cipher_update_Xi_array ctx in i len Xi =
   if i < len then
     cipher_update_Xi_array ctx in (i+1) len Xi''
       where
-        H    = join (get_H ctx)
+        H    = gcm_init_H (join (get_H ctx))
 	n    = (ctx.len+i) % 16
         Xi'  = update Xi n ((Xi@n)^b)
 	Xi'' = if (ctx.len+(i+1))%16 == 0
@@ -151,25 +151,9 @@ get_EKi ctx = EKi ctx (get_i ctx)
 get_EK0 : AES_GCM_Ctx -> [16][8]
 get_EK0 ctx = EKi ctx 0
 
-update_enc_array_buf :
-  Array [64] [8] ->
-  AES_GCM_Ctx ->
-  Array [64] [8] ->
-  [64] ->
-  [64] ->
-  Array [64] [8]
-update_enc_array_buf in ctx buf i len =
-  (update_enc_array in ctx buf i len).1
 
-update_enc_array_ctx :
-  Array [64] [8] ->
-  AES_GCM_Ctx ->
-  Array [64] [8] ->
-  [64] ->
-  [64] ->
-  AES_GCM_Ctx
-update_enc_array_ctx in ctx buf i len =
-  (update_enc_array in ctx buf i len).0
+zeroByteArray : Array [64] [8]
+zeroByteArray = arrayConstant 0
 
 update_enc_array :
   Array [64] [8] ->
@@ -177,17 +161,24 @@ update_enc_array :
   Array [64] [8] ->
   [64] ->
   [64] ->
-  (AES_GCM_Ctx, Array [64] [8])
+  ([64], AES_GCM_Ctx, Array [64] [8])
 update_enc_array in ctx buf i len =
-  update_bulk_encrypt in ctx buf i len
+//    if (prephase_len != len) then
+      (prephase_len + bulk_len + len_blocks, ctx2, buf2)
+//    else
+//      (prephase_len, ctx0, buf0)
 
-  //  if n != 0 then
-  //    update_enc_prephase in ctx buf n 15 i len
-  //  else
-  //    update_bulk_encrypt in ctx buf i len
+  where
+    // TODO!
+    (prephase_len, ctx0, buf0) = (0, ctx, buf)
+      // update_enc_prephase in ctx buf (ctx.len%16) i len
 
-  // where
-  //  n = ctx.len % 16
+    (bulk_len, ctx1, buf1) = update_bulk_encrypt in ctx0 buf0 (i + prephase_len) (len - prephase_len)
+
+    (len_blocks, ctx2, buf2) =
+      update_postbulk_encrypt in ctx1 buf1 (i + (prephase_len + bulk_len)) (len - (prephase_len + bulk_len))
+
+    // TODO! postphase
 
 
 update_enc_prephase :
@@ -195,76 +186,98 @@ update_enc_prephase :
   AES_GCM_Ctx ->
   Array [64] [8] ->
   [64] ->
-  [64] -> // concrete bound to force termination
   [64] ->
   [64] ->
-  (AES_GCM_Ctx, Array [64] [8])
-update_enc_prephase in ctx buf n bnd i len =
-  if (n > 0 /\ len > 0 /\ bnd > 0) then
-    update_enc_prephase in
-      { key = ctx.key, iv = ctx.iv, Xi = Xi', len = ctx.len + 1 }
-      buf'
-      ((n+1)%16) (bnd-1) (i+1) (len-1)
-     where
-       Xi'  = update ctx.Xi n (ctx.Xi@n ^ b)
-       buf' = arrayUpdate buf i b
-       b    = arrayLookup in i ^ EK_byte ctx
+  ([64], AES_GCM_Ctx, Array [64] [8])
+update_enc_prephase in0 ctx0 buf0 n0 i0 len0 =
+  if (n0 > 0) then
+    loop in0 ctx0 buf0 n0 0 16 i0 len0
+  else
+    (0, ctx0, buf0)
 
-   | n == 0 then update_bulk_encrypt in ctx buf i len
+ where
+  // bnd is a conrete upper bound to force symbolic termination
+  loop in ctx buf n count bnd i len =
+    if (n > 0 /\ len > 0 /\ bnd > 0) then
+       loop
+         in
+         { key = ctx.key, iv = ctx.iv, Xi = Xi', len = ctx.len + 1 }
+         buf'
+         ((n+1)%16) (count+1) (bnd-1) (i+1) (len-1)
+    else
+      if (n == 0) then
+        (count, { key = ctx.key, iv = ctx.iv, Xi = gcm_gmult H ctx.Xi, len = ctx.len }, buf)
+      else
+        (count, ctx, buf)
 
-   else (ctx, buf)
+   where
+     H    = gcm_init_H (join (get_H ctx))
 
-
+     Xi'  = update ctx.Xi n (ctx.Xi@n ^ b)
+     buf' = arrayUpdate buf i b
+     b    = arrayLookup in i ^ EK_byte ctx
+   
 update_bulk_encrypt :
   Array [64] [8] ->
   AES_GCM_Ctx ->
   Array [64] [8] ->
   [64] ->
   [64] ->
-  (AES_GCM_Ctx, Array [64] [8])
+  ([64], AES_GCM_Ctx, Array [64] [8])
 // Precondition ctx.len is a multiple of 16
 update_bulk_encrypt in ctx buf i len =
-   update_postbulk_encrypt
-     in 
-     { key = ctx.key, iv = ctx.iv, Xi = Xi_final, len = ctx.len + res_len }
-     out_data
-     (i + res_len)
-     (len - res_len)
+
+    ( res_len
+    , { key = ctx.key, iv = ctx.iv, Xi = Xi_final, len = ctx.len + res_len }
+    , arrayCopy buf i out_data 0 res_len
+    )
 
   where
-    out_data = aes_hw_ctr32_encrypt_blocks_array in ctx.key (get_Yi ctx) i (res_len/16) buf
+    out_data = aes_hw_ctr32_encrypt_blocks_array
+                  in // (arrayCopy zeroByteArray 0 in i res_len)
+		  ctx.key
+		  (get_Yi ctx)
+		  0
+		  (res_len/16)
+		  buf // (arrayCopy zeroByteArray 0 buf i res_len)
+
     Xi_final = cipher_update_Xi_array ctx out_data 0 res_len ctx.Xi
 
-    bulk_len = max `(18 * 16)
-                    ((len / `(6 * 16)) * `(6 * 16))
-    do_bulk  = len / bulk_len
-    res_len  = do_bulk * bulk_len
-    
+    len32 = drop`{32} len
+    bulk_len = max `(3 * 6 * 16)
+                    ( (len32 / `(6 * 16)) * `(6 * 16))
+    do_bulk  = len32 / bulk_len
+    res_len  = zext (do_bulk * bulk_len)
+
+
 update_postbulk_encrypt :
   Array [64] [8] ->
   AES_GCM_Ctx ->
   Array [64] [8] ->
   [64] ->
   [64] ->
-  (AES_GCM_Ctx, Array [64] [8])
+  ([64], AES_GCM_Ctx, Array [64] [8])
 // Precondition ctx.len is a multiple of 16
 // len < 18*AES_BLOCK_SIZE
 update_postbulk_encrypt in ctx buf i len =
-  (if len_blocks != 0 then
-     update_cleanup_encrypt in
-       { key = ctx.key, iv = ctx.iv, Xi = Xi_final, len = ctx.len + len_blocks }
-       out_data
-       (i + len_blocks)
-       (len - len_blocks)
-       15
-
+  (if len_blocks == 0 then
+    (0, ctx, buf)
+   else
+    ( len_blocks
+    , { key = ctx.key, iv = ctx.iv, Xi = Xi_final, len = ctx.len + len_blocks }
+    , arrayCopy buf i out_data 0 len_blocks
+    )
       where
         out_data = aes_hw_ctr32_encrypt_blocks_array
-	              in ctx.key (get_Yi ctx) i (len_blocks/16) buf
-        Xi_final = gcm_ghash_array (join (get_H ctx)) ctx.Xi in i (len_blocks/16)
-
-   else
-     update_cleanup_encrypt in ctx buf i len 15)
+                      (arrayCopy zeroByteArray 0 in i len_blocks)
+	              ctx.key (get_Yi ctx) 0 (len_blocks/16)
+		      (arrayCopy zeroByteArray 0 buf i len_blocks)
+        Xi_final = gcm_ghash_array (gcm_init_H (join (get_H ctx)))
+	              ctx.Xi
+	              (arrayCopy zeroByteArray 0 (arrayCopy buf i out_data 0 len_blocks) i len_blocks)
+		      0
+		      (len_blocks/16)
+   )
 
   where
     len_blocks = len && 0xFFFFFFFFFFFFFFF0

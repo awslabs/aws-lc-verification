@@ -74,15 +74,20 @@ let aes_iv_len = 12;
 
 include "AES.saw";
 
-interactive ();
+update_initial_input_ghost <- llvm_declare_ghost_state "initial_input";
+update_initial_output_ghost <- llvm_declare_ghost_state "initial_output";
+update_initial_len_ghost <- llvm_declare_ghost_state "update_initial_len";
+update_initial_ctx_ghost <- llvm_declare_ghost_state "update_initial_ctx";
+
+// interactive ();
 
 include "GHASH.saw";
+
+include "AES-invariants.saw";
 
 include "AESNI-GCM.saw";
 
 include "AES-HW-CTR.saw";
-
-include "AES-invariants.saw";
 
 include "evp-function-specs.saw";
 

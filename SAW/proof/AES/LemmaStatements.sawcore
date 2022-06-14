@@ -1,0 +1,121 @@
+module LemmaStatements where
+import Prelude;
+
+or_left : Prop;
+or_left = (x : Bool) -> (y:Bool) -> EqTrue x -> EqTrue (or x y);
+
+or_right : Prop;
+or_right = (x : Bool) -> (y:Bool) -> EqTrue y -> EqTrue (or x y);
+
+arrayEq_ite_congruence : sort 0 -> sort 0 -> Prop;
+arrayEq_ite_congruence =
+ \ (a : sort 0) -> \ (b : sort 0) ->
+ (x1: Bool) -> (x2:Bool) ->
+ (y1 : Array a b) -> (y2 : Array a b) ->
+ (z1 : Array a b) -> (z2 : Array a b) ->
+ EqTrue (boolEq x1 x2) ->
+ EqTrue (arrayEq a b y1 y2) ->
+ EqTrue (arrayEq a b z1 z2) ->
+ EqTrue (arrayEq a b
+           (ite (Array a b) x1 y1 z1)
+	   (ite (Array a b) x2 y2 z2));
+
+arrayEq_ite_congruence64_8 : Prop;
+arrayEq_ite_congruence64_8 =
+  arrayEq_ite_congruence (Vec 64 Bool) (Vec 8 Bool);
+
+arrayEq_arrayCopy_congruence : Nat -> sort 0 -> Prop;
+arrayEq_arrayCopy_congruence =
+ \ (n:Nat) -> \ (b:sort 0) ->
+ (x1: Array (Vec n Bool) b) ->
+ (i1 : Vec n Bool) ->
+ (x2:Array (Vec n Bool) b) ->
+ (i2 : Vec n Bool) ->
+ (y1 : Array (Vec n Bool) b) ->
+ (j1 : Vec n Bool) ->
+ (y2 : Array (Vec n Bool) b) ->
+ (j2 : Vec n Bool) ->
+ (l1 : Vec n Bool) ->
+ (l2 : Vec n Bool) ->
+ EqTrue (bvEq n i1 i2) ->
+ EqTrue (bvEq n j1 j2) ->
+ EqTrue (bvEq n l1 l2) ->
+ EqTrue (arrayEq (Vec n Bool) b x1 x2) ->
+ EqTrue (arrayEq (Vec n Bool) b y1 y2) ->
+ EqTrue (arrayEq (Vec n Bool) b
+           (arrayCopy n b x1 i1 y1 j1 l1)
+	   (arrayCopy n b x2 i2 y2 j2 l2));
+
+arrayEq_arrayCopy_congruence64_8 : Prop;
+arrayEq_arrayCopy_congruence64_8 = arrayEq_arrayCopy_congruence 64 (Vec 8 Bool);
+
+arrayEq_arrayUpdate_congruence : Prop;
+arrayEq_arrayUpdate_congruence =
+ (a1 : Array (Vec 64 Bool) (Vec 8 Bool)) ->
+ (a2 : Array (Vec 64 Bool) (Vec 8 Bool)) ->
+ (i1 : Vec 64 Bool) ->
+ (i2 : Vec 64 Bool) ->
+ (x1 : Vec 8 Bool) ->
+ (x2 : Vec 8 Bool) ->
+ EqTrue (arrayEq (Vec 64 Bool) (Vec 8 Bool) a1 a2) ->
+ EqTrue (bvEq 64 i1 i2) ->
+ EqTrue (bvEq 8 x1 x2) ->
+ EqTrue (arrayEq (Vec 64 Bool) (Vec 8 Bool)
+          (arrayUpdate (Vec 64 Bool) (Vec 8 Bool) a1 i1 x1)
+          (arrayUpdate (Vec 64 Bool) (Vec 8 Bool) a2 i2 x2));
+
+
+bv_ite_decompose_left : Nat -> Prop;
+bv_ite_decompose_left =
+ \ (n : Nat) ->
+ (x : Bool) ->
+ (y : Vec n Bool) ->
+ (z : Vec n Bool) ->
+ (r : Vec n Bool) ->
+ EqTrue (implies x (bvEq n y r)) ->
+ EqTrue (implies (not x) (bvEq n z r)) ->
+ EqTrue (bvEq n (ite (Vec n Bool) x y z) r);
+
+bv_ite_decompose_right : Nat -> Prop;
+bv_ite_decompose_right =
+ \ (n : Nat) ->
+ (x : Bool) ->
+ (y : Vec n Bool) ->
+ (z : Vec n Bool) ->
+ (l : Vec n Bool) ->
+ EqTrue (implies x (bvEq n l y)) ->
+ EqTrue (implies (not x) (bvEq n l z)) ->
+ EqTrue (bvEq n l (ite (Vec n Bool) x y z));
+
+
+arrayEq_ite_decompose_left : sort 0 -> sort 0 -> Prop;
+arrayEq_ite_decompose_left =
+ \ (a : sort 0) -> \ (b : sort 0) ->
+ (x : Bool) ->
+ (y : Array a b) ->
+ (z : Array a b) ->
+ (r : Array a b) ->
+ EqTrue (implies x (arrayEq a b y r)) ->
+ EqTrue (implies (not x) (arrayEq a b z r)) ->
+ EqTrue (arrayEq a b (ite (Array a b) x y z) r);
+
+arrayEq_ite_decompose_left64_8 : Prop;
+arrayEq_ite_decompose_left64_8 =
+  arrayEq_ite_decompose_left (Vec 64 Bool) (Vec 8 Bool);
+
+
+arrayEq_ite_decompose_right : sort 0 -> sort 0 -> Prop;
+arrayEq_ite_decompose_right =
+ \ (a : sort 0) -> \ (b : sort 0) ->
+ (x : Bool) ->
+ (y : Array a b) ->
+ (z : Array a b) ->
+ (l : Array a b) ->
+ EqTrue (implies x (arrayEq a b l y)) ->
+ EqTrue (implies (not x) (arrayEq a b l z)) ->
+ EqTrue (arrayEq a b l (ite (Array a b) x y z));
+
+arrayEq_ite_decompose_right64_8 : Prop;
+arrayEq_ite_decompose_right64_8 =
+  arrayEq_ite_decompose_right (Vec 64 Bool) (Vec 8 Bool);
+

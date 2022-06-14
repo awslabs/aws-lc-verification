@@ -98,25 +98,20 @@ let aesni_gcm_cipher_tactic = do {
  * The enc parameter determines if this is the encryption or decryption specification.
  * enc = 1 means encryption; enc = 0 means decryption.
  */
-let aesni_gcm_cipher_spec (enc:Term) : LLVMSetup () = do {
+let aesni_gcm_cipher_spec (enc:Term) : LLVMSetup () =
+  llvm_setup_with_tag "AESNI GCM cipher spec"
+  do {
 
   // the "len" value is a signed 32-bit value upcasted to
   // an unsigned 64-bit value. Here we assert that the value
   // fits into the positive portion of a signed 32-bit integer.
   len64 <- llvm_fresh_var "len" (llvm_int 64);
   llvm_precond {{ len64 < 2^^31 }};
-  let {{ len32 = drop`{32} len64 }};
 
   let encT = eval_int {{ enc }};
 
   // Bulk encrypt requires 3*6 blocks of input. Bulk decrypt only requires 6 blocks.
   let min_size = eval_size {| (1 + 2 * encT) * 6 * AES_BLOCK_SIZE |};
-
-  // Input plaintext bytes, length "len"
-  (in_, in_ptr) <- ptr_to_fresh_array_readonly "in" {{ len64 }};
-
-  // Output ciphertext bytes, length "len"
-  (out_, out_ptr) <- ptr_to_fresh_array "out" {{ len64 }};
 
   // AES key structure, containing the expanded key
   key <- fresh_aes_key_st;
@@ -140,14 +135,24 @@ let aesni_gcm_cipher_spec (enc:Term) : LLVMSetup () = do {
          ctx = { key = key, iv = iv , Xi = Xi, len = gcm_len } : AES_GCM_Ctx
  
          // Compute how much data we expect the bulk en/decryption operation to process.
+         len32 = drop`{32} len64
          bulk_len = max `min_size ((len32 / `(6 * AES_BLOCK_SIZE)) * `(6 * AES_BLOCK_SIZE))
          do_bulk  = len32 / bulk_len
 	 res_len  = do_bulk * bulk_len
+	 res_len64 = (zext res_len):[64]
 	 res_ctr  = ctr + (res_len / `AES_BLOCK_SIZE) }};
 
-  llvm_precond {{ 1 < ctr }};
-  llvm_precond {{ gcm_len <= `TOTAL_MESSAGE_MAX_LENGTH }};
-  llvm_precond {{ gcm_len + len64 <= `TOTAL_MESSAGE_MAX_LENGTH }};
+  // Input plaintext bytes, length "len"
+  (in_, in_ptr) <- ptr_to_fresh_array_readonly "in" {{ res_len64 }};
+
+  // Output ciphertext bytes, length "len"
+  (out_, out_ptr) <- ptr_to_fresh_array "out" {{ res_len64 }};
+
+  llvm_setup_with_tag "size constraints" do {
+    llvm_precond {{ 1 < ctr }};
+    llvm_precond {{ gcm_len <= `TOTAL_MESSAGE_MAX_LENGTH }};
+    llvm_precond {{ gcm_len + len64 <= `TOTAL_MESSAGE_MAX_LENGTH }};
+  };
 
   // The Xi pointer, consisting of the actual current Xi value,
   // the Hashing key "H" and the auxilary Htable value.  H and
@@ -161,7 +166,7 @@ let aesni_gcm_cipher_spec (enc:Term) : LLVMSetup () = do {
   crucible_execute_func [in_ptr, out_ptr, crucible_term len64, key_ptr, ivec_ptr, Xi_ptr];
 
   // Assert that the function returns the number of bytes processed
-  crucible_return (crucible_term {{ (zext res_len):[64] }});
+  crucible_return (crucible_term {{ res_len64 }});
 
   // Assert the result values for ivec_ptr and Xi_ptr.  ivec_ptr only changes in
   // the low bytes representing the counter.
@@ -172,18 +177,19 @@ let aesni_gcm_cipher_spec (enc:Term) : LLVMSetup () = do {
   crucible_points_to_untyped (crucible_elem Xi_ptr 1) (crucible_term {{ get_H ctx }});
   crucible_points_to_untyped (crucible_elem Xi_ptr 2) (crucible_term {{ get_Htable ctx }});
 
-  let out_data = {{ aes_hw_ctr32_encrypt_blocks_array in_ key ivec_bytes 0 (zext res_len) out_ }};
+  // NB, aes_hw_ctr32 works on BLOCKS
+  let out_data = {{ aes_hw_ctr32_encrypt_blocks_array in_ key ivec_bytes 0 (res_len64/16) out_ }};
 
   if eval_bool {{ enc == 0 }} then
     // for decryption, hash the input (which is the ciphertext)
     crucible_points_to_untyped (crucible_elem Xi_ptr 0)
-      (crucible_term {{ cipher_update_Xi_array ctx in_ 0 (zext res_len) ctx.Xi }})
+      (crucible_term {{ cipher_update_Xi_array ctx in_ 0 res_len64 ctx.Xi }})
   else
     // for encryption, hash the output (which is the ciphertext)
     crucible_points_to_untyped (crucible_elem Xi_ptr 0)
-      (crucible_term {{ cipher_update_Xi_array ctx out_data 0 (zext res_len) ctx.Xi }});
+      (crucible_term {{ cipher_update_Xi_array ctx out_data 0 res_len64 ctx.Xi }});
 
-  crucible_points_to_array_prefix out_ptr out_data {{ (zext res_len):[64] }};
+  crucible_points_to_array_prefix out_ptr out_data {{ res_len64 }};
 };
 
 

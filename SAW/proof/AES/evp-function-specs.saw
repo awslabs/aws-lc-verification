@@ -95,11 +95,14 @@ let EVP_CipherUpdate_spec enc = do {
 
   llvm_precond {{ len >$ 0 }};
   llvm_precond {{ ctx.len <= `TOTAL_MESSAGE_MAX_LENGTH }};
-  llvm_precond {{ ctx.len + (sext len) <= `TOTAL_MESSAGE_MAX_LENGTH }};
-
+  // llvm_precond {{ ctx.len + (sext len) <= `TOTAL_MESSAGE_MAX_LENGTH }};
+  llvm_precond {{ ctx.len + (sext len) <= 10000 }};
+  
   // TODO, remove this restiction on full blocks
-  llvm_precond {{ ctx.len % 16 == 0 }};
-  llvm_precond {{ len % 16 == 0 }};
+  llvm_setup_with_tag "16-byte aligned" do {
+     llvm_precond {{ ctx.len % 16 == 0 }};
+     llvm_precond {{ len % 16 == 0 }};
+  };
 
   points_to_EVP_AES_GCM_CTX cipher_data_ptr ctx {{ 1 : [32] }} 0xffffffff;
 
@@ -115,6 +118,11 @@ let EVP_CipherUpdate_spec enc = do {
   // out_ptr <- llvm_symbolic_alloc false 1 {{ (sext len):[64] }};
   (out_, out_ptr) <- ptr_to_fresh_array "out" {{ (sext len):[64] }};
 
+  llvm_ghost_value update_initial_input_ghost in_;
+  llvm_ghost_value update_initial_output_ghost out_;
+  llvm_ghost_value update_initial_len_ghost {{ (sext len):[64] }};
+  llvm_ghost_value update_initial_ctx_ghost {{ ctx }};
+
   out_len_ptr <- crucible_alloc (llvm_int 32);
 
   crucible_execute_func [ctx_ptr, out_ptr, out_len_ptr, in_ptr, crucible_term len];
@@ -124,14 +132,16 @@ let EVP_CipherUpdate_spec enc = do {
     return ()
   else do {
     points_to_EVP_AES_GCM_CTX cipher_data_ptr
-       {{ update_enc_array_ctx in_ ctx out_ 0 (sext len) }}
+       {{ (update_enc_array in_ ctx out_ 0 (sext len)).1 }}
        {{ 1 : [32] }} 0xffffffff;
-    crucible_points_to_array_prefix out_ptr
-       {{ update_enc_array_buf in_ ctx out_ 0 (sext len) }}
-       {{ (sext len):[64] }};
+    llvm_setup_with_tag "update output buffer" 
+     (crucible_points_to_array_prefix out_ptr
+        {{ (update_enc_array in_ ctx out_ 0 (sext len)).2 }}
+        {{ (sext len):[64] }});
   };
 
-  crucible_points_to out_len_ptr (crucible_term len);
+  llvm_setup_with_tag "out_len"
+    (crucible_points_to out_len_ptr (crucible_term len));
   crucible_return (crucible_term {{ 1 : [32] }});
 };
 

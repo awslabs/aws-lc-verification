@@ -227,11 +227,12 @@ let points_to_gcm128_key_st ptr ctx = do {
  * 
  */
 let points_to_GCM128_CONTEXT ptr ctx = do {
-  // TODO, relax this
-  // let {{ mres = drop`{32} (ctx.len % `AES_BLOCK_SIZE) }};
+  //let mres = {{ drop`{32} (ctx.len % `AES_BLOCK_SIZE) }};
+  // TODO! relax this constraint
   let mres = {{ 0:[32] }};
 
-  crucible_points_to_untyped (crucible_elem ptr 0) (crucible_term {{ get_Yi ctx }});
+  llvm_setup_with_tag "Yi value"
+    (crucible_points_to_untyped (crucible_elem ptr 0) (crucible_term {{ get_Yi ctx }}));
 
   // When there is a partial block still in process, the EKi field is
   // required to have it's proper values. At other times, it is unspecified.
@@ -240,8 +241,10 @@ let points_to_GCM128_CONTEXT ptr ctx = do {
   llvm_assert {{ mres == 0 \/ EKi_bytes == get_EKi ctx }};
 
   crucible_points_to_untyped (crucible_elem ptr 2) (crucible_term {{ get_EK0 ctx }});
-  crucible_points_to_untyped (crucible_elem ptr 3) (crucible_term {{ [(0 : [64]), ctx.len] }});
-  crucible_points_to_untyped (crucible_elem ptr 4) (crucible_term {{ ctx.Xi }});
+  llvm_setup_with_tag "ctr value"
+    (crucible_points_to_untyped (crucible_elem ptr 3) (crucible_term {{ [(0 : [64]), ctx.len] }}));
+  llvm_setup_with_tag "Xi value"
+    (crucible_points_to_untyped (crucible_elem ptr 4) (crucible_term {{ ctx.Xi }}));
   points_to_gcm128_key_st (crucible_elem ptr 5) ctx;
   crucible_points_to (crucible_elem ptr 6) (crucible_term {{ mres : [32] }});
   crucible_points_to (crucible_elem ptr 7) (crucible_term {{ 0 : [32] }});
