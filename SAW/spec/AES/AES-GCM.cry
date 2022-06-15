@@ -129,6 +129,11 @@ gcm_ghash_array H Xi inp i blocks =
   else
     Xi
 
+gcm_ghash_array_eq_property : {blocks} (fin blocks, width (blocks*16) < 64 )  => [128] -> [16][8] -> Array [64] [8] -> Bool
+gcm_ghash_array_eq_property H Xi inp =
+  gcm_ghash_array H Xi inp 0 `blocks ==
+  gcm_ghash`{n=blocks} H Xi (arrayRangeLookup`{n=blocks*16} inp 0)
+
 gcm_ghash_block : [128] -> [16][8] -> [16][8] -> [16][8]
 gcm_ghash_block H Xi inp = split (gcm_polyval H ((join Xi) ^ (join inp)))
 

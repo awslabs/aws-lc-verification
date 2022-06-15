@@ -118,11 +118,6 @@ let EVP_CipherUpdate_spec enc = do {
   // out_ptr <- llvm_symbolic_alloc false 1 {{ (sext len):[64] }};
   (out_, out_ptr) <- ptr_to_fresh_array "out" {{ (sext len):[64] }};
 
-  llvm_ghost_value update_initial_input_ghost in_;
-  llvm_ghost_value update_initial_output_ghost out_;
-  llvm_ghost_value update_initial_len_ghost {{ (sext len):[64] }};
-  llvm_ghost_value update_initial_ctx_ghost {{ ctx }};
-
   out_len_ptr <- crucible_alloc (llvm_int 32);
 
   crucible_execute_func [ctx_ptr, out_ptr, out_len_ptr, in_ptr, crucible_term len];

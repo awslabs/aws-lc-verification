@@ -48,7 +48,7 @@ include "../common/helpers.saw";
 include "../common/memory.saw";
 
 // Diasable proofs for now!
-let do_prove = false;
+// let do_prove = false;
 
 include "goal-rewrites.saw";
 
@@ -74,14 +74,14 @@ let aes_iv_len = 12;
 
 include "AES.saw";
 
-update_initial_input_ghost <- llvm_declare_ghost_state "initial_input";
-update_initial_output_ghost <- llvm_declare_ghost_state "initial_output";
-update_initial_len_ghost <- llvm_declare_ghost_state "update_initial_len";
-update_initial_ctx_ghost <- llvm_declare_ghost_state "update_initial_ctx";
-
-
+// let's actually do proofs again...
+// let do_prove = true;
+// interactive ();
 
 include "GHASH.saw";
+
+// stop doing proofs...
+let do_prove = false;
 
 include "AES-invariants.saw";
 
@@ -89,11 +89,11 @@ include "AESNI-GCM.saw";
 
 include "AES-HW-CTR.saw";
 
-// interactive ();
-
 include "evp-function-specs.saw";
 
 // let's actually do proofs again...
 let do_prove = true;
 
 include "evp-function-proofs.saw";
+
+summarize_verification_json "AES-GCM-results.json";
