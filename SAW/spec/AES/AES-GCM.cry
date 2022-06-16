@@ -311,3 +311,96 @@ update_cleanup_encrypt in ctx buf i len bnd = (ctx, buf)
 
   // else
   //   (ctx, buf)
+
+
+
+update_dec_array :
+  Array [64] [8] ->
+  AES_GCM_Ctx ->
+  Array [64] [8] ->
+  [64] ->
+  [64] ->
+  ([64], AES_GCM_Ctx, Array [64] [8])
+update_dec_array in ctx buf i len =
+//    if (prephase_len != len) then
+      (prephase_len + bulk_len + len_blocks, ctx2, buf2)
+//    else
+//      (prephase_len, ctx0, buf0)
+
+  where
+    // TODO!
+    (prephase_len, ctx0, buf0) = (0, ctx, buf)
+      // update_dec_prephase in ctx buf (ctx.len%16) i len
+
+    (bulk_len, ctx1, buf1) = update_bulk_decrypt in ctx0 buf0 (i + prephase_len) (len - prephase_len)
+
+    (len_blocks, ctx2, buf2) =
+      update_postbulk_decrypt in ctx1 buf1 (i + (prephase_len + bulk_len)) (len - (prephase_len + bulk_len))
+
+    // TODO! postphase
+
+
+update_bulk_decrypt :
+  Array [64] [8] ->
+  AES_GCM_Ctx ->
+  Array [64] [8] ->
+  [64] ->
+  [64] ->
+  ([64], AES_GCM_Ctx, Array [64] [8])
+// Precondition ctx.len is a multiple of 16
+update_bulk_decrypt in ctx buf i len =
+
+    ( res_len
+    , { key = ctx.key, iv = ctx.iv, Xi = Xi_final, len = ctx.len + res_len }
+    , arrayCopy buf i out_data 0 res_len
+    )
+
+  where
+    out_data = aes_hw_ctr32_encrypt_blocks_array
+                  in // (arrayCopy zeroByteArray 0 in i res_len)
+		  ctx.key
+		  (get_Yi ctx)
+		  0
+		  (res_len/16)
+		  buf // (arrayCopy zeroByteArray 0 buf i res_len)
+
+    Xi_final = cipher_update_Xi_array ctx in 0 res_len ctx.Xi // TODO? array copy from in?
+
+    len32 = drop`{32} len
+    bulk_len = max `(6 * 16)
+                    ( (len32 / `(6 * 16)) * `(6 * 16))
+    do_bulk  = len32 / bulk_len
+    res_len  = zext (do_bulk * bulk_len)
+
+
+update_postbulk_decrypt :
+  Array [64] [8] ->
+  AES_GCM_Ctx ->
+  Array [64] [8] ->
+  [64] ->
+  [64] ->
+  ([64], AES_GCM_Ctx, Array [64] [8])
+// Precondition ctx.len is a multiple of 16
+// len < 18*AES_BLOCK_SIZE
+update_postbulk_decrypt in ctx buf i len =
+  (if len_blocks == 0 then
+    (0, ctx, buf)
+   else
+    ( len_blocks
+    , { key = ctx.key, iv = ctx.iv, Xi = Xi_final, len = ctx.len + len_blocks }
+    , arrayCopy buf i out_data 0 len_blocks
+    )
+      where
+        out_data = aes_hw_ctr32_encrypt_blocks_array
+                      (arrayCopy zeroByteArray 0 in i len_blocks)
+	              ctx.key (get_Yi ctx) 0 (len_blocks/16)
+		      (arrayCopy zeroByteArray 0 buf i len_blocks)
+        Xi_final = gcm_ghash_array (gcm_init_H (join (get_H ctx)))
+	              ctx.Xi
+	              (arrayCopy zeroByteArray 0 in i len_blocks)
+		      0
+		      (len_blocks/16)
+   )
+
+  where
+    len_blocks = len && 0xFFFFFFFFFFFFFFF0

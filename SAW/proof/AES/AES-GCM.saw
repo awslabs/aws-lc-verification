@@ -47,9 +47,6 @@ print "loaded bitcode";
 include "../common/helpers.saw";
 include "../common/memory.saw";
 
-// Diasable proofs for now!
-// let do_prove = false;
-
 include "goal-rewrites.saw";
 
 /*
@@ -74,14 +71,12 @@ let aes_iv_len = 12;
 
 include "AES.saw";
 
-// let's actually do proofs again...
-// let do_prove = true;
-// interactive ();
-
 include "GHASH.saw";
 
-// stop doing proofs...
+// Diasable proofs for now!
 let do_prove = false;
+
+// interactive ();
 
 include "AES-invariants.saw";
 

@@ -95,8 +95,7 @@ let EVP_CipherUpdate_spec enc = do {
 
   llvm_precond {{ len >$ 0 }};
   llvm_precond {{ ctx.len <= `TOTAL_MESSAGE_MAX_LENGTH }};
-  // llvm_precond {{ ctx.len + (sext len) <= `TOTAL_MESSAGE_MAX_LENGTH }};
-  llvm_precond {{ ctx.len + (sext len) <= 10000 }};
+  llvm_precond {{ ctx.len + (sext len) <= `TOTAL_MESSAGE_MAX_LENGTH }};
   
   // TODO, remove this restiction on full blocks
   llvm_setup_with_tag "16-byte aligned" do {
@@ -122,10 +121,20 @@ let EVP_CipherUpdate_spec enc = do {
 
   crucible_execute_func [ctx_ptr, out_ptr, out_len_ptr, in_ptr, crucible_term len];
   
-  if eval_bool {{ enc == 0 }} then
-    // TODO
-    return ()
-  else do {
+  if eval_bool {{ enc == 0 }} then do {
+
+    // decryption phase
+    points_to_EVP_AES_GCM_CTX cipher_data_ptr
+       {{ (update_dec_array in_ ctx out_ 0 (sext len)).1 }}
+       {{ 1 : [32] }} 0xffffffff;
+    llvm_setup_with_tag "update output buffer" 
+     (crucible_points_to_array_prefix out_ptr
+        {{ (update_dec_array in_ ctx out_ 0 (sext len)).2 }}
+        {{ (sext len):[64] }});
+
+  } else do {
+
+    // encryption phase
     points_to_EVP_AES_GCM_CTX cipher_data_ptr
        {{ (update_enc_array in_ ctx out_ 0 (sext len)).1 }}
        {{ 1 : [32] }} 0xffffffff;
