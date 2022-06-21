@@ -47,6 +47,9 @@ print "loaded bitcode";
 include "../common/helpers.saw";
 include "../common/memory.saw";
 
+// Diasable proofs for now!
+let do_prove = false;
+
 include "goal-rewrites.saw";
 
 /*
@@ -71,12 +74,11 @@ let aes_iv_len = 12;
 
 include "AES.saw";
 
+// let's actually do proofs again...
+//let do_prove = true;
+//interactive ();
+
 include "GHASH.saw";
-
-// Diasable proofs for now!
-let do_prove = false;
-
-// interactive ();
 
 include "AES-invariants.saw";
 
@@ -84,10 +86,10 @@ include "AESNI-GCM.saw";
 
 include "AES-HW-CTR.saw";
 
-include "evp-function-specs.saw";
-
 // let's actually do proofs again...
 let do_prove = true;
+
+include "evp-function-specs.saw";
 
 include "evp-function-proofs.saw";
 

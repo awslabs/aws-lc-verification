@@ -54,15 +54,30 @@ aes_hw_ctr32_encrypt_blocks in key (iv # ctr) =
   join [ blk ^ (aes_hw_encrypt (iv # (split ((join ctr) + i))) key) | blk <- split in | i <- [(0 : [32]) ...]]
 
 aes_hw_ctr32_encrypt_blocks_array : Array [64] [8] -> [32][8] -> [16][8] -> [64] -> [64] -> Array [64] [8] -> Array [64] [8]
-aes_hw_ctr32_encrypt_blocks_array inp key (iv # ctr) i blocks buf =
+aes_hw_ctr32_encrypt_blocks_array inp key (iv # (ctr:[4][8])) i blocks buf =
   if i < blocks then
     aes_hw_ctr32_encrypt_blocks_array inp key (iv # ctr) (i+1) blocks buf'
       where
         blk  = arrayRangeLookup inp (i*16) : [16][8]
-	blk' = blk ^ (aes_hw_encrypt (iv # (split ((join ctr) + i))) key)
+	blk' = blk ^ (aes_hw_encrypt (iv # (split ((join ctr) + drop`{32} i))) key)
 	buf' = arrayRangeUpdate buf (i*16) blk'
   else
     buf
+
+aes_hw_ctr32_eq_property : {blocks} (fin blocks, width (16*blocks) <= 64) =>
+  (Array [64] [8] -> Array [64] [8] -> Bool) ->
+  Array [64] [8] -> [32][8] -> [16][8] -> Array [64] [8] -> Bool
+aes_hw_ctr32_eq_property f in key iv out =
+  f (aes_hw_ctr32_encrypt_blocks_array in key iv 0 `blocks out)
+    (arrayRangeUpdate out 0 (aes_hw_ctr32_encrypt_blocks (arrayRangeLookup`{n=16*blocks} in 0) key iv))
+
+
+aes_hw_ctr32_copy_property : {blocks} (fin blocks, width (16*blocks) <= 64) =>
+  (Array [64] [8] -> Array [64] [8] -> Bool) ->
+  Array [64] [8] -> [32][8] -> [16][8] -> Array [64] [8] -> Bool
+aes_hw_ctr32_copy_property f in key iv out =
+  f (arrayCopy out 0 (aes_hw_ctr32_encrypt_blocks_array in key iv 0 `blocks out) 0 `(16*blocks))
+    (aes_hw_ctr32_encrypt_blocks_array in key iv 0 `blocks out)
 
 EK_byte : AES_GCM_Ctx -> [8]
 EK_byte ctx = (EKi ctx i) @ j
@@ -136,6 +151,8 @@ gcm_ghash_array_eq_property H Xi inp =
 
 gcm_ghash_block : [128] -> [16][8] -> [16][8] -> [16][8]
 gcm_ghash_block H Xi inp = split (gcm_polyval H ((join Xi) ^ (join inp)))
+
+
 
 
 /*
