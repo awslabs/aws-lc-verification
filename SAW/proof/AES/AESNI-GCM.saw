@@ -60,27 +60,6 @@ let cipher_update_avx_thms = [];
 //   ];
 
 
-/*
- * Goal tactics.
- */
-let aesni_gcm_cipher_tactic = do {
-  simplify (addsimps [aesenc_key0_0_thm, aesenc_key0_1_thm, aesenclast_thm] empty_ss);
-  simplify (addsimps [aesenc_aesenclast_thm] empty_ss);
-  simplify (cryptol_ss ());
-  simplify (addsimps cipher_update_avx_thms empty_ss);
-  simplify (addsimps ctr32_encrypt_thms empty_ss);
-  goal_eval_unint ["pmult", "pmod", "gcm_polyval", "aesEncryptWithKeySchedule"];
-  simplify (addsimps xor_slice_append_thms basic_ss);
-  simplify (addsimps slice_slice_thms empty_ss);
-  simplify (addsimps xor_slice_append_thms basic_ss);
-  simplify (addsimps concat_assoc_0_thms empty_ss);
-  simplify (addsimps concat_assoc_1_thms empty_ss);
-  simplify (addsimps concat_assoc_2_thms empty_ss);
-  simplify (addsimps [cmp_sub_thm] empty_ss);
-  w4_unint_yices ["pmult", "pmod", "gcm_polyval", "aesEncryptWithKeySchedule"];
-};
-
-
 ////////////////////////////////////////////////////////////////////////////////
 // Specifications
 
@@ -105,7 +84,7 @@ let aesni_gcm_cipher_spec (enc:Term) : LLVMSetup () =
   // the "len" value is a signed 32-bit value upcasted to
   // an unsigned 64-bit value. Here we assert that the value
   // fits into the positive portion of a signed 32-bit integer.
-  len64 <- llvm_fresh_var "len" (llvm_int 64);
+  len64 <- llvm_fresh_var "len64" (llvm_int 64);
   llvm_precond {{ len64 < 2^^31 }};
 
   let encT = eval_int {{ enc }};
@@ -202,19 +181,179 @@ let aesni_gcm_cipher_spec (enc:Term) : LLVMSetup () =
 add_x86_preserved_reg "rax";
 enable_what4_hash_consing;
 
-aesni_gcm_encrypt_ov <- llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "aesni_gcm_encrypt"
-  [ ("aesni_gcm_encrypt", 1200) // we need .Lbswap_mask, which lives in .text after aesni_gcm_encrypt (1081 bytes itself). 1200 bytes is an arbitrary size that I guessed would be large enough to contain the right bytes after alignment.
-  ]
-  true
-  (aesni_gcm_cipher_spec {{ 1 : [32] }}) // NB enc = 1 is the spec for encryption
-  aesni_gcm_cipher_tactic;
+/*
+ * Goal tactics.
+ */
+let aesni_gcm_cipher_tactic = do {
+  simplify (addsimps [aesenc_key0_0_thm, aesenc_key0_1_thm, aesenclast_thm] empty_ss);
+  simplify (addsimps [aesenc_aesenclast_thm] empty_ss);
+  simplify (cryptol_ss ());
+  simplify (addsimps cipher_update_avx_thms empty_ss);
+  simplify (addsimps ctr32_encrypt_thms empty_ss);
+  goal_eval_unint ["pmult", "pmod", "gcm_polyval", "aesEncryptWithKeySchedule"];
+  simplify (addsimps xor_slice_append_thms basic_ss);
+  simplify (addsimps slice_slice_thms empty_ss);
+  simplify (addsimps xor_slice_append_thms basic_ss);
+  simplify (addsimps concat_assoc_0_thms empty_ss);
+  simplify (addsimps concat_assoc_1_thms empty_ss);
+  simplify (addsimps concat_assoc_2_thms empty_ss);
+  simplify (addsimps [cmp_sub_thm] empty_ss);
+  w4_unint_yices ["pmult", "pmod", "gcm_polyval", "aesEncryptWithKeySchedule"];
+};
 
-aesni_gcm_decrypt_ov <- llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "aesni_gcm_decrypt"
+
+// aesni_gcm_encrypt_ov <- llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "aesni_gcm_encrypt"
+//   [ ("aesni_gcm_encrypt", 1200) // we need .Lbswap_mask, which lives in .text after aesni_gcm_encrypt (1081 bytes itself). 1200 bytes is an arbitrary size that I guessed would be large enough to contain the right bytes after alignment.
+//   ]
+//   true
+//   (aesni_gcm_cipher_spec {{ 1 : [32] }}) // NB enc = 1 is the spec for encryption
+//   aesni_gcm_cipher_tactic;
+
+// aesni_gcm_decrypt_ov <- llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "aesni_gcm_decrypt"
+//   [ ("aesni_gcm_encrypt", 1200) // we need .Lbswap_mask, which lives in .text after aesni_gcm_encrypt (1081 bytes itself). 1200 bytes is an arbitrary size that I guessed would be large enough to contain the right bytes after alignment.
+//   ]
+//   true
+//   (aesni_gcm_cipher_spec {{ 0 : [32] }}) // NB enc = 0 is the spec for decryption
+//   aesni_gcm_cipher_tactic;
+
+let {{
+  // totally bogus!
+  aesni_gcm_encrypt_fixpoint : [64] -> [64]
+  aesni_gcm_encrypt_fixpoint in = complement in
+
+  type decryptInvariantTuple =
+    ( Array [64] [8]
+    , [512],[512],[512],[512],[512],[512],[512],[512],[512],[512],[512]
+    , [64],[64],[64],[64],[64],[64]
+    )
+
+  aesni_gcm_decrypt_invariant :
+    [64] ->
+    [32][8] ->
+    [16][8] ->
+    [16][8] ->
+    Array [64] [8] ->
+    decryptInvariantTuple ->
+    decryptInvariantTuple ->
+    Bool
+  aesni_gcm_decrypt_invariant len64 key ivec Xi in
+    ( i_buf
+    , i_xmma, i_xmmb, i_xmmc, i_xmmd, i_xmme
+    , i_xmmf, i_xmmg, i_xmmh, i_xmmi, i_xmmj, i_xmmk
+    , i_a, i_b, i_c, i_d, i_e, i_blocks)
+
+    ( c_buf
+    , c_xmma, c_xmmb, c_xmmc, c_xmmd, c_xmme
+    , c_xmmf, c_xmmg, c_xmmh, c_xmmi, c_xmmj, c_xmmk
+    , c_a, c_b, c_c, c_d, c_e, c_blocks) =
+
+      // as the loop progresses, the current value of "blocks" decreases
+      // from the initial value, and they always differ by a multiple of 6
+
+         i_blocks >= c_blocks /\ processed_blocks%6 == 0
+
+      // These registers represent indices into various arrays
+      // Mostly, they increase in lockstep with the block count.
+      // However, the c_a register runs ahead for prefetch, except on
+      // the final iteration, where it is equal to the others.
+
+      /\ (if c_b <= end then c_a == c_b else c_a+96 == c_b)
+      /\ c_b == processed_blocks*16
+      /\ c_c == processed_blocks*16
+      /\ c_d == processed_blocks*16
+
+      // c_e = $counter, it implements the 32-bit counter and is used to keep track of
+      // when the top byte overflows so that fixup steps are needed. Only the top byte
+      // is updated, as the only purpose of this counter is to track when overflows occur.
+
+      /\ c_e == zext (join (reverse (drop`{12} ivec)) + (drop`{32} processed_blocks << 24))
+
+      // The first 16 bytes of the key are stored in this XMM register at the begining of the loop
+
+      /\ c_xmma == zext (join (reverse (take`{16} key)))
+
+      // The values for the IV/counter are stored in these
+      // collection of XMM registers
+
+      /\ drop`{512-128} c_xmmb == iv + (0x05 # zero)
+      /\ drop`{512-128} c_xmmc == iv + (0x04 # zero)
+      /\ drop`{512-128} c_xmmd == iv + (0x03 # zero)
+      /\ drop`{512-128} c_xmme == iv + (0x02 # zero)
+      /\ drop`{512-128} c_xmmf == iv + (0x01 # zero)
+      /\ drop`{512-128} c_xmmk == iv
+
+      /\ c_xmmg == c_xmmk ^ c_xmma // xor key iv,  inout0?
+
+//	 /\ c_xmmh == current Xi   // Xi?
+
+//       /\ c_xmmi == prefetched block of in [80 .. 95], incidental?
+
+//      /\ c_xmmj == 0 init, clmul of some stuff on loop backedge, Z3? incidental?
+
+   where processed_blocks = i_blocks - c_blocks
+         end = len64 - 96
+
+	 iv : [128]
+	 iv = join (reverse (take`{12} ivec # split ctr))
+
+	 ctr : [32]
+	 ctr = i_ctr + drop`{32} processed_blocks
+
+	 i_ctr : [32]
+	 i_ctr = join (drop`{12} ivec)
+
+}};
+
+
+// Register use notes:
+//  $len = %rdx
+//    number of blocks remaining to process.  Goes down by 6 on each iteration
+//  $counter = %ebx
+//    32-bit counter in network-byte-order.  Stays in sync with $T2
+//  $ivp = %r8
+//    pointer to memory storing IV value
+
+//  $T1 = %xmm1
+//    network-byte-order IV, including counter
+//    stored on the stack as well, at ($ivp = %r8)
+//  $T2 = %xmm2
+//    constant value, .Lone_msb for incrementing the
+//    top byte of the counter value in $T1
+//  
+
+
+ite_lemma_term <- parse_core " (x : Bool) -> (y : Bool) -> (z : Bool) -> EqTrue (implies x y) -> EqTrue (implies (not x) z) -> EqTrue (ite Bool x y z)";
+ite_lemma <- prove_extcore z3 ite_lemma_term;
+
+
+let go =
+  w4_unint_yices ["clmul","get_Htable","aes_hw_ctr32_encrypt_blocks_array"];
+
+// New fancy fixpoint stuff
+aesni_gcm_decrypt_ov <- llvm_verify_fixpoint_x86_ex
+  m "../../build/x86/crypto/crypto_test" "aesni_gcm_decrypt"
   [ ("aesni_gcm_encrypt", 1200) // we need .Lbswap_mask, which lives in .text after aesni_gcm_encrypt (1081 bytes itself). 1200 bytes is an arbitrary size that I guessed would be large enough to contain the right bytes after alignment.
   ]
   true
+  ("_aesni_ctr32_ghash_6x", {{ aesni_gcm_decrypt_invariant }})
   (aesni_gcm_cipher_spec {{ 0 : [32] }}) // NB enc = 1 is the spec for decryption
-  aesni_gcm_cipher_tactic;
+  do { print_goal_summary;
+       n <- goal_num;
+       if eval_bool {{ `n == 11 \/ `n == 67 \/ `n >= 82 }} then do
+//       if eval_bool {{ `n == 15 \/ `n == 67 \/ `n >= 82 }} then do
+//       if eval_bool {{ `n == 67 \/ `n >= 82 }} then do
+//       if eval_bool {{ `n >= 82 }} then do
+       { normalize_sequent;
+         print_goal;
+       	 proof_subshell ();
+       } else do {
+         admit "skipping";
+         //w4_unint_yices ["clmul","get_Htable","aes_hw_ctr32_encrypt_blocks_array"];
+       };
+     };
+  // aesni_gcm_cipher_tactic;
+
 
 disable_what4_hash_consing;
 default_x86_preserved_reg;
+
