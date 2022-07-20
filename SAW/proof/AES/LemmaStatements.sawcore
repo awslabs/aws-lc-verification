@@ -127,3 +127,24 @@ bvEq_slice_xor =
   EqTrue (bvEq 8
     (slice Bool 0 8 56 (bvXor 64 x y))
     (bvXor 8 (slice Bool 0 8 56 x) (slice Bool 0 8 56 y)));
+
+
+Xi_ite_decompose_left : Prop;
+Xi_ite_decompose_left =
+  ( b : Bool ) ->
+  ( x : Vec 128 Bool ) ->
+  ( y : Vec 128 Bool ) ->
+  ( z : Vec 128 Bool ) ->
+  EqTrue (implies b       (bvEq 128 x z)) ->
+  EqTrue (implies (not b) (bvEq 128 y z)) ->
+  EqTrue (bvEq 128 (ite (Vec 128 Bool) b x y) z);
+
+Xi_ite_decompose_right : Prop;
+Xi_ite_decompose_right =
+  ( b : Bool ) ->
+  ( x : Vec 128 Bool ) ->
+  ( y : Vec 128 Bool ) ->
+  ( z : Vec 128 Bool ) ->
+  EqTrue (implies b       (bvEq 128 z x)) ->
+  EqTrue (implies (not b) (bvEq 128 z y)) ->
+  EqTrue (bvEq 128 z (ite (Vec 128 Bool) b x y));

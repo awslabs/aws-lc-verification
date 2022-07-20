@@ -5,9 +5,12 @@
 
 module AES_GCM_Implementation where
 
+import Array
+
 import Primitive::Symmetric::Cipher::Block::AES
 import Primitive::Symmetric::Cipher::Authenticated::AES_256_GCM
 import AES_GCM
+
 
 
 /*
@@ -67,13 +70,14 @@ gcm_polyval_avx H X = x30
  * aesni_gcm_cipher Cryptol implementation
  */
 aesni_gcm_cipher : {n} (fin n) => [32] -> AES_GCM_Ctx -> [(1 + n) * 6 * 16][8] -> [16][8]
-aesni_gcm_cipher enc ctx in = ctx''.Xi
+aesni_gcm_cipher enc ctx in = split Xi''
   where
     enc_blks = if enc ! 0
       then split (aesni_gcm_ctr32_encrypt_block ctx in)
       else split (map join (split in))
-    ctx' = aesni_gcm_cipher_block6 enc False ctx (enc_blks @ 0)
-    ctx'' = foldl (aesni_gcm_cipher_block6 enc (enc ! 0)) ctx' (drop`{1} enc_blks)
+    Htable = get_Htable ctx
+    Xi' = aesni_gcm_cipher_block6 False Htable (join ctx.Xi) (enc_blks @ 0)
+    Xi'' = foldl (aesni_gcm_cipher_block6 (enc ! 0) Htable) Xi' (drop`{1} enc_blks)
 
 aesni_gcm_ctr32_encrypt_block : {n} (fin n) => AES_GCM_Ctx -> [n * 16][8] -> [n][16 * 8]
 aesni_gcm_ctr32_encrypt_block ctx in = out
@@ -82,14 +86,12 @@ aesni_gcm_ctr32_encrypt_block ctx in = out
     in' = split in
     out = [ swap8 ((join (reverse blk)) ^ (join (reverse (EKi ctx (ctr + i))))) | blk <- in' | i <- [0 ...] ]
 
-aesni_gcm_cipher_block6 : [32] -> Bit -> AES_GCM_Ctx -> [6][128] -> AES_GCM_Ctx
-aesni_gcm_cipher_block6 enc karatsuba ctx blks = ctx'
+aesni_gcm_cipher_block6 : Bit -> [12][128] -> [128] -> [6][128] -> [128]
+aesni_gcm_cipher_block6 karatsuba Htable Xi blks = Xi_6
   where
     gcm_polyval_mul_fun = if karatsuba
       then gcm_polyval_mul_pmult3
       else gcm_polyval_mul_pmult4
-    Htable = get_Htable ctx
-    Xi = join ctx.Xi
     Xi_0 = gcm_polyval_mul_fun (Htable @ 0) (blks @ 5)
     Xi_1 = gcm_polyval_mul_fun (Htable @ 1) (blks @ 4)
     Xi_2 = gcm_polyval_mul_fun (Htable @ 3) (blks @ 3)
@@ -97,13 +99,62 @@ aesni_gcm_cipher_block6 enc karatsuba ctx blks = ctx'
     Xi_4 = gcm_polyval_mul_fun (Htable @ 6) (blks @ 1)
     Xi_5 = gcm_polyval_mul_fun (Htable @ 7) (Xi ^ (blks @ 0))
     Xi_6 = gcm_polyval_red_pmult (Xi_0 ^ Xi_1 ^ Xi_2 ^ Xi_3 ^ Xi_4 ^ Xi_5)
-    Xi' = split Xi_6
-    ctx' =
-      { key = ctx.key
-      , iv = ctx.iv
-      , Xi = Xi'
-      , len = ctx.len + 6 * 16
-      }
+
+
+// Here is an alternate definition that unfolds 6 times
+gcm_ghash_array_6x : [128] -> [128] -> Array [64] [8] -> [64] -> [64] -> [128]
+gcm_ghash_array_6x H Xi inp i blocks =
+  if blocks - i >= 6 then
+    gcm_ghash_array_6x H
+      (aesni_gcm_cipher_block6 False (gcm_init_Htable (gcm_init_H H)) Xi 
+        [ join (arrayRangeLookup inp ((i+j) * 16 )) | j <- [0 .. 5] ])
+      inp (i+6) blocks
+  else
+    Xi
+
+gcm_ghash_array_6x_unfold : [128] -> [128] -> Array [64] [8] -> [64] -> [64] -> [128]
+gcm_ghash_array_6x_unfold H Xi inp i blocks =
+  if blocks - i >= 6 then
+    gcm_ghash_array_6x H
+      (aesni_gcm_cipher_block6 False (gcm_init_Htable (gcm_init_H H)) Xi
+        [ join (arrayRangeLookup inp ((i+j) * 16 )) | j <- [0 .. 5] ])
+      inp (i+6) blocks
+  else
+    Xi
+
+gcm_enc_blocks_6x : Array [64] [8] -> [128] -> [15][128] -> Array [64] [8] -> [64] -> [64] -> Array [64] [8]
+gcm_enc_blocks_6x in ctr rndkeys buf i blocks =
+  if blocks - i >= 6 then
+    gcm_enc_blocks_6x in (ctr + 6) rndkeys
+      (foldl
+        (\arr j -> arrayRangeUpdate arr ((i+j)*16)
+	  ((reverse (split (aesEncryptWithKeySchedule (swap8 (ctr + zext j))
+	           (aes_key_to_schedule rndkeys))))
+           ^ arrayRangeLookup in ((i+j)*16))
+	)
+        buf
+        [ 0 .. 5 ])
+      (i+6)
+      blocks
+  else
+    buf
+
+gcm_enc_blocks_6x_unfold : Array [64] [8] -> [128] -> [15][128] -> Array [64] [8] -> [64] -> [64] -> Array [64] [8]
+gcm_enc_blocks_6x_unfold in ctr rndkeys buf i blocks =
+  if blocks - i >= 6 then
+    gcm_enc_blocks_6x in (ctr + 6) rndkeys
+      (foldl
+        (\arr j -> arrayRangeUpdate arr ((i+j)*16)
+	  ((reverse (split (aesEncryptWithKeySchedule (swap8 (ctr + zext j))
+	           (aes_key_to_schedule rndkeys))))
+           ^ arrayRangeLookup in ((i+j)*16))
+	)
+        buf
+        [ 0 .. 5 ])
+      (i+6)
+      blocks
+  else
+    buf
 
 gcm_ghash_avx : {n, m} (fin n, 1 <= m, m <= 8) => [128] -> [16][8] -> [(n * 8 + m) * 16][8] -> [16][8]
 gcm_ghash_avx H Xi in = Xi''

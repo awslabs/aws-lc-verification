@@ -159,16 +159,19 @@ let aesni_gcm_cipher_spec (enc:Term) : LLVMSetup () =
   // NB, aes_hw_ctr32 works on BLOCKS
   let out_data = {{ aes_hw_ctr32_encrypt_blocks_array in_ key ivec_bytes 0 (res_len64/16) out_ }};
 
-  if eval_bool {{ enc == 0 }} then
-    // for decryption, hash the input (which is the ciphertext)
-    crucible_points_to_untyped (crucible_elem Xi_ptr 0)
-      (crucible_term {{ cipher_update_Xi_array ctx in_ 0 res_len64 ctx.Xi }})
-  else
-    // for encryption, hash the output (which is the ciphertext)
-    crucible_points_to_untyped (crucible_elem Xi_ptr 0)
-      (crucible_term {{ cipher_update_Xi_array ctx out_data 0 res_len64 ctx.Xi }});
+  llvm_setup_with_tag "Xi postcondition"
+   (if eval_bool {{ enc == 0 }} then
+      // for decryption, hash the input (which is the ciphertext)
+      crucible_points_to_untyped (crucible_elem Xi_ptr 0)
+        (crucible_term {{ cipher_update_Xi_array ctx in_ 0 res_len64 ctx.Xi }})
+    else
+      // for encryption, hash the output (which is the ciphertext)
+      crucible_points_to_untyped (crucible_elem Xi_ptr 0)
+        (crucible_term {{ cipher_update_Xi_array ctx out_data 0 res_len64 ctx.Xi }})
+   );
 
-  crucible_points_to_array_prefix out_ptr out_data {{ res_len64 }};
+  llvm_setup_with_tag "output buffer postcondition"
+    (crucible_points_to_array_prefix out_ptr out_data {{ res_len64 }});
 };
 
 
@@ -185,12 +188,14 @@ enable_what4_hash_consing;
  * Goal tactics.
  */
 let aesni_gcm_cipher_tactic = do {
-  simplify (addsimps [aesenc_key0_0_thm, aesenc_key0_1_thm, aesenclast_thm] empty_ss);
-  simplify (addsimps [aesenc_aesenclast_thm] empty_ss);
+//  simplify (addsimps [aesenc_key0_0_thm, aesenc_key0_1_thm, aesenclast_thm] empty_ss);
+//  simplify (addsimps [aesenc_aesenclast_thm] empty_ss);
   simplify (cryptol_ss ());
-  simplify (addsimps cipher_update_avx_thms empty_ss);
-  simplify (addsimps ctr32_encrypt_thms empty_ss);
-  goal_eval_unint ["pmult", "pmod", "gcm_polyval", "aesEncryptWithKeySchedule"];
+//  simplify (addsimps cipher_update_avx_thms empty_ss);
+//  simplify (addsimps ctr32_encrypt_thms empty_ss);
+  goal_eval_unint
+    [ "pmult", "pmod", "gcm_polyval", "aes_hw_encrypt","gcm_ghash_array_6x", "gcm_init_Htable", "gcm_init_H" ];
+
   simplify (addsimps xor_slice_append_thms basic_ss);
   simplify (addsimps slice_slice_thms empty_ss);
   simplify (addsimps xor_slice_append_thms basic_ss);
@@ -198,7 +203,7 @@ let aesni_gcm_cipher_tactic = do {
   simplify (addsimps concat_assoc_1_thms empty_ss);
   simplify (addsimps concat_assoc_2_thms empty_ss);
   simplify (addsimps [cmp_sub_thm] empty_ss);
-  w4_unint_yices ["pmult", "pmod", "gcm_polyval", "aesEncryptWithKeySchedule"];
+//  w4_unint_yices ["pmult", "pmod", "gcm_polyval", "aesEncryptWithKeySchedule"];
 };
 
 
@@ -216,16 +221,185 @@ let aesni_gcm_cipher_tactic = do {
 //   (aesni_gcm_cipher_spec {{ 0 : [32] }}) // NB enc = 0 is the spec for decryption
 //   aesni_gcm_cipher_tactic;
 
-let {{
-  // totally bogus!
-  aesni_gcm_encrypt_fixpoint : [64] -> [64]
-  aesni_gcm_encrypt_fixpoint in = complement in
+ghash_6x_unfolding_lemma <-
+  prove_print
+    do {
+      unfolding ["ecEq","gcm_ghash_array_6x"];
+      simplify (addsimp_shallow (core_thm "fix_unfold") empty_ss);
+      simplify (cryptol_ss ());
+      unfolding ["gcm_ghash_array_6x_unfold","gcm_ghash_array_6x"];
+      simplify (addsimp (core_thm "boolEq_same") (cryptol_ss ()));
+      trivial;
+    }
+    (rewrite (cryptol_ss ())
+     {{ \A H Xi inp i blocks ->
+           (A == gcm_ghash_array_6x H Xi inp i blocks) ==
+           (A == gcm_ghash_array_6x_unfold H Xi inp i blocks)
+     }});
 
-  type decryptInvariantTuple =
-    ( Array [64] [8]
+gcm_enc_blocks_6x_unfolding_lemma <-
+  prove_print
+    do {
+      unfolding ["ecEq","gcm_enc_blocks_6x"];
+      simplify (addsimp_shallow (core_thm "fix_unfold") empty_ss);
+      simplify (cryptol_ss ());
+      unfolding ["gcm_enc_blocks_6x_unfold","gcm_enc_blocks_6x"];
+      simplify (addsimp (core_thm "boolEq_same") (cryptol_ss ()));
+      trivial;
+    }
+    (rewrite (cryptol_ss ())
+     {{ \A in ctr key buf i blocks ->
+           (arrayEq A (gcm_enc_blocks_6x in ctr key buf i blocks)) ==
+           (arrayEq A (gcm_enc_blocks_6x_unfold in ctr key buf i blocks))
+     }});
+
+load_sawcore_from_file "LemmaStatements.sawcore";
+
+let prove_lemma nm unfolds =
+  prove_extcore (w4_unint_z3 [])
+    (beta_reduce_term
+      (unfold_term (concat [nm] unfolds) (parse_core_mod "LemmaStatements" nm)));
+
+Xi_ite_decompose_left_thm <-
+  prove_lemma "Xi_ite_decompose_left" [];
+
+Xi_ite_decompose_right_thm <-
+  prove_lemma "Xi_ite_decompose_right" [];
+
+gcm_ghash_6x_congruence_tm <- congruence_for {{ gcm_ghash_array_6x }};
+gcm_ghash_6x_congruence <-
+  prove_extcore (w4_unint_z3 ["gcm_ghash_array_6x"]) gcm_ghash_6x_congruence_tm;
+
+let {{
+  type invariantTuple =
+    (
+    // Output buffer
+    Array [64] [8]
+
+    // stack values
+    , [64],[64],[64],[64],[64],[64],[64],[64],[64],[64]
+    , [128],[64],[64]
+
+    // XMM registers
     , [512],[512],[512],[512],[512],[512],[512],[512],[512],[512],[512]
+
+    // general purpose registers
     , [64],[64],[64],[64],[64],[64]
     )
+
+  aesni_gcm_encrypt_invariant :
+    [64] ->
+    [32][8] ->
+    [16][8] ->
+    [16][8] ->
+    Array [64] [8] ->
+    invariantTuple ->
+    invariantTuple ->
+    Bool
+  aesni_gcm_encrypt_invariant
+    // values grabbed from the function specification precondition
+    len64 key ivec Xi in
+
+    // Initial values at the loop head
+    ( i_buf
+
+    // stack values
+    , _, _, _, _, _, _, _, _, _, _
+    , _, _, _
+
+    // XMM registers
+    , _, _, _, _, _, _, _, _, _, _, _
+
+    // GP registers
+    , _, _, _, _, _, i_blocks)
+
+    // current values at the loop head
+    ( c_buf
+
+    // stack values
+    , _, _  // I think these two correspond to scratch space, and don't need an invariant
+
+    , c_prefetch9, c_prefetch8, c_prefetch7, c_prefetch6
+    , c_prefetch5, c_prefetch4, c_prefetch3, c_prefetch2
+
+    , c_spill_Z3 // spill location for $Z3 = %xmm7
+                 // part of the "modulo-scheduled" computation for Xi
+
+    , c_prefetch1, c_prefetch0
+
+    // XMM registers
+    , c_rndkey, c_inout5, c_inout4, c_inout3, c_inout2
+    , c_inout1, c_inout0, c_Xi, c_Z3, c_Z0, c_T1
+
+    // GP registers
+    , c_a, c_b, c_c, c_d, c_counter, c_blocks) =
+
+      // as the loop progresses, the current value of "blocks" decreases
+      // from the initial value, and they always differ by a multiple of 6
+      (  i_blocks >= c_blocks /\ processed_blocks%6 == 0
+
+      /\ c_a == offset
+      /\ c_b == offset + 192
+      /\ c_c == offset + 192
+      /\ c_d == offset + 192
+
+      // c_counter = $counter, it implements the 32-bit counter and is used to keep track of
+      // when the top byte overflows so that fixup steps are needed. Only the top byte
+      // is updated, as the only purpose of this counter is to track when overflows occur.
+
+      /\ c_counter == zext (join (reverse (drop`{12} ivec)) + (drop`{32} (processed_blocks + 12) << 24))
+
+      // The first 16 bytes of the key are stored in this XMM register
+      // at the begining of the loop
+
+      /\ c_rndkey == zext (join (reverse (take`{16} key)))
+
+      // The values for the IV/counter are stored in these
+      // collection of XMM registers
+
+      /\ c_T1 == zext iv
+
+      /\ c_inout5 == zext (iv + (0x05 # zero))
+      /\ c_inout4 == zext (iv + (0x04 # zero))
+      /\ c_inout3 == zext (iv + (0x03 # zero))
+      /\ c_inout2 == zext (iv + (0x02 # zero))
+      /\ c_inout1 == zext (iv + (0x01 # zero))
+
+      /\ c_inout0 == c_T1 ^ c_rndkey // xor key iv
+
+      // The data to process in this iteration has already been prefetched
+      // and byte-swapped into locations on the stack, or in the case of I[5],
+      // into a register
+
+      /\ c_prefetch0  == join (arrayRangeLookup`{n=8} c_buf (offset + zext 0x00))
+      /\ c_prefetch1  == join (arrayRangeLookup`{n=8} c_buf (offset + zext 0x08))
+      /\ c_prefetch2  == join (arrayRangeLookup`{n=8} c_buf (offset + zext 0x10))
+      /\ c_prefetch3  == join (arrayRangeLookup`{n=8} c_buf (offset + zext 0x18))
+      /\ c_prefetch4  == join (arrayRangeLookup`{n=8} c_buf (offset + zext 0x20))
+      /\ c_prefetch5  == join (arrayRangeLookup`{n=8} c_buf (offset + zext 0x28))
+      /\ c_prefetch6  == join (arrayRangeLookup`{n=8} c_buf (offset + zext 0x30))
+      /\ c_prefetch7  == join (arrayRangeLookup`{n=8} c_buf (offset + zext 0x38))
+      /\ c_prefetch8  == join (arrayRangeLookup`{n=8} c_buf (offset + zext 0x40))
+      /\ c_prefetch9  == join (arrayRangeLookup`{n=8} c_buf (offset + zext 0x48))
+
+      // NB, this is an entire 128-bit block
+      /\ c_Z3 == zext (join (arrayRangeLookup`{n=16} c_buf (offset + zext 0x50)))
+
+      )
+
+   where processed_blocks = i_blocks - c_blocks
+         offset = processed_blocks * 16
+         end = len64 - 96
+
+	 iv : [128]
+	 iv = join (reverse (take`{12} ivec # split ctr))
+
+	 ctr : [32]
+	 ctr = i_ctr + drop`{32} processed_blocks + 12
+
+	 i_ctr : [32]
+	 i_ctr = join (drop`{12} ivec)
+
 
   aesni_gcm_decrypt_invariant :
     [64] ->
@@ -233,65 +407,128 @@ let {{
     [16][8] ->
     [16][8] ->
     Array [64] [8] ->
-    decryptInvariantTuple ->
-    decryptInvariantTuple ->
+    invariantTuple ->
+    invariantTuple ->
     Bool
-  aesni_gcm_decrypt_invariant len64 key ivec Xi in
-    ( i_buf
-    , i_xmma, i_xmmb, i_xmmc, i_xmmd, i_xmme
-    , i_xmmf, i_xmmg, i_xmmh, i_xmmi, i_xmmj, i_xmmk
-    , i_a, i_b, i_c, i_d, i_e, i_blocks)
+  aesni_gcm_decrypt_invariant
+    // values grabbed from the function specification precondition
+    len64 key ivec Xi in
 
+    // Initial values at the loop head
+    ( i_buf
+
+    // stack values
+    , _, _, _, _, _, _, _, _, _, _
+    , _, _, _
+
+    // XMM registers
+    , _, _, _, _, _, _, _, _, _, _, _
+
+    // GP registers
+    , _, _, _, _, _, i_blocks)
+
+    // current values at the loop head
     ( c_buf
-    , c_xmma, c_xmmb, c_xmmc, c_xmmd, c_xmme
-    , c_xmmf, c_xmmg, c_xmmh, c_xmmi, c_xmmj, c_xmmk
-    , c_a, c_b, c_c, c_d, c_e, c_blocks) =
+
+    // stack values
+    , _, _  // I think these two correspond to scratch space, and don't need an invariant
+
+    , c_prefetch9, c_prefetch8, c_prefetch7, c_prefetch6
+    , c_prefetch5, c_prefetch4, c_prefetch3, c_prefetch2
+
+    , c_spill_Z3 // spill location for $Z3 = %xmm7
+                 // part of the "modulo-scheduled" computation for Xi
+
+    , c_prefetch1, c_prefetch0
+
+    // XMM registers
+    , c_rndkey, c_inout5, c_inout4, c_inout3, c_inout2
+    , c_inout1, c_inout0, c_Xi, c_Z3, c_Z0, c_T1
+
+    // GP registers
+    , c_a, c_b, c_c, c_d, c_counter, c_blocks) =
 
       // as the loop progresses, the current value of "blocks" decreases
       // from the initial value, and they always differ by a multiple of 6
 
-         i_blocks >= c_blocks /\ processed_blocks%6 == 0
+      (  i_blocks >= c_blocks /\ processed_blocks%6 == 0
 
       // These registers represent indices into various arrays
       // Mostly, they increase in lockstep with the block count.
       // However, the c_a register runs ahead for prefetch, except on
       // the final iteration, where it is equal to the others.
 
-      /\ (if c_b <= end then c_a == c_b else c_a+96 == c_b)
-      /\ c_b == processed_blocks*16
-      /\ c_c == processed_blocks*16
-      /\ c_d == processed_blocks*16
+      /\ (if offset <= end then c_a == offset else c_a+96 == offset)
+      /\ c_b == offset
+      /\ c_c == offset
+      /\ c_d == offset
 
-      // c_e = $counter, it implements the 32-bit counter and is used to keep track of
+      // c_counter = $counter, it implements the 32-bit counter and is used to keep track of
       // when the top byte overflows so that fixup steps are needed. Only the top byte
       // is updated, as the only purpose of this counter is to track when overflows occur.
 
-      /\ c_e == zext (join (reverse (drop`{12} ivec)) + (drop`{32} processed_blocks << 24))
+      /\ c_counter == zext (join (reverse (drop`{12} ivec)) + (drop`{32} processed_blocks << 24))
 
-      // The first 16 bytes of the key are stored in this XMM register at the begining of the loop
+      // The first 16 bytes of the key are stored in this XMM register
+      // at the begining of the loop
 
-      /\ c_xmma == zext (join (reverse (take`{16} key)))
+      /\ c_rndkey == zext (join (reverse (take`{16} key)))
 
       // The values for the IV/counter are stored in these
       // collection of XMM registers
 
-      /\ drop`{512-128} c_xmmb == iv + (0x05 # zero)
-      /\ drop`{512-128} c_xmmc == iv + (0x04 # zero)
-      /\ drop`{512-128} c_xmmd == iv + (0x03 # zero)
-      /\ drop`{512-128} c_xmme == iv + (0x02 # zero)
-      /\ drop`{512-128} c_xmmf == iv + (0x01 # zero)
-      /\ drop`{512-128} c_xmmk == iv
+      /\ c_T1 == zext iv
 
-      /\ c_xmmg == c_xmmk ^ c_xmma // xor key iv,  inout0?
+      /\ c_inout5 == zext (iv + (0x05 # zero))
+      /\ c_inout4 == zext (iv + (0x04 # zero))
+      /\ c_inout3 == zext (iv + (0x03 # zero))
+      /\ c_inout2 == zext (iv + (0x02 # zero))
+      /\ c_inout1 == zext (iv + (0x01 # zero))
+      /\ c_inout0 == c_T1 ^ c_rndkey // xor key iv
 
-//	 /\ c_xmmh == current Xi   // Xi?
+      // The data to process in this iteration has already been prefetched
+      // and byte-swapped into locations on the stack, or in the case of I[5],
+      // into a register
 
-//       /\ c_xmmi == prefetched block of in [80 .. 95], incidental?
+      /\ c_prefetch0  == join (arrayRangeLookup`{n=8} in (offset + zext 0x00))
+      /\ c_prefetch1  == join (arrayRangeLookup`{n=8} in (offset + zext 0x08))
+      /\ c_prefetch2  == join (arrayRangeLookup`{n=8} in (offset + zext 0x10))
+      /\ c_prefetch3  == join (arrayRangeLookup`{n=8} in (offset + zext 0x18))
+      /\ c_prefetch4  == join (arrayRangeLookup`{n=8} in (offset + zext 0x20))
+      /\ c_prefetch5  == join (arrayRangeLookup`{n=8} in (offset + zext 0x28))
+      /\ c_prefetch6  == join (arrayRangeLookup`{n=8} in (offset + zext 0x30))
+      /\ c_prefetch7  == join (arrayRangeLookup`{n=8} in (offset + zext 0x38))
+      /\ c_prefetch8  == join (arrayRangeLookup`{n=8} in (offset + zext 0x40))
+      /\ c_prefetch9  == join (arrayRangeLookup`{n=8} in (offset + zext 0x48))
 
-//      /\ c_xmmj == 0 init, clmul of some stuff on loop backedge, Z3? incidental?
+      // NB, this is an entire 128-bit block
+      /\ c_Z3 == zext (join (arrayRangeLookup`{n=16} in (offset + zext 0x50)))
+
+      )
+
+      // Main invariant regarding the output buffer
+//      /\ arrayEq
+//           (gcm_enc_blocks_6x in iv rndkeys i_buf 0 i_blocks)
+//           (gcm_enc_blocks_6x in iv rndkeys c_buf processed_blocks i_blocks)
+
+      // Main invariant regarding Xi
+
+//      /\ gcm_ghash_array_6x H (join Xi) in 0 i_blocks ==
+//         gcm_ghash_array_6x H current_Xi in processed_blocks i_blocks
 
    where processed_blocks = i_blocks - c_blocks
+         offset = processed_blocks * 16
          end = len64 - 96
+
+	 H = join (aes_hw_encrypt zero key)
+
+         rndkeys = map stateToMsg_x86 ([rk0]#rks#[rkn])
+	 (rk0,rks,rkn) = ExpandKey (join key)
+
+	 // The value in the Xi register lags behind, so the actual
+	 // current Xi value appears to be c_Xi ^ c_Z0 ^ c_spill_Z3
+	 current_Xi : [128]
+	 current_Xi = c_spill_Z3 ^ (drop c_Z0 ^ drop c_Xi)
 
 	 iv : [128]
 	 iv = join (reverse (take`{12} ivec # split ctr))
@@ -305,31 +542,47 @@ let {{
 }};
 
 
-// Register use notes:
-//  $len = %rdx
-//    number of blocks remaining to process.  Goes down by 6 on each iteration
-//  $counter = %ebx
-//    32-bit counter in network-byte-order.  Stays in sync with $T2
-//  $ivp = %r8
-//    pointer to memory storing IV value
-
-//  $T1 = %xmm1
-//    network-byte-order IV, including counter
-//    stored on the stack as well, at ($ivp = %r8)
-//  $T2 = %xmm2
-//    constant value, .Lone_msb for incrementing the
-//    top byte of the counter value in $T1
-//  
-
 
 ite_lemma_term <- parse_core " (x : Bool) -> (y : Bool) -> (z : Bool) -> EqTrue (implies x y) -> EqTrue (implies (not x) z) -> EqTrue (ite Bool x y z)";
 ite_lemma <- prove_extcore z3 ite_lemma_term;
 
 
 let go =
-  w4_unint_yices ["clmul","get_Htable","aes_hw_ctr32_encrypt_blocks_array"];
+  w4_unint_yices
+    ["clmul","get_Htable","aes_hw_ctr32_encrypt_blocks_array","gcm_ghash_array_6x","aes_hw_encrypt","gcm_enc_blocks_6x","aesenc","aesenclast"];
 
-// New fancy fixpoint stuff
+
+
+aesni_gcm_encrypt_ov <- llvm_verify_fixpoint_x86_ex
+  m "../../build/x86/crypto/crypto_test" "aesni_gcm_encrypt"
+  [ ("aesni_gcm_encrypt", 1200) // we need .Lbswap_mask, which lives in .text after aesni_gcm_encrypt (1081 bytes itself). 1200 bytes is an arbitrary size that I guessed would be large enough to contain the right bytes after alignment.
+  ]
+  true
+  ("_aesni_ctr32_ghash_6x", {{ aesni_gcm_encrypt_invariant }})
+  (aesni_gcm_cipher_spec {{ 1 : [32] }}) // NB enc = 1 is the spec for decryption
+  do { print_goal_summary;
+       loop_inv0 <- goal_has_some_tag ["initial loop invariant"];
+       loop_inv  <- goal_has_some_tag ["inductive loop invariant"];
+       Xi_post   <- goal_has_some_tag ["Xi postcondition"];
+       out_post  <- goal_has_some_tag ["output buffer postcondition"];
+       if loop_inv0 then do {
+         return (run (print "<<initial loop invariant>>"));
+	 go;
+       } else if loop_inv then do {
+         return (run (print "<<inductive loop invariant>>"));
+         go;
+       } else if Xi_post then do {
+         return (run (print "<<Xi post>>"));
+         admit "Xi post";
+       } else if out_post then do {
+         return (run (print "<<output buffer post>>"));
+         admit "output buffer post";
+       } else do {
+         go;
+	 // admit "skipping";
+       };
+    };
+
 aesni_gcm_decrypt_ov <- llvm_verify_fixpoint_x86_ex
   m "../../build/x86/crypto/crypto_test" "aesni_gcm_decrypt"
   [ ("aesni_gcm_encrypt", 1200) // we need .Lbswap_mask, which lives in .text after aesni_gcm_encrypt (1081 bytes itself). 1200 bytes is an arbitrary size that I guessed would be large enough to contain the right bytes after alignment.
@@ -338,19 +591,67 @@ aesni_gcm_decrypt_ov <- llvm_verify_fixpoint_x86_ex
   ("_aesni_ctr32_ghash_6x", {{ aesni_gcm_decrypt_invariant }})
   (aesni_gcm_cipher_spec {{ 0 : [32] }}) // NB enc = 1 is the spec for decryption
   do { print_goal_summary;
-       n <- goal_num;
-       if eval_bool {{ `n == 11 \/ `n == 67 \/ `n >= 82 }} then do
-//       if eval_bool {{ `n == 15 \/ `n == 67 \/ `n >= 82 }} then do
-//       if eval_bool {{ `n == 67 \/ `n >= 82 }} then do
-//       if eval_bool {{ `n >= 82 }} then do
-       { normalize_sequent;
-         print_goal;
-       	 proof_subshell ();
+       loop_inv0 <- goal_has_some_tag ["initial loop invariant"];
+       loop_inv  <- goal_has_some_tag ["inductive loop invariant"];
+       Xi_post   <- goal_has_some_tag ["Xi postcondition"];
+       out_post  <- goal_has_some_tag ["output buffer postcondition"];
+
+       if loop_inv0 then do
+       { return (run (print "<<initial loop invariant>>"));
+         go; 
+       } else if loop_inv then do
+       { return (run (print "<<inductive loop invariant>>"));
+         go;
+       } else if Xi_post then do {
+         return (run (print "<<Xi post>>"));
+         admit "Xi post";
+       } else if out_post then do {
+         return (run (print "<<output buffer post>>"));
+         admit "output buffer post";
        } else do {
-         admit "skipping";
-         //w4_unint_yices ["clmul","get_Htable","aes_hw_ctr32_encrypt_blocks_array"];
+         go;
+	 // admit "skipping";
        };
-     };
+   };
+
+
+//        { // inductive loop invariant
+//          unfolding ["aesni_gcm_decrypt_invariant"];
+//          beta_reduce_goal;
+//          simplify (cryptol_ss ());
+//        	 normalize_sequent;
+//        	 focus_hyp 4;
+//        	 unfolding ["/\\"];
+//          simplify (cryptol_ss ());
+
+// //	 simplify (addsimp gcm_enc_blocks_6x_unfolding_lemma empty_ss);
+// //	 unfolding ["gcm_enc_blocks_6x_unfold"];
+
+//        	 simplify (addsimp ghash_6x_unfolding_lemma empty_ss);
+//        	 unfolding ["gcm_ghash_array_6x_unfold"];
+
+//        	 beta_reduce_goal;
+// 	 split_goal;
+//        	 focus_concl 2;
+//        	 unfolding ["/\\"];
+//        	 beta_reduce_goal;
+//        	 split_goal;
+// 	 simplify_local [4] (cryptol_ss ());
+//        	 proof_subshell ();  //admit "Xi goal!"
+
+
+//        if eval_bool {{ `n == 11 \/ `n == 67 \/ `n >= 82 }} then do
+// //       if eval_bool {{ `n == 15 \/ `n == 67 \/ `n >= 82 }} then do
+// //       if eval_bool {{ `n == 67 \/ `n >= 82 }} then do
+// //       if eval_bool {{ `n >= 82 }} then do
+//        { // normalize_sequent;
+//          print_goal;
+//        	 proof_subshell ();
+//        } else do {
+//          admit "skipping";
+
+//        };
+
   // aesni_gcm_cipher_tactic;
 
 

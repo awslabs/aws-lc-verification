@@ -134,6 +134,9 @@ gcm_init_Htable h0 = [h0, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11]
 gcm_gmult : [128] -> [16][8] -> [16][8]
 gcm_gmult H Xi = split (gcm_polyval H (join Xi))
 
+gcm_ghash_block : [128] -> [16][8] -> [16][8] -> [16][8]
+gcm_ghash_block H Xi inp = split (gcm_polyval H ((join Xi) ^ (join inp)))
+
 gcm_ghash : {n} (fin n) => [128] -> [16][8] -> [n * 16][8] -> [16][8]
 gcm_ghash H Xi inp = foldl (gcm_ghash_block H) Xi (split inp)
 
@@ -149,11 +152,15 @@ gcm_ghash_array_eq_property H Xi inp =
   gcm_ghash_array H Xi inp 0 `blocks ==
   gcm_ghash`{n=blocks} H Xi (arrayRangeLookup`{n=blocks*16} inp 0)
 
-gcm_ghash_block : [128] -> [16][8] -> [16][8] -> [16][8]
-gcm_ghash_block H Xi inp = split (gcm_polyval H ((join Xi) ^ (join inp)))
 
-
-
+// Restatement of gcm_ghash_array, useful for stating/proving
+// the fixpoint lemma
+gcm_ghash_array_unfold : [128] -> [16][8] -> Array [64] [8] -> [64] -> [64] -> [16][8]
+gcm_ghash_array_unfold H Xi inp i blocks =
+  if i < blocks then
+    gcm_ghash_array H (gcm_ghash_block H Xi (arrayRangeLookup inp (i * 16) : [16][8])) inp (i+1) blocks
+  else
+    Xi
 
 /*
  * AES_GCM context specification helpers.
