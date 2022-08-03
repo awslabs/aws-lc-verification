@@ -32,6 +32,7 @@ import "../../../cryptol-specs/Primitive/Symmetric/Cipher/Authenticated/AES_256_
 import "../../spec/AES/X86.cry";
 import "../../spec/AES/AES-GCM.cry";
 
+let AES_BLOCK_SIZE = 16;
 
 enable_experimental;
 
@@ -41,13 +42,12 @@ set_path_sat_solver "yices";
 disable_debug_intrinsics;
 
 m <- llvm_load_module "../../build/llvm/crypto/crypto_test.bc";
-
 print "loaded bitcode";
 
 include "../common/helpers.saw";
 include "../common/memory.saw";
 
-// Diasable proofs for now!
+
 let do_prove = false;
 
 include "goal-rewrites.saw";
@@ -74,19 +74,20 @@ let aes_iv_len = 12;
 
 include "AES.saw";
 
-// let's actually do proofs again...
-//let do_prove = true;
-//interactive ();
-
-include "GHASH.saw";
-
 include "AES-invariants.saw";
+
+//let do_prove = true;
+interactive ();
+
+include "Lemmas.saw";
 
 include "AESNI-GCM.saw";
 
 include "AES-HW-CTR.saw";
 
-// let's actually do proofs again...
+include "GHASH.saw";
+
+
 let do_prove = true;
 
 include "evp-function-specs.saw";

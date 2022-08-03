@@ -10,6 +10,7 @@ import Array
 import Primitive::Symmetric::Cipher::Block::AES
 import Primitive::Symmetric::Cipher::Authenticated::AES_256_GCM
 import AES_GCM
+import X86
 
 
 
@@ -101,6 +102,24 @@ aesni_gcm_cipher_block6 karatsuba Htable Xi blks = Xi_6
     Xi_6 = gcm_polyval_red_pmult (Xi_0 ^ Xi_1 ^ Xi_2 ^ Xi_3 ^ Xi_4 ^ Xi_5)
 
 
+gcm_ghash_array_internal : [128] -> [128] -> Array [64] [8] -> [64] -> [64] -> [128]
+gcm_ghash_array_internal H Xi inp i blocks =
+  if i < blocks then
+    gcm_ghash_array_internal H 
+      (gcm_polyval H (Xi ^ (join (arrayRangeLookup inp (i*16)))))
+      inp (i+1) blocks
+  else
+    Xi
+
+gcm_ghash_array_internal_unfold : [128] -> [128] -> Array [64] [8] -> [64] -> [64] -> [128]
+gcm_ghash_array_internal_unfold H Xi inp i blocks =
+  if i < blocks then
+    gcm_ghash_array_internal H 
+      (gcm_polyval H (Xi ^ (join (arrayRangeLookup inp (i*16)))))
+      inp (i+1) blocks
+  else
+    Xi
+
 // Here is an alternate definition that unfolds 6 times
 gcm_ghash_array_6x : [128] -> [128] -> Array [64] [8] -> [64] -> [64] -> [128]
 gcm_ghash_array_6x H Xi inp i blocks =
@@ -122,15 +141,54 @@ gcm_ghash_array_6x_unfold H Xi inp i blocks =
   else
     Xi
 
-gcm_enc_blocks_6x : Array [64] [8] -> [128] -> [15][128] -> Array [64] [8] -> [64] -> [64] -> Array [64] [8]
-gcm_enc_blocks_6x in ctr rndkeys buf i blocks =
+enc_block : [128] -> [15][128] -> [128]
+enc_block blk rndkeys =
+  (aesenclast
+   (aesenc
+     (aesenc
+      (aesenc
+       (aesenc
+	 (aesenc
+	  (aesenc
+	   (aesenc
+	    (aesenc
+	     (aesenc
+	      (aesenc
+	       (aesenc
+	        (aesenc
+		 (aesenc
+		  (( (rndkeys@0)) ^ blk)
+		  ( (rndkeys@1)))
+		 ( (rndkeys@2)))
+	        ( (rndkeys@3)))
+	       ( (rndkeys@4)))
+	      ( (rndkeys@5)))
+	     ( (rndkeys@6)))
+	    ( (rndkeys@7)))
+	   ( (rndkeys@8)))
+	  ( (rndkeys@9)))
+	 ( (rndkeys@10)))
+       ( (rndkeys@11)))
+      ( (rndkeys@12)))
+    ( (rndkeys@13)))
+  ( (rndkeys@14)))
+  
+
+aes_round_keys : [32][8] -> [15][128]
+aes_round_keys key = map stateToMsg_x86 ([rk0]#rks#[rkn])
+ where
+   (rk0,rks,rkn) = ExpandKey (join key)
+
+gcm_enc_blocks_6x : Array [64] [8] -> [12][8] -> [32] -> [15][128] -> Array [64] [8] -> [64] -> [64] -> Array [64] [8]
+gcm_enc_blocks_6x in iv ctr rndkeys buf i blocks =
   if blocks - i >= 6 then
-    gcm_enc_blocks_6x in (ctr + 6) rndkeys
+    gcm_enc_blocks_6x in iv (ctr+6) rndkeys
       (foldl
-        (\arr j -> arrayRangeUpdate arr ((i+j)*16)
-	  ((reverse (split (aesEncryptWithKeySchedule (swap8 (ctr + zext j))
-	           (aes_key_to_schedule rndkeys))))
-           ^ arrayRangeLookup in ((i+j)*16))
+        (\arr j ->
+	  arrayRangeUpdate arr ((i+zext j)*16) (reverse (split
+ 	   ((enc_block (join (reverse (iv # split (ctr+j)))) rndkeys)
+ 	    ^
+ 	    join (reverse (arrayRangeLookup in ((i+zext j)*16))))))
 	)
         buf
         [ 0 .. 5 ])
@@ -139,15 +197,16 @@ gcm_enc_blocks_6x in ctr rndkeys buf i blocks =
   else
     buf
 
-gcm_enc_blocks_6x_unfold : Array [64] [8] -> [128] -> [15][128] -> Array [64] [8] -> [64] -> [64] -> Array [64] [8]
-gcm_enc_blocks_6x_unfold in ctr rndkeys buf i blocks =
+gcm_enc_blocks_6x_unfold : Array [64] [8] -> [12][8] -> [32] -> [15][128] -> Array [64] [8] -> [64] -> [64] -> Array [64] [8]
+gcm_enc_blocks_6x_unfold in iv ctr rndkeys buf i blocks =
   if blocks - i >= 6 then
-    gcm_enc_blocks_6x in (ctr + 6) rndkeys
+    gcm_enc_blocks_6x in iv (ctr+6) rndkeys
       (foldl
-        (\arr j -> arrayRangeUpdate arr ((i+j)*16)
-	  ((reverse (split (aesEncryptWithKeySchedule (swap8 (ctr + zext j))
-	           (aes_key_to_schedule rndkeys))))
-           ^ arrayRangeLookup in ((i+j)*16))
+        (\arr j ->
+	  arrayRangeUpdate arr ((i+zext j)*16) (reverse (split
+ 	   ((enc_block (join (reverse (iv # split (ctr+j)))) rndkeys)
+ 	    ^
+ 	    join (reverse (arrayRangeLookup in ((i+zext j)*16))))))
 	)
         buf
         [ 0 .. 5 ])

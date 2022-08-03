@@ -1,3 +1,5 @@
+// TODO, put this somewhere else
+let MAX_BLOCKS_AFTER_BULK = 18;
 
 /*
  *
@@ -51,37 +53,42 @@ let aes_hw_ctr32_encrypt_blocks_concrete_spec blocks = do {
   crucible_execute_func [in_ptr, out_ptr, crucible_term {{ `blocks:[64] }}, key_ptr, ivec_ptr];
 
   let out_data = {{ aes_hw_ctr32_encrypt_blocks_array in_ key ivec 0 `blocks out_ }};
-  crucible_points_to_array_prefix out_ptr out_data {{ len }};
+  llvm_setup_with_tag "output buffer postcondition"
+    (crucible_points_to_array_prefix out_ptr out_data {{ len }});
 
   global_alloc_init "OPENSSL_ia32cap_P" {{ ia32cap }};
 };
 
 
-aes_hw_ctr32_eq_thms <-
-  for (eval_list {{ [1..MAX_BLOCKS_AFTER_BULK:[16]] }}) (\i ->
-    do { let blocks = eval_int i;
-         print (str_concat "aes_hw_ctr32 eq lemma: " (show blocks));
-         prove_theorem
-           do { goal_normalize ["aes_hw_encrypt"]; trivial; }
-           (rewrite (cryptol_ss ())
-            (unfold_term ["aes_hw_ctr32_eq_property"]
-             (term_apply {{ aes_hw_ctr32_eq_property`{blocks=blocks} }}
-	                 [ parse_core "arrayEq (Vec 64 Bool) (Vec 8 Bool)" ]
-             )));
-       });
+// let aes_hw_ctr32_eq_thms = [];
 
-aes_hw_ctr32_copy_thms <-
-  for (eval_list {{ [1..MAX_BLOCKS_AFTER_BULK:[16]] }}) (\i ->
-    do { let blocks = eval_int i;
-         print (str_concat "aes_hw_ctr32 copy lemma: " (show blocks));
-         prove_theorem
-           do { w4_unint_z3 ["aes_hw_encrypt"]; }
-           (rewrite (cryptol_ss ())
-            (unfold_term ["aes_hw_ctr32_copy_property"]
-             (term_apply {{ aes_hw_ctr32_copy_property`{blocks=blocks} }}
-	                 [ parse_core "arrayEq (Vec 64 Bool) (Vec 8 Bool)" ]
-             )));
-       });
+// aes_hw_ctr32_eq_thms <-
+//   for (eval_list {{ [1..MAX_BLOCKS_AFTER_BULK:[16]] }}) (\i ->
+//     do { let blocks = eval_int i;
+//          print (str_concat "aes_hw_ctr32 eq lemma: " (show blocks));
+//          prove_theorem
+//            do { goal_normalize ["aes_hw_encrypt"]; trivial; }
+//            (rewrite (cryptol_ss ())
+//             (unfold_term ["aes_hw_ctr32_eq_property"]
+//              (term_apply {{ aes_hw_ctr32_eq_property`{blocks=blocks} }}
+// 	                 [ parse_core "arrayEq (Vec 64 Bool) (Vec 8 Bool)" ]
+//              )));
+//        });
+
+// // let aes_hs_ctr32_copy_thms = [];
+// aes_hw_ctr32_copy_thms <-
+
+//   for (eval_list {{ [1..MAX_BLOCKS_AFTER_BULK:[16]] }}) (\i ->
+//     do { let blocks = eval_int i;
+//          print (str_concat "aes_hw_ctr32 copy lemma: " (show blocks));
+//          prove_theorem
+//            do { w4_unint_z3 ["aes_hw_encrypt"]; }
+//            (rewrite (cryptol_ss ())
+//             (unfold_term ["aes_hw_ctr32_copy_property"]
+//              (term_apply {{ aes_hw_ctr32_copy_property`{blocks=blocks} }}
+// 	                 [ parse_core "arrayEq (Vec 64 Bool) (Vec 8 Bool)" ]
+//              )));
+//        });
 
 
 let original_aes_hw_ctr32_encrypt_blocks_spec blocks = do {
@@ -101,6 +108,115 @@ let original_aes_hw_ctr32_encrypt_blocks_spec blocks = do {
 
   global_alloc_init "OPENSSL_ia32cap_P" {{ ia32cap }};
 };
+
+let {{
+  bswap4 : [32] -> [32]
+  bswap4 x = join (reverse ((split x):[4][8]))
+
+  type aes_hw_ctr32_invariant_tuple =
+    ( Array [64] [8]
+    , [32], [32]
+    , [512], [512], [512], [512], [512], [512], [512], [512]
+    , [512], [512], [512], [512], [512], [512], [512], [512]
+    , [64], [64], [64], [64]
+    )
+
+  aes_hw_ctr32_encrypt_blocks_invariant :
+    Array [64] [8] ->
+    [32][8] ->
+    [16][8] ->
+    aes_hw_ctr32_invariant_tuple ->
+    aes_hw_ctr32_invariant_tuple ->
+    Bool
+  aes_hw_ctr32_encrypt_blocks_invariant in key ivec
+    ( i_buf, _, _
+    , _, _, _, _, _, _, _, _
+    , _, _, _, _, _, _, _, _    
+    , _, _, _, i_blocks )
+    
+    ( c_buf
+    , c_temp1, c_temp2
+
+    , _, _, _, _, _, _, _, _ // junk values?
+
+    , xmm7, xmm6, xmm5, xmm4, xmm3, xmm2, xmm1, xmm0
+
+    , c_cnt, c_off1, c_off2 , c_blocks )
+
+    =
+       i_blocks >= c_blocks
+    /\ processed_blocks%8 == 0
+    /\ c_off1 == offset
+    /\ c_off2 == offset
+    /\ c_cnt  == zext cnt
+
+    /\ c_temp1 == cnt_and_key 6
+    /\ c_temp2 == cnt_and_key 7
+
+    // xmm0 and xmm1 seem to just be scratch registers at this point?
+
+    /\ drop`{512-128} xmm2 == ivec_and_key 0
+    /\ drop`{512-128} xmm3 == ivec_and_key 1
+    /\ drop`{512-128} xmm4 == ivec_and_key 2
+    /\ drop`{512-128} xmm5 == ivec_and_key 3
+    /\ drop`{512-128} xmm6 == ivec_and_key 4
+    /\ drop`{512-128} xmm7 == ivec_and_key 5
+
+// Now to actually reason about the encryption...
+//    /\ arrayEq (aes_hw_ctr32_encrypt_blocks_array in key ivec 0 (i_blocks+8) i_buf)
+//               (aes_hw_ctr32_encrypt_blocks_array in key ivec processed_blocks (i_blocks+8) c_buf)
+
+    where
+      top_ivec_and_key : [96]
+      top_ivec_and_key = join (reverse (take`{12} ivec)) ^ join (reverse (take`{12} key))
+
+      cnt_and_key : [32] -> [32]
+      cnt_and_key i = (bswap4 (cnt + i)) ^ (join (reverse (take`{4} (drop`{12} key))))
+
+      ivec_and_key : [32] -> [128]
+      ivec_and_key i = cnt_and_key i # top_ivec_and_key
+
+      processed_blocks = i_blocks - c_blocks
+      offset = processed_blocks * 16
+      i_cnt = join (drop`{12} ivec)
+      cnt = i_cnt + drop`{32} processed_blocks
+
+}};
+
+let go = w4_unint_yices
+  [ "aes_hw_ctr32_encrypt_blocks_array","ExpandKey","aesenc","aesenclast"
+  , "AESRound", "AESFinalRound"
+  ];
+
+add_x86_preserved_reg "r11";
+
+asdfasdf <- llvm_verify_fixpoint_x86_ex
+  m "../../build/x86/crypto/crypto_test" "aes_hw_ctr32_encrypt_blocks"
+    []
+    true
+    ("aes_hw_ctr32_encrypt_blocks", 2, {{ aes_hw_ctr32_encrypt_blocks_invariant }})
+    aes_hw_ctr32_encrypt_blocks_spec
+    do {
+      loop_inv0 <- goal_has_some_tag ["initial loop invariant"];
+      loop_inv  <- goal_has_some_tag ["inductive loop invariant"];
+      out_goal  <- goal_has_some_tag ["output buffer"];
+      if loop_inv0 then do {
+        return (run (print "<<initial loop invariant>>"));
+      	proof_subshell ();
+      } else if loop_inv then do {
+        return (run (print "<<inductive loop invariant>>"));
+      	proof_subshell ();
+      } else if out_goal then do {
+        return (run (print "<<output buffer goal>>"));
+	proof_subshell ();
+      } else do {
+         print_goal_summary;
+//	 go;
+        admit "Skipping";
+      };
+    };
+
+default_x86_preserved_reg;
 
 /*
 When verifying aes_hw_ctr32_encrypt_blocks, the binary analysis must locally
@@ -127,26 +243,46 @@ aes_hw_ctr32_encrypt_blocks_concrete_ovs <-
   for (eval_list {{ [1..MAX_BLOCKS_AFTER_BULK:[16]] }}) (\i -> do
   { let blocks = eval_int i;
     print (str_concat "aes_hw_ctr32_encrypt lemma: " (show blocks));
-    ov <- if eval_bool {{ i > 3 }} then
-            crucible_llvm_unsafe_assume_spec m "aes_hw_ctr32_encrypt_blocks"
-              (original_aes_hw_ctr32_encrypt_blocks_spec blocks)
-          else
-            llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "aes_hw_ctr32_encrypt_blocks"
-              []
-              true
-              (original_aes_hw_ctr32_encrypt_blocks_spec blocks)
-              aes_hw_ctr32_tactic;
-    llvm_refine_spec m "aes_hw_ctr32_encrypt_blocks" [ov]
-      (aes_hw_ctr32_encrypt_blocks_concrete_spec blocks)
-      do {
-        simplify (addsimps aes_hw_ctr32_eq_thms (cryptol_ss ()));
-	w4_unint_z3 ["aes_hw_ctr32_encrypt_blocks"];
-      };
-  });
+    if eval_bool {{ i > 18 }} then
+      crucible_llvm_unsafe_assume_spec m "aes_hw_ctr32_encrypt_blocks"
+        (aes_hw_ctr32_encrypt_blocks_concrete_spec blocks)
+    else do {
+      ov <- llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "aes_hw_ctr32_encrypt_blocks"
+        []
+        true
+        (original_aes_hw_ctr32_encrypt_blocks_spec blocks)
+        aes_hw_ctr32_tactic;
+      llvm_refine_spec m "aes_hw_ctr32_encrypt_blocks" [ov]
+        (aes_hw_ctr32_encrypt_blocks_concrete_spec blocks)
+        do { simplify (addsimps aes_hw_ctr32_eq_thms (cryptol_ss ()));
+      	     w4_unint_z3 ["aes_hw_ctr32_encrypt_blocks"];
+    	   };
+    };
+ });
+
+    // ov <- if eval_bool {{ i > 6 }} then
+    //         crucible_llvm_unsafe_assume_spec m "aes_hw_ctr32_encrypt_blocks"
+    //           (original_aes_hw_ctr32_encrypt_blocks_spec blocks)
+    //       else
+    //         llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "aes_hw_ctr32_encrypt_blocks"
+    //           []
+    //           true
+    //           (original_aes_hw_ctr32_encrypt_blocks_spec blocks)
+    //           aes_hw_ctr32_tactic;
+    // llvm_refine_spec m "aes_hw_ctr32_encrypt_blocks" [ov]
+    //   (aes_hw_ctr32_encrypt_blocks_concrete_spec blocks)
+    //   do {
+    //     simplify (addsimps aes_hw_ctr32_eq_thms (cryptol_ss ()));
+    // 	w4_unint_z3 ["aes_hw_ctr32_encrypt_blocks"];
+    //   };
+  // });
 
 default_x86_preserved_reg;
 
 aes_hw_ctr32_encrypt_blocks_ov <-
+  // crucible_llvm_unsafe_assume_spec m "aes_hw_ctr32_encrypt_blocks"
+  //   aes_hw_ctr32_encrypt_blocks_spec;
+
   llvm_refine_spec m "aes_hw_ctr32_encrypt_blocks"
     aes_hw_ctr32_encrypt_blocks_concrete_ovs
     aes_hw_ctr32_encrypt_blocks_spec
@@ -154,8 +290,8 @@ aes_hw_ctr32_encrypt_blocks_ov <-
       hard_goal <- goal_has_some_tag ["output buffer"];
       if hard_goal then do {
         print_goal_summary;
-	simplify (addsimps aes_hw_ctr32_copy_thms (cryptol_ss ()));
-	w4_unint_z3 ["aes_hw_ctr32_encrypt_blocks_array"];
+  	simplify (addsimps aes_hw_ctr32_copy_thms (cryptol_ss ()));
+  	w4_unint_z3 ["aes_hw_ctr32_encrypt_blocks_array"];
       } else do {
         yices;
       };

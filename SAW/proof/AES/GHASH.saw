@@ -25,6 +25,7 @@ let prove_gcm_ghash_avx_thm len n m = prove_theorem
 // For our current proof, we will never need to process more than 18
 // blocks after the bulk encryption phase, so that is all we need to
 // do here.
+
 gcm_ghash_avx_thms <-
   for (eval_list {{ [1..MAX_BLOCKS_AFTER_BULK:[16] ] }}) (\ i ->
    do { 
@@ -127,6 +128,50 @@ let gcm_ghash_avx_spec = do {
   crucible_points_to Xi_ptr (crucible_term {{ gcm_ghash_array Htable0 Xi inp 0 (len/16) }});
 };
 
+// This does't seem to be working... there are actually two loops
+// in this code, and getting the second one to symbolically terminate
+// is problematic...
+
+// let {{
+//   type gcm_ghash_avx_invariant_tuple =
+//     ( [512], [512], [512], [512], [512], [512], [512], [512], [512]
+//     , [64], [64]
+//     )
+
+//   gcm_ghash_avx_invariant :
+//     [128] ->
+//     Array [64] [8] ->
+//     gcm_ghash_avx_invariant_tuple ->
+//     gcm_ghash_avx_invariant_tuple ->
+//     Bool
+//   gcm_ghash_avx_invariant H0 in
+//     ( _, _, _, _, _, _, _, _, _, i_a, i_b )
+//     ( _, _, _, _, _, _, _, _, _, c_a, c_b ) =
+
+//     i_b >= c_b /\ i_a >= c_a
+    
+// }};
+
+// asdfasd <- llvm_verify_fixpoint_x86_ex
+//   m "../../build/x86/crypto/crypto_test" "gcm_ghash_avx"
+//   [ ("gcm_ghash_avx", 1800) ]
+//   true
+//   ("gcm_ghash_avx", 0, {{ gcm_ghash_avx_invariant }})
+//   gcm_ghash_avx_spec
+//   do {
+//     loop_inv0 <- goal_has_some_tag ["initial loop invariant"];
+//     loop_inv  <- goal_has_some_tag ["inductive loop invariant"];
+//     if loop_inv0 then do {
+//       return (run (print "<<initial loop invariant>>"));
+//     	 proof_subshell ();
+//     } else if loop_inv then do {
+//       return (run (print "<<inductive loop invariant>>"));
+//     	 proof_subshell ();
+//     } else do {
+//       admit "Skipping";
+//     };
+//   };
+
 
 ////////////////////////////////////////////////////////////////////////////////
 // Proof commands
@@ -173,19 +218,25 @@ gcm_ghash_avx_concrete_ovs <-
   for (eval_list {{ [1..MAX_BLOCKS_AFTER_BULK:[16]] }}) (\i -> do
     { let blocks = eval_int i;
       print (str_concat "gcm_ghash_avx concrete override: " (show blocks));
-      llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "gcm_ghash_avx"
-        [ ("gcm_ghash_avx", 1800)
-        ]
-        true
-        (gcm_ghash_avx_concrete_spec blocks)
-        gcm_ghash_avx_tactic; });
+      if eval_bool {{ i > 18 }} then
+        crucible_llvm_unsafe_assume_spec m "gcm_ghash_avx"
+          (gcm_ghash_avx_concrete_spec blocks)
+      else 
+        llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "gcm_ghash_avx"
+          [ ("gcm_ghash_avx", 1800) ]
+          true
+          (gcm_ghash_avx_concrete_spec blocks)
+          gcm_ghash_avx_tactic; });
 
 disable_what4_hash_consing;
 
 // Assemble the individual proofs at each concrete length
 // into the overall specification
 gcm_ghash_avx_ov <-
+  // crucible_llvm_unsafe_assume_spec m "gcm_ghash_avx"
+  //   gcm_ghash_avx_spec;
+
   llvm_refine_spec m "gcm_ghash_avx"
     gcm_ghash_avx_concrete_ovs
     gcm_ghash_avx_spec
-    (w4_unint_z3 ["gcm_ghash_array"]);
+    (w4_unint_z3 ["gcm_ghash_array","gcm_init_Htable"]);

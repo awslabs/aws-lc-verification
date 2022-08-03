@@ -148,3 +148,14 @@ Xi_ite_decompose_right =
   EqTrue (implies b       (bvEq 128 z x)) ->
   EqTrue (implies (not b) (bvEq 128 z y)) ->
   EqTrue (bvEq 128 z (ite (Vec 128 Bool) b x y));
+
+
+arrayEq_swap_trans : Prop;
+arrayEq_swap_trans =
+  (a b x y : Array (Vec 64 Bool) (Vec 8 Bool)) ->
+  EqTrue (arrayEq (Vec 64 Bool) (Vec 8 Bool) a y) ->
+  EqTrue (arrayEq (Vec 64 Bool) (Vec 8 Bool) b x) ->
+  EqTrue
+    (implies
+      (arrayEq (Vec 64 Bool) (Vec 8 Bool) a b)
+      (arrayEq (Vec 64 Bool) (Vec 8 Bool) x y));

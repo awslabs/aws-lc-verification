@@ -47,77 +47,8 @@ llvm_verify m "EVP_CipherInit_ex"
  
 enable_what4_hash_consing;
 
-iteprop8 <- parse_core "(x : Vec 8 Bool) -> (z: Vec 8 Bool) -> (c1 : Bool) -> (c2 : Bool) -> EqTrue (vecEq 8 Bool boolEq (ite (Vec 8 Bool) c1 x (ite (Vec 8 Bool) c2 x z)) (ite (Vec 8 Bool) (or c1 c2) x z))";
-itethm8 <- prove_extcore z3 iteprop8;
-
-iteprop32 <- parse_core "(x : Vec 32 Bool) -> (z: Vec 32 Bool) -> (c1 : Bool) -> (c2 : Bool) -> EqTrue (vecEq 32 Bool boolEq (ite (Vec 32 Bool) c1 x (ite (Vec 32 Bool) c2 x z)) (ite (Vec 32 Bool) (or c1 c2) x z))";
-itethm32 <- prove_extcore z3 iteprop32;
-
-iteprop64 <- parse_core "(x : Vec 64 Bool) -> (z: Vec 64 Bool) -> (c1 : Bool) -> (c2 : Bool) -> EqTrue (vecEq 64 Bool boolEq (ite (Vec 64 Bool) c1 x (ite (Vec 64 Bool) c2 x z)) (ite (Vec 64 Bool) (or c1 c2) x z))";
-itethm64 <- prove_extcore z3 iteprop64;
-
-iteprop128 <- parse_core "(x : Vec 128 Bool) -> (z: Vec 128 Bool) -> (c1 : Bool) -> (c2 : Bool) -> EqTrue (vecEq 128 Bool boolEq (ite (Vec 128 Bool) c1 x (ite (Vec 128 Bool) c2 x z)) (ite (Vec 128 Bool) (or c1 c2) x z))";
-itethm128 <- prove_extcore z3 iteprop128;
-
 
 // enable_what4_eval;
-
-load_sawcore_from_file "LemmaStatements.sawcore";
-
-let prove_lemma nm unfolds =
-  prove_extcore (w4_unint_z3 [])
-    (beta_reduce_term
-      (unfold_term (concat [nm] unfolds) (parse_core_mod "LemmaStatements" nm)));
-
-or_left  <- prove_lemma "or_left" [];
-or_right <- prove_lemma "or_right" [];
-
-arrayEq_ite_conguence <- prove_lemma
-  "arrayEq_ite_congruence64_8" ["arrayEq_ite_congruence"];
-
-arrayEq_arrayCopy_conguence <- prove_lemma
-  "arrayEq_arrayCopy_congruence64_8" ["arrayEq_arrayCopy_congruence"];
-
-arrayEq_ite_decompose_left <- prove_lemma
-  "arrayEq_ite_decompose_left64_8" ["arrayEq_ite_decompose_left"];
-
-arrayEq_ite_decompose_right <- prove_lemma
-  "arrayEq_ite_decompose_right64_8" ["arrayEq_ite_decompose_right"];
-
-arrayEq_arrayUpdate_congruence <- prove_lemma
-  "arrayEq_arrayUpdate_congruence" [];
-
-aes_hw_ctr32_congruence_tm <- congruence_for {{ aes_hw_ctr32_encrypt_blocks_array }};
-aes_hw_ctr32_congruence <-
-    prove_extcore (w4_unint_z3 ["aes_hw_ctr32_encrypt_blocks_array"]) aes_hw_ctr32_congruence_tm;
-
-slice_xor_lemma <- prove_lemma
-  "bvEq_slice_xor" ["bvEq_slice_xor"];
-
-slice_cong_tm <- congruence_for (parse_core "slice Bool 120 8 0");
-slice_cong <- prove_extcore (w4_unint_z3 []) slice_cong_tm;
-
-gcm_polyval_cong_tm <- congruence_for {{ gcm_polyval }};
-gcm_polyval_cong <- prove_extcore (w4_unint_z3 ["gcm_polyval"]) gcm_polyval_cong_tm;
-
-at_16_15_bv8_congruence_tm <- congruence_for (parse_core " \\ (xs : Vec 16 (Vec 8 Bool)) -> at 16 (Vec 8 Bool) xs 15");
-at_16_15_bv8_congruence <- prove_extcore (w4_unint_z3 []) (beta_reduce_term at_16_15_bv8_congruence_tm);
-
-gcm_ghash_array_congruence_tm <- congruence_for {{ gcm_ghash_array }};
-gcm_ghash_array_congruence <-
-  prove_extcore (w4_unint_z3 ["gcm_ghash_array"]) gcm_ghash_array_congruence_tm;
-
-bv8_ite_decompose_left <-
-  prove_extcore (w4_unint_z3 [])
-    (beta_reduce_term
-      (unfold_term ["bv_ite_decompose_left"]
-       (parse_core_mod "LemmaStatements" "bv_ite_decompose_left 8")));
-
-bv8_ite_decompose_right <-
-  prove_extcore (w4_unint_z3 [])
-    (beta_reduce_term
-      (unfold_term ["bv_ite_decompose_right"]
-       (parse_core_mod "LemmaStatements" "bv_ite_decompose_right 8")));
 
 
 
