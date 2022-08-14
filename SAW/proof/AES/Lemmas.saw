@@ -43,7 +43,8 @@ ghash_6x_test_unfold_lemma <-
     (rewrite (cryptol_ss ()) (unfold_term ["ecEq"]
      {{ \H Xi inp i blocks ->
            gcm_ghash_array_6x H Xi inp i blocks ==
-           if blocks - i >= 6 then gcm_ghash_array_6x_unfold H Xi inp i blocks else Xi
+           if blocks - i >= 6 then gcm_ghash_array_6x H Xi inp i blocks else Xi
+//           if blocks - i >= 6 then gcm_ghash_array_6x_unfold H Xi inp i blocks else Xi
      }}));
       
 
@@ -200,8 +201,14 @@ arrayEq_ite_decompose_right <- prove_lemma
 arrayEq_arrayUpdate_congruence <- prove_lemma
   "arrayEq_arrayUpdate_congruence" [];
 
+custom_append_lemma <- prove_lemma
+  "custom_append_lemma" [];
+
 or_left  <- prove_lemma "or_left" [];
 or_right <- prove_lemma "or_right" [];
+
+bvEq128_trans_left <- prove_lemma
+  "bvEq128_trans_left" [];
 
 arrayEq_ite_conguence <- prove_lemma
   "arrayEq_ite_congruence64_8" ["arrayEq_ite_congruence"];

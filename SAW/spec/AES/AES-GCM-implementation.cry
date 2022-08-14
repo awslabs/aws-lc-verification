@@ -141,6 +141,21 @@ gcm_ghash_array_6x_unfold H Xi inp i blocks =
   else
     Xi
 
+
+// This captures the computation done in the final steps of 'aesni_gcm_encrypt'
+// There are 2 final groups of 6 blocks that are processed after the main loop,
+// and they are computed in a slightly different way.
+gcm_ghash_array_6x_enc_final : [128] -> [128] -> Array [64] [8] -> [64] -> [64] -> [128]
+gcm_ghash_array_6x_enc_final H Xi inp i blocks =
+  if blocks - i >= 18 then
+    aesni_gcm_cipher_block6 True (gcm_init_Htable (gcm_init_H H))
+      (aesni_gcm_cipher_block6 True (gcm_init_Htable (gcm_init_H H))
+        (gcm_ghash_array_6x H Xi inp 0 (blocks-12))
+        [ join (arrayRangeLookup inp ((blocks-12+j) * 16 )) | j <- [0 .. 5] ])
+      [ join (arrayRangeLookup inp ((blocks-6+j) * 16 )) | j <- [0 .. 5] ]
+  else
+    Xi
+
 enc_block : [128] -> [15][128] -> [128]
 enc_block blk rndkeys =
   (aesenclast
@@ -179,19 +194,23 @@ aes_round_keys key = map stateToMsg_x86 ([rk0]#rks#[rkn])
  where
    (rk0,rks,rkn) = ExpandKey (join key)
 
+gcm_enc_6x : Array [64] [8] -> [12][8] -> [32] -> [15][128] -> Array [64] [8] -> [64] -> Array [64] [8]
+gcm_enc_6x in iv ctr rndkeys buf i =
+  foldl
+    (\arr j ->
+      arrayRangeUpdate arr ((i+zext j)*16) (reverse (split
+       ((enc_block (join (reverse (iv # split (ctr+j)))) rndkeys)
+        ^
+        join (reverse (arrayRangeLookup in ((i+zext j)*16))))))
+    )
+    buf
+    [ 0 .. 5 ]
+
 gcm_enc_blocks_6x : Array [64] [8] -> [12][8] -> [32] -> [15][128] -> Array [64] [8] -> [64] -> [64] -> Array [64] [8]
 gcm_enc_blocks_6x in iv ctr rndkeys buf i blocks =
   if blocks - i >= 6 then
     gcm_enc_blocks_6x in iv (ctr+6) rndkeys
-      (foldl
-        (\arr j ->
-	  arrayRangeUpdate arr ((i+zext j)*16) (reverse (split
- 	   ((enc_block (join (reverse (iv # split (ctr+j)))) rndkeys)
- 	    ^
- 	    join (reverse (arrayRangeLookup in ((i+zext j)*16))))))
-	)
-        buf
-        [ 0 .. 5 ])
+      (gcm_enc_6x in iv ctr rndkeys buf i)
       (i+6)
       blocks
   else
@@ -201,15 +220,7 @@ gcm_enc_blocks_6x_unfold : Array [64] [8] -> [12][8] -> [32] -> [15][128] -> Arr
 gcm_enc_blocks_6x_unfold in iv ctr rndkeys buf i blocks =
   if blocks - i >= 6 then
     gcm_enc_blocks_6x in iv (ctr+6) rndkeys
-      (foldl
-        (\arr j ->
-	  arrayRangeUpdate arr ((i+zext j)*16) (reverse (split
- 	   ((enc_block (join (reverse (iv # split (ctr+j)))) rndkeys)
- 	    ^
- 	    join (reverse (arrayRangeLookup in ((i+zext j)*16))))))
-	)
-        buf
-        [ 0 .. 5 ])
+      (gcm_enc_6x in iv ctr rndkeys buf i)
       (i+6)
       blocks
   else

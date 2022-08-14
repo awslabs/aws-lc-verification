@@ -159,3 +159,31 @@ arrayEq_swap_trans =
     (implies
       (arrayEq (Vec 64 Bool) (Vec 8 Bool) a b)
       (arrayEq (Vec 64 Bool) (Vec 8 Bool) x y));
+
+
+bvEq128_trans_left : Prop;
+bvEq128_trans_left =
+  (x y z : Vec 128 Bool) ->
+  (EqTrue (bvEq 128 y z)) ->
+  (EqTrue (implies (bvEq 128 x y) (bvEq 128 x z)));
+
+
+
+custom_append_lemma : Prop;
+custom_append_lemma =
+  ( x : Vec 128 Bool) ->
+  ( y : Vec 64 Bool) ->
+  (EqTrue (bvEq 128
+     (append 8 120 Bool (slice Bool 64 8 56 x)
+       (append 8 112 Bool (slice Bool 72 8 48 x)
+          (append 8 104 Bool (slice Bool 80 8 40 x)
+             (append 8 96 Bool (slice Bool 88 8 32 x)
+                (append 8 88 Bool (slice Bool 96 8 24 x)
+                   (append 8 80 Bool (slice Bool 104 8 16 x)
+                      (append 8 72 Bool (slice Bool 112 8 8 x)
+                         (append 8 64 Bool (slice Bool 120 8 0 x)
+                            y ))))))))
+
+     (append 64 64 Bool (slice Bool 64 64 0 x) y)
+  ));
+
