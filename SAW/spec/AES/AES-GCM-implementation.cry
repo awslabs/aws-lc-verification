@@ -104,18 +104,18 @@ aesni_gcm_cipher_block6 karatsuba Htable Xi blks = Xi_6
 
 gcm_ghash_array_internal : [128] -> [128] -> Array [64] [8] -> [64] -> [64] -> [128]
 gcm_ghash_array_internal H Xi inp i blocks =
-  if i < blocks then
+  if blocks - i >= 1 then
     gcm_ghash_array_internal H 
-      (gcm_polyval H (Xi ^ (join (arrayRangeLookup inp (i*16)))))
+      (gcm_polyval (gcm_init_H H) (Xi ^ (join (arrayRangeLookup inp (i*16)))))
       inp (i+1) blocks
   else
     Xi
 
 gcm_ghash_array_internal_unfold : [128] -> [128] -> Array [64] [8] -> [64] -> [64] -> [128]
 gcm_ghash_array_internal_unfold H Xi inp i blocks =
-  if i < blocks then
+  if blocks - i >= 1 then
     gcm_ghash_array_internal H 
-      (gcm_polyval H (Xi ^ (join (arrayRangeLookup inp (i*16)))))
+      (gcm_polyval (gcm_init_H H) (Xi ^ (join (arrayRangeLookup inp (i*16)))))
       inp (i+1) blocks
   else
     Xi
@@ -225,6 +225,34 @@ gcm_enc_blocks_6x_unfold in iv ctr rndkeys buf i blocks =
       blocks
   else
     buf
+
+gcm_enc : Array [64] [8] -> [12][8] -> [32] -> [15][128] -> Array [64] [8] -> [64] -> Array [64] [8]
+gcm_enc in iv ctr rndkeys buf i =
+   arrayRangeUpdate buf (i*16) (reverse (split
+       ((enc_block (join (reverse (iv # split ctr))) rndkeys)
+        ^
+        join (reverse (arrayRangeLookup in (i*16))))))
+
+gcm_enc_blocks : Array [64] [8] -> [12][8] -> [32] -> [15][128] -> Array [64] [8] -> [64] -> [64] -> Array [64] [8]
+gcm_enc_blocks in iv ctr rndkeys buf i blocks =
+  if blocks - i >= 1 then
+    gcm_enc_blocks in iv (ctr+1) rndkeys
+      (gcm_enc in iv ctr rndkeys buf i)
+      (i+1)
+      blocks
+  else
+    buf
+
+gcm_enc_blocks_unfold : Array [64] [8] -> [12][8] -> [32] -> [15][128] -> Array [64] [8] -> [64] -> [64] -> Array [64] [8]
+gcm_enc_blocks_unfold in iv ctr rndkeys buf i blocks =
+  if blocks - i >= 1 then
+    gcm_enc_blocks in iv (ctr+1) rndkeys
+      (gcm_enc in iv ctr rndkeys buf i)
+      (i+1)
+      blocks
+  else
+    buf
+
 
 gcm_ghash_avx : {n, m} (fin n, 1 <= m, m <= 8) => [128] -> [16][8] -> [(n * 8 + m) * 16][8] -> [16][8]
 gcm_ghash_avx H Xi in = Xi''

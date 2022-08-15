@@ -64,6 +64,18 @@ aes_hw_ctr32_encrypt_blocks_array inp key (iv # (ctr:[4][8])) i blocks buf =
   else
     buf
 
+aes_hw_ctr32_encrypt_blocks_array_unfold : Array [64] [8] -> [32][8] -> [16][8] -> [64] -> [64] -> Array [64] [8] -> Array [64] [8]
+aes_hw_ctr32_encrypt_blocks_array_unfold inp key (iv # (ctr:[4][8])) i blocks buf =
+  if i < blocks then
+    aes_hw_ctr32_encrypt_blocks_array inp key (iv # ctr) (i+1) blocks buf'
+      where
+        blk  = arrayRangeLookup inp (i*16) : [16][8]
+	blk' = blk ^ (aes_hw_encrypt (iv # (split ((join ctr) + drop`{32} i))) key)
+	buf' = arrayRangeUpdate buf (i*16) blk'
+  else
+    buf
+
+
 aes_hw_ctr32_eq_property : {blocks} (fin blocks, width (16*blocks) <= 64) =>
   (Array [64] [8] -> Array [64] [8] -> Bool) ->
   Array [64] [8] -> [32][8] -> [16][8] -> Array [64] [8] -> Bool
