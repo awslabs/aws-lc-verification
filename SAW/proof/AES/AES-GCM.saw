@@ -76,17 +76,16 @@ include "AES.saw";
 
 include "AES-invariants.saw";
 
+include "Lemmas.saw";
+
 //let do_prove = true;
 interactive ();
-
-include "Lemmas.saw";
 
 include "AESNI-GCM.saw";
 
 include "AES-HW-CTR.saw";
 
 include "GHASH.saw";
-
 
 let do_prove = true;
 

@@ -540,3 +540,120 @@ gcm_enc_6x_to_1x_lemma <-
                  (gcm_enc_blocks in iv ctr rndkeys buf i (blocks - ((blocks-i)%6)))
        )
   }};
+
+arrayRange_gcm_enc_blocks_6x_lemma_8_aux <-
+  prove_by_bv_induction
+  do {
+    simplify (cryptol_ss ());
+
+    // introduce lemma variables
+    in_  <- goal_intro "in";
+    ivec <- goal_intro "ivec";
+    ctr  <- goal_intro "ctr";
+    keys <- goal_intro "keys";
+    buf  <- goal_intro "buf";
+    i    <- goal_intro "i";
+    blocks <- goal_intro "blocks";
+    offset <- goal_intro "offset";
+
+    // introduce, focus on, and specialize the induction hypothesis
+    goal_intro_hyps 1;
+    focus_hyp 0;
+    goal_specialize_hyp
+      [ in_, ivec, {{ ctr+6 }}, keys
+      , {{ gcm_enc_6x in_ ivec ctr keys buf i }}
+      , {{ i+6 }}, blocks, offset
+      ];
+    delete_hyps [0]; // remove the IH so it doesn't confuse the solver
+
+    // focus on the conclusion and unroll the recursive definition
+    focus_concl 0;
+    simplify (addsimp gcm_enc_blocks_6x_unfolding_lemma2 empty_ss);
+
+    // finish up
+    w4_unint_yices ["gcm_enc_blocks_6x","enc_block"];
+  }
+  {{ \in ivec ctr keys buf i blocks offset ->
+       ( blocks - i
+       , (offset+8 <= i*16 /\ i <= blocks /\ blocks <= 2^^32) ==>
+          arrayRangeLookup`{n=8} (gcm_enc_blocks_6x in ivec ctr keys buf i blocks) offset
+	    == arrayRangeLookup`{n=8} buf offset
+       )
+  }};
+
+arrayRange_gcm_enc_blocks_6x_lemma_8 <-
+  prove_print
+  do {
+    goal_insert arrayRange_gcm_enc_blocks_6x_lemma_8_aux;
+    w4_unint_z3 ["gcm_enc_blocks_6x","enc_block"];
+  }
+  (rewrite (cryptol_ss ()) (unfold_term ["ecEq"]
+    {{ \in ivec ctr keys buf i blocks offset ->
+	 arrayRangeLookup`{n=8} (gcm_enc_blocks_6x in ivec ctr keys buf i blocks) offset ==
+         arrayRangeLookup`{n=8}
+	   (if (offset+8 <= i*16 /\ i <= blocks /\ blocks <= 2^^32)
+	     then buf
+	     else (gcm_enc_blocks_6x in ivec ctr keys buf i blocks))
+	   offset
+    }}));
+
+
+
+arrayRange_gcm_enc_blocks_6x_lemma_16_aux <-
+  prove_by_bv_induction
+  do {
+    simplify (cryptol_ss ());
+
+    // introduce lemma variables
+    in_  <- goal_intro "in";
+    ivec <- goal_intro "ivec";
+    ctr  <- goal_intro "ctr";
+    keys <- goal_intro "keys";
+    buf  <- goal_intro "buf";
+    i    <- goal_intro "i";
+    blocks <- goal_intro "blocks";
+    offset <- goal_intro "offset";
+
+    // introduce, focus on, and specialize the induction hypothesis
+    goal_intro_hyps 1;
+    focus_hyp 0;
+    goal_specialize_hyp
+      [ in_, ivec, {{ ctr+6 }}, keys
+      , {{ gcm_enc_6x in_ ivec ctr keys buf i }}
+      , {{ i+6 }}, blocks, offset
+      ];
+    delete_hyps [0]; // remove the IH so it doesn't confuse the solver
+
+    // focus on the conclusion and unroll the recursive definition
+    focus_concl 0;
+    simplify (addsimp gcm_enc_blocks_6x_unfolding_lemma2 empty_ss);
+
+    // finish up
+    w4_unint_yices ["gcm_enc_blocks_6x","enc_block"];
+  }
+  {{ \in ivec ctr keys buf i blocks offset ->
+       ( blocks - i
+       , (offset+16 <= i*16 /\ i <= blocks /\ blocks <= 2^^32) ==>
+          arrayRangeLookup`{n=16} (gcm_enc_blocks_6x in ivec ctr keys buf i blocks) offset
+	    == arrayRangeLookup`{n=16} buf offset
+       )
+  }};
+
+
+arrayRange_gcm_enc_blocks_6x_lemma_16 <-
+  prove_print
+  do {
+    goal_insert arrayRange_gcm_enc_blocks_6x_lemma_16_aux;
+
+    // finish up
+    w4_unint_z3 ["gcm_enc_blocks_6x","enc_block"];
+  }
+  (rewrite (cryptol_ss ()) (unfold_term ["ecEq"]
+    {{ \in ivec ctr keys buf i blocks offset ->
+         arrayRangeLookup`{n=16} (gcm_enc_blocks_6x in ivec ctr keys buf i blocks) offset ==
+         arrayRangeLookup`{n=16}
+	   (if (offset+16 <= i*16 /\ i <= blocks /\ blocks <= 2^^32)
+	     then buf
+	     else (gcm_enc_blocks_6x in ivec ctr keys buf i blocks))
+	   offset
+    }}));

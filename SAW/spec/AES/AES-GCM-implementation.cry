@@ -142,17 +142,32 @@ gcm_ghash_array_6x_unfold H Xi inp i blocks =
     Xi
 
 
+gcm_enc_6x : Array [64] [8] -> [12][8] -> [32] -> [15][128] -> Array [64] [8] -> [64] -> Array [64] [8]
+gcm_enc_6x in iv ctr rndkeys buf i =
+  foldl
+    (\arr j ->
+      arrayRangeUpdate arr ((i+zext j)*16) (reverse (split
+       ((enc_block (join (reverse (iv # split (ctr+j)))) rndkeys)
+        ^
+        join (reverse (arrayRangeLookup in ((i+zext j)*16))))))
+    )
+    buf
+    [ 0 .. 5 ]
+
+
 // This captures the computation done in the final steps of 'aesni_gcm_encrypt'
 // There are 2 final groups of 6 blocks that are processed after the main loop,
 // and they are computed in a slightly different way.
-gcm_ghash_array_6x_enc_final : [128] -> [128] -> Array [64] [8] -> [64] -> [64] -> [128]
-gcm_ghash_array_6x_enc_final H Xi inp i blocks =
-  if blocks - i >= 18 then
+gcm_ghash_array_6x_enc_final : [128] -> [128] -> Array [64] [8] -> [64] -> [128]
+gcm_ghash_array_6x_enc_final H Xi outp blocks =
+  if blocks >= 18 then
     aesni_gcm_cipher_block6 True (gcm_init_Htable (gcm_init_H H))
       (aesni_gcm_cipher_block6 True (gcm_init_Htable (gcm_init_H H))
-        (gcm_ghash_array_6x H Xi inp 0 (blocks-12))
-        [ join (arrayRangeLookup inp ((blocks-12+j) * 16 )) | j <- [0 .. 5] ])
-      [ join (arrayRangeLookup inp ((blocks-6+j) * 16 )) | j <- [0 .. 5] ]
+        (aesni_gcm_cipher_block6 False (gcm_init_Htable (gcm_init_H H))
+          (gcm_ghash_array_6x H Xi outp 0 (blocks-18))
+	  [ join (arrayRangeLookup outp ((blocks-18+j) * 16 )) | j <- [0 .. 5] ])
+        [ join (arrayRangeLookup outp ((blocks-12+j) * 16 )) | j <- [0 .. 5] ])
+      [ join (arrayRangeLookup outp ((blocks-6+j) * 16 )) | j <- [0 .. 5] ]
   else
     Xi
 
@@ -193,18 +208,6 @@ aes_round_keys : [32][8] -> [15][128]
 aes_round_keys key = map stateToMsg_x86 ([rk0]#rks#[rkn])
  where
    (rk0,rks,rkn) = ExpandKey (join key)
-
-gcm_enc_6x : Array [64] [8] -> [12][8] -> [32] -> [15][128] -> Array [64] [8] -> [64] -> Array [64] [8]
-gcm_enc_6x in iv ctr rndkeys buf i =
-  foldl
-    (\arr j ->
-      arrayRangeUpdate arr ((i+zext j)*16) (reverse (split
-       ((enc_block (join (reverse (iv # split (ctr+j)))) rndkeys)
-        ^
-        join (reverse (arrayRangeLookup in ((i+zext j)*16))))))
-    )
-    buf
-    [ 0 .. 5 ]
 
 gcm_enc_blocks_6x : Array [64] [8] -> [12][8] -> [32] -> [15][128] -> Array [64] [8] -> [64] -> [64] -> Array [64] [8]
 gcm_enc_blocks_6x in iv ctr rndkeys buf i blocks =
