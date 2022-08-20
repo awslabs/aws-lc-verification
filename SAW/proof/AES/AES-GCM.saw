@@ -83,9 +83,9 @@ interactive ();
 
 include "AESNI-GCM.saw";
 
-include "AES-HW-CTR.saw";
-
 include "GHASH.saw";
+
+include "AES-HW-CTR.saw";
 
 let do_prove = true;
 

@@ -143,8 +143,7 @@ let {{
 
     , c_cnt, c_off1, c_off2 , c_blocks )
 
-    =
-       i_blocks >= c_blocks
+    =  i_blocks >= c_blocks
     /\ processed_blocks%8 == 0
     /\ c_off1 == offset
     /\ c_off2 == offset
@@ -190,7 +189,7 @@ let go = w4_unint_yices
 
 add_x86_preserved_reg "r11";
 
-asdfasdf <- llvm_verify_fixpoint_x86_ex
+asdfasdf <- llvm_verify_x86_with_invariant
   m "../../build/x86/crypto/crypto_test" "aes_hw_ctr32_encrypt_blocks"
     []
     true
@@ -202,17 +201,20 @@ asdfasdf <- llvm_verify_fixpoint_x86_ex
       out_goal  <- goal_has_some_tag ["output buffer"];
       if loop_inv0 then do {
         return (run (print "<<initial loop invariant>>"));
-      	proof_subshell ();
+	go;
+//      	proof_subshell ();
       } else if loop_inv then do {
         return (run (print "<<inductive loop invariant>>"));
-      	proof_subshell ();
+	go;
+//      	proof_subshell ();
       } else if out_goal then do {
         return (run (print "<<output buffer goal>>"));
-	proof_subshell ();
+	admit "TODO";
+	//proof_subshell ();
       } else do {
          print_goal_summary;
-//	 go;
-        admit "Skipping";
+	 go;
+//        admit "Skipping";
       };
     };
 
