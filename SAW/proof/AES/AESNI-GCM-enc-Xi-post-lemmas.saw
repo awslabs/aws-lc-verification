@@ -77,14 +77,12 @@ func_lemma_cong <-
 func_lemma_eq <-
   prove_print
   do {
-    admit "TODO! Find a proof for this"; 
-    // proof_subshell ();
+    quickcheck 50; // admit "TODO! Find a proof for this";
   }
   {{ \H Xi blocks ->
        lemma_func (gcm_init_Htable (gcm_init_H H)) Xi blocks ==
        (aesni_gcm_cipher_block6 True (gcm_init_Htable (gcm_init_H H)) Xi (reverse blocks))
   }};
-
 
 
 extra_lemma_statements <-
@@ -482,5 +480,3 @@ enc_Xi_post_lemma <-
     w4_unint_yices (concat go_unint ["aesni_gcm_cipher_block6"]);
   }
   enc_Xi_post_lemma_statement;
-
-
