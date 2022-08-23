@@ -5,26 +5,15 @@
 
 /**
  * RWD: notes and issues to investigate
- * 
- * 1) Why does Z3 have such a hard time with the termination of the final
- *    cleanup loop in CRYPTO_gcm128_encrypt_ctr32? Can we fix it?
- * 2) Let's make the path-sat checking solver configurable.
- * 3x Seems like there is maybe an off-by-one problem with the total message
- *    length in either the specification or in the implementation.
- *    SOLUTION: I needed to use <= instead of < in the function precondition...
- * 4) Seems like we end up using a _lot_ of memory verifying
- *    the evp_update function...
- * 5) We are currently requiring the "output" buffer to be initialized with
+ *
+ * -- We are currently requiring the "output" buffer to be initialized with
  *    bytes, which is annoying.
- * 6) An additional assertion in CRYPTO_gcm128_encrypt_ctr32 about the final
- *    value of ctr seems very helpful for the solver... maybe we can pull this
- *    out of the source code itself?
- * 7) SAW improvement: specification statements should capture metadata about
- *    where they were asserted, and those should go into the goal summaries.
- * 8) In decryption mode, it would be nice if the specification would allow
- *    the authentication tag to be asserted before OR after the updates.
+ *
+ * -- In decryption mode, it would be nice if the specification would allow
+ *    the authentication tag to be set before OR after the updates.
  *    Right now, the spec only allows the tag to be set immediately before
- *    finalization.
+ *    finalization, but I beleive this has no material impact on the
+ *    main content of the "update" proof.
  */
 
 import "../../../cryptol-specs/Primitive/Symmetric/Cipher/Block/AES.cry";
@@ -32,13 +21,12 @@ import "../../../cryptol-specs/Primitive/Symmetric/Cipher/Authenticated/AES_256_
 import "../../spec/AES/X86.cry";
 import "../../spec/AES/AES-GCM.cry";
 
-let AES_BLOCK_SIZE = 16;
-
 enable_experimental;
 
 set_path_sat_solver "yices";
 
 // Disable debug intrinsics to avoid https://github.com/GaloisInc/crucible/issues/778
+// TODO: RWD, I think this is no longer necessary
 disable_debug_intrinsics;
 
 m <- llvm_load_module "../../build/llvm/crypto/crypto_test.bc";
@@ -46,11 +34,6 @@ print "loaded bitcode";
 
 include "../common/helpers.saw";
 include "../common/memory.saw";
-
-
-let do_prove = false;
-
-include "goal-rewrites.saw";
 
 /*
  * Architecture features for the AVX+shrd code path
@@ -64,33 +47,76 @@ let {{ ia32cap = [0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff] : [4][32] }};
  * 2) An optimized AES/CTR32 implementation that processes the remaining blocks.
  * 3) An optimized GHASH implementation that processes the remaining blocks.
  *
- * The code below calculates the correct input lengths for each subroutine.
+ * This proof uses "unbounded" verification to do a proof for the bulk encryption/decryption
+ * phase for an arbitrary amount of input data (up to the limits imposed by the AES-GCM cipher
+ * mode itself), followed by bounded verification of the procedures to process the final
+ * remaining blocks.  We know that no more than 18 blocks of data must be processed following
+ * the bulk phase, so series of finite verifications suffices.
  */
 
+// These are some magic constants relating to the datastructure
+// invariants for the AES/GCM cipher mode.
 let NID_aes_256_gcm = 901;
 let aes_block_size = 1;
+
 // the IV for AES-GCM consists of 12 bytes = 96 bits
 let aes_iv_len = 12;
 
+// The number of bytes in a single AES block
+let AES_BLOCK_SIZE = 16;
+
+// This computes the total number of message blocks that can be
+// handeled by a single AES/GCM mode session. The GCM counter is
+// a 32-bit counter which starts at 1, and we need to leave a block at
+// the end for the authentication tag. This gives us a total of
+// slightly fewer than 2^^32 blocks we can handle.
+let TOTAL_MESSAGE_BLOCKS = eval_size {| 2^^32 - 2 |};
+
+// This is the total number of bytes that can be in the plain/cyphertext
+// for AES-GCM.
+let TOTAL_MESSAGE_MAX_LENGTH = eval_size {| TOTAL_MESSAGE_BLOCKS * AES_BLOCK_SIZE |};
+
+// This is the maximum number of blocks that can still need
+// to be processed following the bulk encrypt/decrypt phase.
+// This is due to the fact that the bulk encryption phase processes
+// 6 block chunks, and has a pipeline setup which is three stages
+// deep.  Thus, 18 blocks is the minimum number of blocks it will
+// process; fewer than that and it will simply rely on the
+// separate AES/CTR32 and GHASH routines.
+let MAX_BLOCKS_AFTER_BULK = 18;
+
+// Prove a collection of useful rewrite rules, mostly
+// to do with modular arithmetic and low-level bitvector
+// operation rearrangements.
+include "goal-rewrites.saw";
+
+// Basic properties of the bare AES block cipher function.
 include "AES.saw";
 
+// Data-structure invariants relating to the encryption
+// context, expanded key schedules, etc.
 include "AES-invariants.saw";
 
+// A series of lemmas relating various low-level Cryptol
+// specifications to higher-level ones.
 include "Lemmas.saw";
 
-//let do_prove = true;
-interactive ();
-
-include "AESNI-GCM.saw";
-
+// The bounded proof of the stand-alone GHASH routine.
 include "GHASH.saw";
 
+// The bounded proof of the standalone AES/CTR32 routine.
 include "AES-HW-CTR.saw";
 
-let do_prove = true;
+// The main proofs of the bulk encryption and decryption phases.
+// These are partial correctness proofs (i.e., not proving termination)
+// using loop invariants to handle an (essentially) unbounded
+// amount of data.
+include "AESNI-GCM.saw";
 
+// Specifications of the EVP level API functions.
 include "evp-function-specs.saw";
 
+// Correctness proofs of the EVP level API functions.
 include "evp-function-proofs.saw";
 
 summarize_verification_json "AES-GCM-results.json";

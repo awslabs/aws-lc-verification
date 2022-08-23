@@ -1,0 +1,486 @@
+
+let eqTrue x = term_apply (parse_core "EqTrue") [x];
+
+let {{
+  lemma_func :
+    [12][128] ->
+
+    [128] ->
+
+    [6][128] ->
+    [128]
+  lemma_func Htable Xi_in Blocks =
+     (A ^ B ^ C ^ D ^ E ^ F ^ (clmul Lpoly X) ^ (0 # S_lo) ^ (X#O))
+    where
+     Lpoly = 0xc200000000000000
+     N = (clmul Lpoly R_hi) ^ (R_hi # R_lo)
+     O#X = N
+
+     A = clmul H1 B1_lo
+     B = clmul H2 B2_lo
+     C = clmul H3 B3_lo
+     D = clmul H4 B4_lo
+     E = clmul H5 B5_lo
+     F = clmul H6 U_lo
+
+     R_hi, R_lo, S_hi, S_lo, U_hi, U_lo : [64]
+
+     R_lo # R_hi = R
+     S_lo # S_hi = S
+     U_lo # U_hi = U
+
+     R = T ^ (S_hi # 0)
+
+     H1  # H7  = Htable@0
+     H2  # H8  = Htable@1
+     H14 # H13 = Htable@2
+     H3  # H9  = Htable@3
+     H4  # H10 = Htable@4
+     H16 # H15 = Htable@5
+     H5 # H11  = Htable@6
+     H6 # H12  = Htable@7
+     H18 # H17 = Htable@8
+
+     B1_lo # B1_hi = Blocks@0
+     B2_lo # B2_hi = Blocks@1
+     B3_lo # B3_hi = Blocks@2
+     B4_lo # B4_hi = Blocks@3
+     B5_lo # B5_hi = Blocks@4
+     U = Xi_in ^ Blocks@5
+
+     S2  = drop`{64} (Blocks@0 ^ (B1_lo # B1_lo))
+     S5  = drop`{64} (Blocks@1 ^ (B2_lo # B2_lo))
+     S8  = drop`{64} (Blocks@2 ^ (B3_lo # B3_lo))
+     S11 = drop`{64} (Blocks@3 ^ (B4_lo # B4_lo))
+     S14 = drop`{64} (Blocks@4 ^ (B5_lo # B5_lo))
+     S17 = drop`{64} (U        ^ (U_lo  # U_lo))
+
+     S = (clmul H7  B1_hi) ^ A ^ (clmul H13 S2)  ^
+         (clmul H8  B2_hi) ^ B ^ (clmul H14 S5)  ^
+         (clmul H9  B3_hi) ^ C ^ (clmul H15 S8)  ^
+     	 (clmul H10 B4_hi) ^ D ^ (clmul H16 S11) ^
+         (clmul H11 B5_hi) ^ E ^ (clmul H17 S14) ^
+     	 (clmul H12 U_hi)  ^ F ^ (clmul H18 S17)
+
+     T = (clmul H7  B1_hi) ^
+         (clmul H8  B2_hi) ^
+     	 (clmul H9  B3_hi) ^
+      	 (clmul H10 B4_hi) ^
+      	 (clmul H11 B5_hi) ^
+      	 (clmul H12 U_hi)
+}};
+
+func_lemma_cong_stmt <- congruence_for {{ lemma_func }};
+func_lemma_cong <-
+  prove_extcore (w4_unint_z3 ["lemma_func"]) func_lemma_cong_stmt;
+
+func_lemma_eq <-
+  prove_print
+  do {
+    admit "TODO! Find a proof for this"; 
+    // proof_subshell ();
+  }
+  {{ \H Xi blocks ->
+       lemma_func (gcm_init_Htable (gcm_init_H H)) Xi blocks ==
+       (aesni_gcm_cipher_block6 True (gcm_init_Htable (gcm_init_H H)) Xi (reverse blocks))
+  }};
+
+
+
+extra_lemma_statements <-
+ do {
+   Htable <- fresh_symbolic "Htable" {| [12][128] |};
+
+   Q <- fresh_symbolic "Q" {| [128] |};
+
+   U1 <- fresh_symbolic "U1" {| [128] |};
+   U2 <- fresh_symbolic "U2" {| [128] |};
+
+   B1_lo <- fresh_symbolic "B1_lo" {| [64] |};
+   B2_lo <- fresh_symbolic "B2_lo" {| [64] |};
+   B3_lo <- fresh_symbolic "B3_lo" {| [64] |};
+   B4_lo <- fresh_symbolic "B4_lo" {| [64] |};
+   B5_lo <- fresh_symbolic "B5_lo" {| [64] |};
+
+   B1_hi <- fresh_symbolic "B1_hi" {| [64] |};
+   B2_hi <- fresh_symbolic "B2_hi" {| [64] |};
+   B3_hi <- fresh_symbolic "B3_hi" {| [64] |};
+   B4_hi <- fresh_symbolic "B4_hi" {| [64] |};
+   B5_hi <- fresh_symbolic "B5_hi" {| [64] |};
+
+   B6 <- fresh_symbolic "B6" {| [128] |};
+
+   V2  <- fresh_symbolic "V2" {| [128] |};
+   V5  <- fresh_symbolic "V5" {| [128] |};
+   V8  <- fresh_symbolic "V8" {| [128] |};
+   V11 <- fresh_symbolic "V11" {| [128] |};
+   V14 <- fresh_symbolic "V14" {| [128] |};
+
+   let allvars = [
+     Htable,
+     U1,U2,
+
+     V2,
+     V5,
+     V8,
+     V11,
+     V14,
+
+     B1_lo,B2_lo,B3_lo,B4_lo,B5_lo,
+     B1_hi,B2_hi,B3_hi,B4_hi,B5_hi,
+     B6,
+
+     Q];
+
+   let Hlo i = term_apply (parse_core "slice Bool 0 64 64")
+                [(term_apply (parse_core "at 12 (Vec 128 Bool)")
+		  [Htable, nat_to_term i])];
+
+   let Hhi i = term_apply (parse_core "slice Bool 64 64 0")
+                [(term_apply (parse_core "at 12 (Vec 128 Bool)")
+		  [Htable, nat_to_term i])];
+
+   let H1  = Hlo 0;
+   let H2  = Hlo 1;
+   let H3  = Hlo 3;
+   let H4  = Hlo 4;
+   let H5  = Hlo 6;
+   let H6  = Hlo 7;
+   let H7  = Hhi 0;
+   let H8  = Hhi 1;
+   let H9  = Hhi 3;
+   let H10 = Hhi 4;
+   let H11 = Hhi 6;
+   let H12 = Hhi 7;
+
+   let H13 = Hhi 2;
+   let H14 = Hlo 2;
+   let H15 = Hhi 5;
+   let H16 = Hlo 5;
+   let H17 = Hhi 8;
+   let H18 = Hlo 8;
+
+   let U = {{ U1 ^ B6 ^ U2 }};
+   let U_hi = term_apply (parse_core "slice Bool 64 64 0") [U];
+   let U_lo = term_apply (parse_core "slice Bool 0 64 64") [U];
+
+   let A = {{ clmul H1 B1_lo }};
+   let B = {{ clmul H2 B2_lo }};
+   let C = {{ clmul H3 B3_lo }};
+   let D = {{ clmul H4 B4_lo }};
+   let E = {{ clmul H5 B5_lo }};
+   let F = {{ clmul H6 U_lo }};
+
+   let Lpoly = {{ 0xc200000000000000 }};
+
+   let W17 = term_apply (parse_core "slice Bool 0 64 64")
+              [ {{ U1 ^ B6 ^ U2 }} ];
+
+   let S2 = term_apply (parse_core "slice Bool 64 64 0")
+              [ {{ V2 ^ (B1_lo # B1_lo)  }} ];
+   let S5 = term_apply (parse_core "slice Bool 64 64 0")
+              [ {{ V5 ^ (B2_lo # B2_lo )  }} ];
+   let S8 = term_apply (parse_core "slice Bool 64 64 0")
+              [ {{ V8 ^ (B3_lo # B3_lo)  }} ];
+   let S11 = term_apply (parse_core "slice Bool 64 64 0")
+              [ {{ V11 ^ (B4_lo # B4_lo)  }} ];
+   let S14 = term_apply (parse_core "slice Bool 64 64 0")
+              [ {{ V14 ^ (B5_lo # B5_lo )  }} ];
+   let S17 = term_apply (parse_core "slice Bool 64 64 0")
+              [ {{ (U1 ^ B6 ^ U2) ^ (W17 # W17 )  }} ];
+
+   let S = {{ (clmul H7  B1_hi) ^ A ^ (clmul H13 S2)  ^
+              (clmul H8  B2_hi) ^ B ^ (clmul H14 S5)  ^
+              (clmul H9  B3_hi) ^ C ^ (clmul H15 S8)  ^
+	      (clmul H10 B4_hi) ^ D ^ (clmul H16 S11) ^
+              (clmul H11 B5_hi) ^ E ^ (clmul H17 S14) ^
+	      (clmul H12 U_hi)  ^ F ^ (clmul H18 S17)
+           }};
+
+   let S_hi = term_apply (parse_core "slice Bool 64 64 0") [S];
+   let S_lo = term_apply (parse_core "slice Bool 0 64 64") [S];
+
+   let T = {{ (clmul H7  B1_hi) ^
+              (clmul H8  B2_hi) ^
+	      (clmul H9  B3_hi) ^
+	      (clmul H10 B4_hi) ^
+	      (clmul H11 B5_hi) ^
+	      (clmul H12 U_hi) }};
+
+   let R = {{ T ^ (S_hi # 0) }};
+
+   let R_hi = term_apply (parse_core "slice Bool 64 64 0") [R];
+   let R_lo = term_apply (parse_core "slice Bool 0 64 64") [R];
+
+   let N = {{ (clmul Lpoly R_hi) ^ (R_hi # R_lo) }};
+   let X = term_apply (parse_core "slice Bool 64 64 0") [N];
+   let O = term_apply (parse_core "slice Bool 0 64 64") [N];
+
+   let t1   = eqTrue {{ lemma_func Htable
+                         (U1 ^ U2)
+                         [ B1_lo # B1_hi
+			 , B2_lo # B2_hi
+			 , B3_lo # B3_hi
+			 , B4_lo # B4_hi
+			 , B5_lo # B5_hi
+			 , B6
+			 ]
+                        == Q }};
+
+   let t1'  = eqTrue {{ lemma_func Htable
+                         (U1 ^ B6)
+                         [ B1_lo # B1_hi
+			 , B2_lo # B2_hi
+			 , B3_lo # B3_hi
+			 , B4_lo # B4_hi
+			 , B5_lo # B5_hi
+			 , U2
+			 ]
+                        == Q }};
+
+   let t2   = eqTrue {{ [V2,V5,V8,V11,V14] ==
+                        [ B1_lo # B1_hi
+			, B2_lo # B2_hi
+			, B3_lo # B3_hi
+			, B4_lo # B4_hi
+			, B5_lo # B5_hi
+			]
+                     }};
+
+   let tend = eqTrue {{ (A ^ B ^ C ^ D ^ E ^ F ^
+                             (clmul Lpoly X) ^ (0 # S_lo) ^ (X # O)) == Q }};
+   let tfinal  = implies_term t2 (implies_term t1 tend);
+   let tfinal' = implies_term t2 (implies_term t1' tend);
+
+   let l1 = (generalize_term allvars
+      (rewrite (cryptol_ss ()) (unfold_term ["ecEq"] tfinal)));
+   let l2 = (generalize_term allvars
+      (rewrite (cryptol_ss ()) (unfold_term ["ecEq"] tfinal')));
+
+   return (l1,l2);
+ };
+
+extra_lemma1 <-
+  prove_extcore
+  do { go; // admit "extra_lemm1";
+     }
+  (extra_lemma_statements.0);
+
+extra_lemma2 <-
+  prove_extcore
+  do { go; // admit "extra_lemma2";
+     }
+  (extra_lemma_statements.1);
+
+
+// This is a horribly gross hack.  Basically, I'm constructing
+// a lemma here whose sole purpose is to restate the Xi
+// postcondition of the encryption algorithm sufficently
+// that the solver can directly show that the result of simulation
+// matches.
+//
+// To that end, the conclusion of this lemma requires an
+// implication involving loop invariant hypothesis. This is primarily
+// a way to get enough values into scope here that I can use them
+// to write down the intermediate values I need. Without doing something
+// like this, it's very difficult to even figure out how to write down
+// what I want to say. Essentialy, we are using pattern matching via
+// the lemma conclusion to give names to the values we want.
+//
+// The proof of this lemma is where all the interesting reasoning
+// actually goes to use the loop invariant, unfold recursive
+// definitions, etc.
+
+enc_Xi_post_lemma_statement <-
+  do {
+    b <- fresh_symbolic "b" {| Bool |};
+    Xother <- fresh_symbolic "Xother" {| [8] |};
+    X  <- fresh_symbolic "X" {| [128] |};
+
+    let Xslice = term_apply (parse_core "slice Bool 0 8 120") [X];
+    let A0 = {{ if b then Xother else Xslice }};
+
+    A1 <- fresh_symbolic "A" {| [8] |};
+    A2 <- fresh_symbolic "A" {| [8] |};
+    A3 <- fresh_symbolic "A" {| [8] |};
+    A4 <- fresh_symbolic "A" {| [8] |};
+    A5 <- fresh_symbolic "A" {| [8] |};
+    A6 <- fresh_symbolic "A" {| [8] |};
+    A7 <- fresh_symbolic "A" {| [8] |};
+    A8 <- fresh_symbolic "A" {| [8] |};
+    A9 <- fresh_symbolic "A" {| [8] |};
+    A10 <- fresh_symbolic "A" {| [8] |};
+    A11 <- fresh_symbolic "A" {| [8] |};
+    A12 <- fresh_symbolic "A" {| [8] |};
+    A13 <- fresh_symbolic "A" {| [8] |};
+    A14 <- fresh_symbolic "A" {| [8] |};
+    A15 <- fresh_symbolic "A" {| [8] |};
+
+    let AS = [b,X,Xother,A1,A2,A3,A4,A5,A6,A7,A8,A9,A10,A11,A12,A13,A14,A15];
+
+    H  <- fresh_symbolic "H" {| [128] |};
+    blocks <- fresh_symbolic "blocks" {| [64] |};
+
+    len64 <- fresh_symbolic "len64" {| [64] |};
+    key   <- fresh_symbolic "key"   {| [32][8] |};
+    ivec  <- fresh_symbolic "ivec"  {| [16][8] |};
+    Xi    <- fresh_symbolic "Xi"    {| [16][8] |};
+    inp   <- fresh_symbolic "inp"   {| Array [64] [8] |};
+    buf   <- fresh_symbolic "buf"   {| Array [64] [8] |};
+
+    start_ivec <- fresh_symbolic "start_ivec" {| [12][8] |};
+    start_ctr  <- fresh_symbolic "start_ctr"  {| [32] |};
+
+    i_tuple <- fresh_symbolic "i_tuple" {| invariantTuple |};
+    c_tuple <- fresh_symbolic "c_tuple" {| invariantTuple |};
+
+    let allvars = concat AS
+      [ H, Xi, blocks, len64, key, ivec, inp, buf
+      , start_ivec, start_ctr
+      , i_tuple, c_tuple
+      ];
+
+    let {{
+           ( i_buf
+
+           // stack values
+           , _, _, _, _, _, _, _, _, _, _
+           , _, _, _
+
+           // XMM registers
+           , _, _, _, _, _, _, _, _, _, _, _
+
+           // GP registers
+           , _, _, _, _, _, i_blocks) = i_tuple
+
+           ( c_buf
+
+           // stack values
+           , _, _  // I think these two correspond to scratch space, and don't need an invariant
+
+           , c_prefetch9, c_prefetch8, c_prefetch7, c_prefetch6
+           , c_prefetch5, c_prefetch4, c_prefetch3, c_prefetch2
+
+           , c_spill_Z3 // spill location for $Z3 = %xmm7
+                        // part of the "modulo-scheduled" computation for Xi
+
+           , c_prefetch1, c_prefetch0
+
+           // XMM registers
+           , c_rndkey, c_inout5, c_inout4, c_inout3, c_inout2
+           , c_inout1, c_inout0, c_Xi, c_Z3, c_Z0, c_T1
+
+           // GP registers
+           , c_a, c_b, c_c, c_d, c_counter, c_blocks) = c_tuple
+
+           processed_blocks = i_blocks - c_blocks
+           offset = processed_blocks * 16
+
+           rndkeys = aes_round_keys key
+
+           // The value in the Xi register lags behind, so the actual
+           // current Xi value appears to be c_Xi ^ c_Z0 ^ c_spill_Z3
+           current_Xi : [128]
+           current_Xi = c_spill_Z3 ^ (drop c_Z0 ^ drop c_Xi)
+
+           iv : [128]
+           iv = join (reverse (take`{12} ivec # split ctr))
+
+           ctr : [32]
+           ctr = i_ctr + drop`{32} processed_blocks
+
+           i_ctr : [32]
+           i_ctr = join (drop`{12} ivec) + 12
+
+	   // NB, while decryption requires only a minimum of 6 blocks,
+	   // the bulk encryption algorithm requires 18 blocks minimum.
+	   total_blocks =
+	     zext (bulk_result_length (18 * `AES_BLOCK_SIZE) len64) / `AES_BLOCK_SIZE
+    }};
+
+    let first_blocks = {{
+       	         [ (c_prefetch0 # c_prefetch1)
+		 , (c_prefetch2 # c_prefetch3)
+		 , (c_prefetch4 # c_prefetch5)
+		 , (c_prefetch6 # c_prefetch7)
+		 , (c_prefetch8 # c_prefetch9)
+		 , drop`{512-128} c_Z3
+		 ]
+    }};
+
+    let mid_blocks = {{
+       [ join (arrayRangeLookup c_buf (c_a + 96 + j*16 )) | j <- [5,4,3,2,1,0] ]:[6][128]
+    }};
+
+    let last_blocks = {{
+       [ swap8
+           ((enc_block (join (reverse (take`{12} ivec # split (ctr+j)))) rndkeys)
+            ^
+            join (reverse (arrayRangeLookup inp (c_c + (zext j)*16))))
+       | j <- [ 5, 4, 3, 2, 1, 0:[32] ]
+       ]
+    }};
+
+    let enc_final_restated =
+      {{ (if blocks >= 18 then
+           lemma_func (gcm_init_Htable (gcm_init_H H))
+             (lemma_func (gcm_init_Htable (gcm_init_H H))
+               (aesni_gcm_cipher_block6 False (gcm_init_Htable (gcm_init_H H))
+                 current_Xi
+                 first_blocks)
+               mid_blocks)
+             last_blocks
+          else
+           (join Xi))
+      }};
+
+    let out_data         = {{ gcm_enc_blocks_6x inp start_ivec start_ctr (aes_round_keys key) buf 0 blocks }};
+    let out_data_fixed   = {{ gcm_enc_blocks_6x inp (take`{12} ivec) i_ctr rndkeys i_buf 12 total_blocks }};
+    let out_data_varying = {{ gcm_enc_blocks_6x inp (take`{12} ivec) ctr rndkeys c_buf (processed_blocks + 12) total_blocks }};
+
+    let t1 = eqTrue {{ [A0,A1,A2,A3,A4,A5,A6,A7,A8,A9,A10,A11,A12,A13,A14,A15] == split X }};
+
+    let t2 = eqTrue {{ X == enc_final_restated }};
+
+    let t3a = eqTrue {{ last_blocks  == [ join (arrayRangeLookup out_data_varying ((blocks-6+j) * 16 ))  | j <- [5,4,3,2,1,0] ] }};
+    let t3b = eqTrue {{ mid_blocks   == [ join (arrayRangeLookup out_data_varying ((blocks-12+j) * 16 )) | j <- [5,4,3,2,1,0] ] }};
+    let t3c = eqTrue {{ first_blocks == [ join (arrayRangeLookup out_data_varying ((blocks-18+j) * 16 )) | j <- [0 .. 5] ] }};
+    let t3d = eqTrue {{ arrayEq out_data_fixed out_data }};
+    let t3e = eqTrue {{ current_Xi   == gcm_ghash_array_6x H (join Xi) out_data_fixed 0 (blocks-18) }};
+
+    let tend = eqTrue
+         (term_apply (parse_core "implies")
+	 [ {{ aesni_gcm_encrypt_invariant len64 key ivec Xi inp i_tuple c_tuple }}
+         , {{ [A0,A1,A2,A3,A4,A5,A6,A7,A8,A9,A10,A11,A12,A13,A14,A15]
+                 == split (gcm_ghash_array_6x_enc_final H (join Xi)
+                            out_data
+		            blocks) }}
+	 ]);
+
+    let tfinal =
+      (implies_term t1 (implies_term t2
+         (implies_term t3a (implies_term t3b (implies_term t3c
+	   (implies_term t3d (implies_term t3e tend)))))));
+
+    return (generalize_term allvars
+      (rewrite (cryptol_ss ()) (unfold_term ["ecEq"] tfinal)));
+  };
+
+
+split_16_8_cong_stmt <- congruence_for (parse_core "split 16 8 Bool");
+split_16_8_cong <- prove_extcore z3 split_16_8_cong_stmt;
+
+aesni_gcm_cipher_block6_cong_stmt <- congruence_for {{ aesni_gcm_cipher_block6 }};
+aesni_gcm_cipher_block6_cong <-
+  prove_extcore (w4_unint_z3 ["aesni_gcm_cipher_block6"])
+  aesni_gcm_cipher_block6_cong_stmt;
+
+enc_Xi_post_lemma <-
+  prove_extcore
+  do {
+    simplify (addsimp func_lemma_eq empty_ss);
+    w4_unint_yices (concat go_unint ["aesni_gcm_cipher_block6"]);
+  }
+  enc_Xi_post_lemma_statement;
+
+

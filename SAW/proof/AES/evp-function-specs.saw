@@ -75,7 +75,7 @@ let EVP_CipherInit_ex_spec enc = do {
 
 
 /* == include/openssl/cipher.h:227 ==
- * == crypto/fipmodule/cipher.c:509
+ * == crypto/fipmodule/cipher/cipher.c:509
  * // EVP_CipherUpdate calls either |EVP_EncryptUpdate| or |EVP_DecryptUpdate|
  * // depending on how |ctx| has been setup.
  * OPENSSL_EXPORT int EVP_CipherUpdate(EVP_CIPHER_CTX *ctx, uint8_t *out,

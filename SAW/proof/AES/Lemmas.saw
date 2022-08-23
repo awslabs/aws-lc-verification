@@ -34,7 +34,7 @@ ghash_6x_unfolding_lemma2 <-
 
 
 ghash_6x_test_unfold_lemma <-
-  prove_print
+  prove_theorem
     do {
       simplify (cryptol_ss ());
       simplify (addsimp_shallow ghash_6x_unfolding_lemma2 empty_ss);
@@ -93,7 +93,7 @@ gcm_enc_blocks_6x_unfolding_lemma2 <-
      }});
 
 gcm_enc_blocks_6x_test_unfold_lemma <-
-  prove_print
+  prove_theorem
   do {
     simplify (addsimp gcm_enc_blocks_6x_unfolding_lemma2 empty_ss);
     w4_unint_z3 ["gcm_enc_blocks_6x","aesenc","aesenclast","ExpandKey"];
@@ -321,7 +321,7 @@ let aesni_gcm_cipher_block6_tac =
   };
 
 aesni_gcm_cipher_block6_eq_lemma0 <-
-  prove_print
+  prove_theorem
     aesni_gcm_cipher_block6_tac
     (rewrite (cryptol_ss ()) (unfold_term ["ecEq"]
     {{ \H Xi blks ->
@@ -330,7 +330,7 @@ aesni_gcm_cipher_block6_eq_lemma0 <-
     }}));
 
 aesni_gcm_cipher_block6_eq_lemma1 <-
-  prove_print
+  prove_theorem
     aesni_gcm_cipher_block6_tac
     (rewrite (cryptol_ss ()) (unfold_term ["ecEq"]
     {{ \H Xi blks ->
@@ -363,7 +363,7 @@ gcm_enc_blocks_unfolding_lemma2 <-
      }});
 
 enc_block_eq_lemma <-
-  prove_print
+  prove_theorem
   do {
     w4_unint_yices ["AESRound","AESFinalRound"];
   }
@@ -582,7 +582,7 @@ arrayRange_gcm_enc_blocks_6x_lemma_8_aux <-
   }};
 
 arrayRange_gcm_enc_blocks_6x_lemma_8 <-
-  prove_print
+  prove_theorem
   do {
     goal_insert arrayRange_gcm_enc_blocks_6x_lemma_8_aux;
     w4_unint_z3 ["gcm_enc_blocks_6x","enc_block"];
@@ -596,8 +596,6 @@ arrayRange_gcm_enc_blocks_6x_lemma_8 <-
 	     else (gcm_enc_blocks_6x in ivec ctr keys buf i blocks))
 	   offset
     }}));
-
-
 
 arrayRange_gcm_enc_blocks_6x_lemma_16_aux <-
   prove_by_bv_induction
@@ -641,7 +639,7 @@ arrayRange_gcm_enc_blocks_6x_lemma_16_aux <-
 
 
 arrayRange_gcm_enc_blocks_6x_lemma_16 <-
-  prove_print
+  prove_theorem
   do {
     goal_insert arrayRange_gcm_enc_blocks_6x_lemma_16_aux;
 
