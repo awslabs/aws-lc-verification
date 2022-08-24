@@ -74,7 +74,7 @@ aes_hw_ctr32_eq_thms <-
            (rewrite (cryptol_ss ())
             (unfold_term ["aes_hw_ctr32_eq_property"]
              (term_apply {{ aes_hw_ctr32_eq_property`{blocks=blocks} }}
-	                 [ parse_core "arrayEq (Vec 64 Bool) (Vec 8 Bool)" ]
+                         [ parse_core "arrayEq (Vec 64 Bool) (Vec 8 Bool)" ]
              )));
        });
 
@@ -87,7 +87,7 @@ aes_hw_ctr32_copy_thms <-
            (rewrite (cryptol_ss ())
             (unfold_term ["aes_hw_ctr32_copy_property"]
              (term_apply {{ aes_hw_ctr32_copy_property`{blocks=blocks} }}
-	                 [ parse_core "arrayEq (Vec 64 Bool) (Vec 8 Bool)" ]
+                         [ parse_core "arrayEq (Vec 64 Bool) (Vec 8 Bool)" ]
              )));
        });
 
@@ -217,16 +217,16 @@ let original_aes_hw_ctr32_encrypt_blocks_spec blocks = do {
 //       out_goal  <- goal_has_some_tag ["output buffer"];
 //       if loop_inv0 then do {
 //         return (run (print "<<initial loop invariant>>"));
-// 	go;
+//      go;
 //       } else if loop_inv then do {
 //         return (run (print "<<inductive loop invariant>>"));
-// 	go;
+//      go;
 //       } else if out_goal then do {
 //         return (run (print "<<output buffer goal>>"));
-// 	admit "TODO";
+//      admit "TODO";
 //       } else do {
 //          print_goal_summary;
-// 	 go;
+//       go;
 //       };
 //     };
 
@@ -238,10 +238,21 @@ let aes_hw_ctr32_tactic = do {
   simplify (cryptol_ss ());
   simplify (addsimps slice_384_thms basic_ss);
   simplify (addsimps [cmp_sub_thm] empty_ss);
-  goal_eval_unint ["AESRound", "AESFinalRound", "aesenc", "aesenclast"];
+  goal_eval_unint
+    [ "AESRound", "AESFinalRound", "aesenc", "aesenclast"
+    , "ExpandKey","aes_key_from_schedule"
+    ];
   simplify (addsimps add_xor_slice_thms basic_ss);
   simplify (addsimps aesenclast_thms basic_ss);
-  w4_unint_yices ["AESRound", "AESFinalRound"];
+
+  // NB, there seems to be something pretty odd going on with this proof.
+  // I'd like to add "ExpandKey" as an uninterpreted function here
+  // (as it should reduce the size of the generated problems quite a bit),
+  // but that breaks the proof somehow.
+  //
+  // Maybe we need to know that the first round keys are directly
+  // derived from the input key?
+  w4_unint_yices ["AESRound","AESFinalRound","NextWord"];
 };
 
 /*
@@ -254,32 +265,39 @@ when the routine returns. The called helper routines do not modify r11.
 
 add_x86_preserved_reg "r11";
 
+enable_what4_hash_consing;
+
 // Prove the specification on Arrays for each of the concrete sizes
 // we need. This is done by first proving the spec for standard
 // Cryptol sequences, and using refinement to demonstrate the spec
 // for Arrays.
-//
-// TODO: it may be more memory-efficent to instead
-// to the proof directly on the Array-based specification.
 
 aes_hw_ctr32_encrypt_blocks_concrete_ovs <-
   for (eval_list {{ [ 1:[16] .. < MAX_BLOCKS_AFTER_BULK ] }}) (\i -> do
   { let blocks = eval_int i;
     print (str_concat "aes_hw_ctr32_encrypt lemma: " (show blocks));
-//    if do_prove then do {
     // TODO! This is currently limited to only do the concrete-size proofs
-    // up to 5 blocks in order to control memory useage.
-    if eval_bool {{ i < 6 }} then do {
-      ov <- llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "aes_hw_ctr32_encrypt_blocks"
+    // up to 5 blocks in order to control memory usage.
+    if eval_bool {{ i <= 5 }} then do {
+      ov <- llvm_verify_x86 m
+        "../../build/x86/crypto/crypto_test"
+        "aes_hw_ctr32_encrypt_blocks"
         []
         true
         (original_aes_hw_ctr32_encrypt_blocks_spec blocks)
         aes_hw_ctr32_tactic;
+
+      // TODO, it seems odd to me that we need to do the proof first
+      // with the "original" spec and then refine here. However,
+      // attempting to do the proof directly without the extra step
+      // doesn't seem to work.  The proof goes through with an unchanged
+      // tactic from block counts from 1 to 7, but then starts breaking
+      // with at least 8 blocks; I don't know why.
       llvm_refine_spec m "aes_hw_ctr32_encrypt_blocks" [ov]
         (aes_hw_ctr32_encrypt_blocks_concrete_spec blocks)
         do { simplify (addsimps aes_hw_ctr32_eq_thms (cryptol_ss ()));
-      	     w4_unint_z3 ["aes_hw_ctr32_encrypt_blocks"];
-    	   };
+             w4_unint_z3 ["aes_hw_ctr32_encrypt_blocks"];
+           };
     } else
       crucible_llvm_unsafe_assume_spec m "aes_hw_ctr32_encrypt_blocks"
         (aes_hw_ctr32_encrypt_blocks_concrete_spec blocks);
@@ -298,9 +316,11 @@ aes_hw_ctr32_encrypt_blocks_ov <-
       hard_goal <- goal_has_some_tag ["output buffer"];
       if hard_goal then do {
         print_goal_summary;
-  	simplify (addsimps aes_hw_ctr32_copy_thms (cryptol_ss ()));
-  	w4_unint_z3 ["aes_hw_ctr32_encrypt_blocks_array"];
+        simplify (addsimps aes_hw_ctr32_copy_thms (cryptol_ss ()));
+        w4_unint_z3 ["aes_hw_ctr32_encrypt_blocks_array"];
       } else do {
         yices;
       };
     };
+
+disable_what4_hash_consing;

@@ -46,21 +46,21 @@ enable_what4_hash_consing;
 
 let arraySolve = 
          w4_unint_z3
-	   ["pmult", "pmod", "gcm_polyval", "aes_hw_encrypt","aes_hw_ctr32_encrypt_blocks_array",
-	   "cipher_update_Xi_array", "gcm_ghash_array", "arrayCopy",
+           ["pmult", "pmod", "gcm_polyval", "aes_hw_encrypt","aes_hw_ctr32_encrypt_blocks_array",
+           "cipher_update_Xi_array", "gcm_ghash_array", "arrayCopy",
            "gcm_ghash_array_6x", "gcm_ghash_array_6x_enc_final", "gcm_enc_blocks_6x"
-	   ];
+           ];
 
 let crunchGoal = do
   { unfolding ["cipher_update", "cipher_update_byte", "cipher_final", "cipher_update_array", "get_Yi",
                "update_enc_array", "update_bulk_encrypt", "update_postbulk_encrypt",
-	       "update_dec_array", "update_bulk_decrypt", "update_postbulk_decrypt"
-	      ];
+               "update_dec_array", "update_bulk_decrypt", "update_postbulk_decrypt"
+              ];
     simplify (addsimps [gcm_pmult_pmod_thm, itethm8, itethm32, itethm64, itethm128] (cryptol_ss ()));
     goal_eval_unint ["pmult", "pmod", "gcm_pmult_pmod", "gcm_polyval", "aes_hw_encrypt", 
                      "aes_hw_ctr32_encrypt_blocks_array", "cipher_update_Xi_array", "gcm_ghash_array", "arrayCopy",
-		     "gcm_ghash_array_6x", "gcm_ghash_array_6x_enc_final",
-		     "gcm_enc_blocks_6x", "ExpandKey"
+                     "gcm_ghash_array_6x", "gcm_ghash_array_6x_enc_final",
+                     "gcm_enc_blocks_6x", "ExpandKey"
                     ];
    };
 
@@ -99,7 +99,7 @@ llvm_verify m "EVP_EncryptUpdate"
 
        if hard_goal then do {
            crunchGoal;
-	   arraySolve;
+           arraySolve;
        } else evp_cipher_tactic;
      };
 
@@ -112,7 +112,7 @@ llvm_verify m "EVP_DecryptUpdate"
                      ["Xi value","update output buffer"];
         if hard_goal then do {
            crunchGoal;
- 	   arraySolve;
+           arraySolve;
         } else evp_cipher_tactic;
       };
 

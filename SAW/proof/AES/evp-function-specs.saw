@@ -239,7 +239,6 @@ let EVP_DecryptFinal_ex_spec = do {
 
   crucible_execute_func [ctx_ptr, out_ptr, out_len_ptr];
 
-  // TODO? Why can't I put these lets inside the Cryptol brackets?
   let tag_match = {{ buf == cipher_final ctx }};
   let ret    = {{ if tag_match then 1:[32] else 0:[32] }};
   let iv_set = {{ if tag_match then 0:[32] else 1:[32] }};

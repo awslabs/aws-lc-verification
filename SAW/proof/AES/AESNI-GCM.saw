@@ -5,53 +5,6 @@
  */
 
 ////////////////////////////////////////////////////////////////////////////////
-// Rewrite rules and tactics specific to the AESNI-GCM proofs
-
-// TODO! make this independent of the length!
-let prove_ctr32_encrypt_thm gcm_len len = prove_theorem
-  (do {
-    w4_unint_yices ["aes_hw_encrypt"];
-  })
-  (rewrite (cryptol_ss ()) {{ \key iv Xi (in : [len][8]) -> ctr32_encrypt ({ key = key, iv = iv, Xi = Xi, len = `gcm_len } : AES_GCM_Ctx) in == join (map split (aesni_gcm_ctr32_encrypt_block ({ key = key, iv = iv, Xi = Xi, len = `gcm_len } : AES_GCM_Ctx) in)) }});
-
-// TODO! reenable these proofs
-let ctr32_encrypt_thms = [];
-
-// ctr32_encrypt_encrypt_thm <- prove_ctr32_encrypt_thm aesni_gcm_cipher_gcm_len evp_cipher_update_bulk_encrypt;
-// ctr32_encrypt_decrypt_thm <- prove_ctr32_encrypt_thm aesni_gcm_cipher_gcm_len evp_cipher_update_bulk_decrypt;
-// let ctr32_encrypt_thms =
-//   [ ctr32_encrypt_encrypt_thm
-//   , ctr32_encrypt_decrypt_thm
-//   ];
-
-// TODO, generalize lengths...
-let prove_cipher_update_avx_thm enc gcm_len len = prove_theorem
-  (do {
-    unfolding ["cipher_update", "cipher_update_byte"];
-    simplify (cryptol_ss ());
-    simplify (addsimps ctr32_encrypt_thms empty_ss);
-    simplify (addsimp gcm_pmult_pmod_thm empty_ss);
-    goal_eval_unint ["pmult", "pmod", "gcm_polyval", "gcm_polyval_mul", "gcm_polyval_mul_pmult3", "gcm_polyval_mul_pmult4", "gcm_polyval_red", "gcm_polyval_red_pmult", "aes_hw_encrypt", "aesni_gcm_ctr32_encrypt_block"];
-    simplify (addsimps gcm_polyval_thms empty_ss);
-    simplify (addsimps [concat_assoc_0_thm] empty_ss);
-    w4_unint_yices ["pmult", "pmod", "gcm_polyval", "aes_hw_encrypt"];
-  })
-  (rewrite (cryptol_ss ()) {{ \key iv Xi (in : [len][8]) -> (cipher_update enc ({ key = key, iv = iv, Xi = Xi, len = `gcm_len } : AES_GCM_Ctx) in).Xi == aesni_gcm_cipher enc ({ key = key, iv = iv, Xi = Xi, len = `gcm_len } : AES_GCM_Ctx) in }});
-
-
-// TODO Reenable these proofs!
-let cipher_update_avx_thms = [];
-
-// encrypt_update_avx_thm <- prove_cipher_update_avx_thm {{ 1 : [32] }} aesni_gcm_cipher_gcm_len evp_cipher_update_bulk_encrypt;
-// decrypt_update_avx_thm <- prove_cipher_update_avx_thm {{ 0 : [32] }} aesni_gcm_cipher_gcm_len evp_cipher_update_bulk_decrypt;
-// let cipher_update_avx_thms =
-//   [ encrypt_update_avx_thm
-//   , decrypt_update_avx_thm
-//   ];
-
-let pg = print_goal_depth 15;
-
-////////////////////////////////////////////////////////////////////////////////
 // Specifications
 
 let {{
@@ -109,18 +62,18 @@ let aesni_gcm_cipher_spec (enc:Term) : LLVMSetup () =
 
   let {{ // NB, big-endian counter
          ctr = join (drop`{12} ivec_bytes)
-	 iv  = take`{12} ivec_bytes
+         iv  = take`{12} ivec_bytes
 
-	 // NB, the GCM counter runs ahead
-	 gcm_len = ((zext (ctr-2)):[64]) * `AES_BLOCK_SIZE
+         // NB, the GCM counter runs ahead
+         gcm_len = ((zext (ctr-2)):[64]) * `AES_BLOCK_SIZE
 
          ctx = { key = key, iv = iv , Xi = Xi, len = gcm_len } : AES_GCM_Ctx
 
          H = join (aes_hw_encrypt zero key)
 
-	 res_len = bulk_result_length `min_size len64
-     	 res_len64 = (zext res_len):[64]
-	 res_ctr = ctr + (res_len / `AES_BLOCK_SIZE) }};
+         res_len = bulk_result_length `min_size len64
+         res_len64 = (zext res_len):[64]
+         res_ctr = ctr + (res_len / `AES_BLOCK_SIZE) }};
 
   // Input plaintext bytes, length "len"
   (in_, in_ptr) <- ptr_to_fresh_array_readonly "in" {{ res_len64 }};
@@ -161,7 +114,7 @@ let aesni_gcm_cipher_spec (enc:Term) : LLVMSetup () =
 //  let out_data = {{ aes_hw_ctr32_encrypt_blocks_array in_ key ivec_bytes 0 (res_len64/16) out_ }};
   let out_data = {{ gcm_enc_blocks_6x in_ iv ctr
                       (aes_round_keys key)
-		      out_ 0 (res_len64/16) }};
+                      out_ 0 (res_len64/16) }};
 
   llvm_setup_with_tag "Xi postcondition"
    (if eval_bool {{ enc == 0 }} then
@@ -182,29 +135,6 @@ let aesni_gcm_cipher_spec (enc:Term) : LLVMSetup () =
 ////////////////////////////////////////////////////////////////////////////////
 // Proof commands
 
-/*
- * Goal tactics.
- */
-let aesni_gcm_cipher_tactic = do {
-//  simplify (addsimps [aesenc_key0_0_thm, aesenc_key0_1_thm, aesenclast_thm] empty_ss);
-//  simplify (addsimps [aesenc_aesenclast_thm] empty_ss);
-  simplify (cryptol_ss ());
-//  simplify (addsimps cipher_update_avx_thms empty_ss);
-//  simplify (addsimps ctr32_encrypt_thms empty_ss);
-  goal_eval_unint
-    [ "pmult", "pmod", "gcm_polyval", "aes_hw_encrypt","gcm_ghash_array_6x", "gcm_init_Htable", "gcm_init_H" ];
-
-  simplify (addsimps xor_slice_append_thms basic_ss);
-  simplify (addsimps slice_slice_thms empty_ss);
-  simplify (addsimps xor_slice_append_thms basic_ss);
-  simplify (addsimps concat_assoc_0_thms empty_ss);
-  simplify (addsimps concat_assoc_1_thms empty_ss);
-  simplify (addsimps concat_assoc_2_thms empty_ss);
-  simplify (addsimps [cmp_sub_thm] empty_ss);
-//  w4_unint_yices ["pmult", "pmod", "gcm_polyval", "aesEncryptWithKeySchedule"];
-};
-
-
 let go_unint_less =
  [ "pmod","pmult","aes_hw_encrypt"
  , "aes_hw_ctr32_encrypt_blocks_array"
@@ -217,21 +147,6 @@ let go_unint = concat go_unint_less ["ExpandKey"];
 
 let go_less = w4_unint_yices go_unint_less;
 let go = w4_unint_yices go_unint;
-
-// aesni_gcm_encrypt_ov <- llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "aesni_gcm_encrypt"
-//   [ ("aesni_gcm_encrypt", 1200) // we need .Lbswap_mask, which lives in .text after aesni_gcm_encrypt (1081 bytes itself). 1200 bytes is an arbitrary size that I guessed would be large enough to contain the right bytes after alignment.
-//   ]
-//   true
-//   (aesni_gcm_cipher_spec {{ 1 : [32] }}) // NB enc = 1 is the spec for encryption
-//   aesni_gcm_cipher_tactic;
-
-// aesni_gcm_decrypt_ov <- llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "aesni_gcm_decrypt"
-//   [ ("aesni_gcm_encrypt", 1200) // we need .Lbswap_mask, which lives in .text after aesni_gcm_encrypt (1081 bytes itself). 1200 bytes is an arbitrary size that I guessed would be large enough to contain the right bytes after alignment.
-//   ]
-//   true
-//   (aesni_gcm_cipher_spec {{ 0 : [32] }}) // NB enc = 0 is the spec for decryption
-//   aesni_gcm_cipher_tactic;
-
 
 let {{
   type invariantTuple =
@@ -367,10 +282,17 @@ let {{
       /\ arrayEq out_data_fixed out_data_varying
       )
 
-      // NB, note about the conjunction here... important for the split_goal below
+      // NB, note: the structure of the conjunction that appears here
+      // is very important to the proof below. The previous parts of
+      // the invariant are combined together with parens so that the
+      // following statement is at top-level.  This allows us to
+      // separate it easily using the "goal_split" tactic.
 
-      // Main invariant regarding Xi. Subtract 12 from the total because the final two groups
-      // of six blocks are handled separately after the loop.
+      // This is the main invariant regarding Xi. Subtract 18 from the total
+      // because the final two groups of six blocks are handled separately after
+      // the loop, and we have expanded these two groups, and the final loop
+      // iteration (so 18 blocks total) as part of the statement of the
+      // function specification.
 
       /\ gcm_ghash_array_6x H (join Xi)  out_data_fixed 0 (total_blocks - 18) ==
          gcm_ghash_array_6x H current_Xi out_data_fixed processed_blocks (total_blocks - 18)
@@ -378,31 +300,31 @@ let {{
    where processed_blocks = i_blocks - c_blocks
          offset = processed_blocks * 16
 
-	 H = join (aes_hw_encrypt zero key)
+         H = join (aes_hw_encrypt zero key)
 
          rndkeys = aes_round_keys key
 
-	 // The value in the Xi register lags behind, so the actual
-	 // current Xi value appears to be c_Xi ^ c_Z0 ^ c_spill_Z3
-	 current_Xi : [128]
-	 current_Xi = c_spill_Z3 ^ (drop c_Z0 ^ drop c_Xi)
+         // The value in the Xi register lags behind, so the actual
+         // current Xi value appears to be c_Xi ^ c_Z0 ^ c_spill_Z3
+         current_Xi : [128]
+         current_Xi = c_spill_Z3 ^ (drop c_Z0 ^ drop c_Xi)
 
          out_data_fixed   = gcm_enc_blocks_6x in (take`{12} ivec) i_ctr rndkeys i_buf 12 total_blocks
          out_data_varying = gcm_enc_blocks_6x in (take`{12} ivec) ctr rndkeys c_buf (processed_blocks + 12) total_blocks
 
-	 // NB, while decryption requires only a minimum of 6 blocks,
-	 // the bulk encryption algorithm requires 18 blocks minimum.
-	 total_blocks =
-	   zext (bulk_result_length (18 * `AES_BLOCK_SIZE) len64) / `AES_BLOCK_SIZE
+         // NB, while decryption requires only a minimum of 6 blocks,
+         // the bulk encryption algorithm requires 18 blocks minimum.
+         total_blocks =
+           zext (bulk_result_length (18 * `AES_BLOCK_SIZE) len64) / `AES_BLOCK_SIZE
 
-	 iv : [128]
-	 iv = join (reverse (take`{12} ivec # split ctr))
+         iv : [128]
+         iv = join (reverse (take`{12} ivec # split ctr))
 
-	 ctr : [32]
-	 ctr = i_ctr + drop`{32} processed_blocks
+         ctr : [32]
+         ctr = i_ctr + drop`{32} processed_blocks
 
-	 i_ctr : [32]
-	 i_ctr = join (drop`{12} ivec) + 12
+         i_ctr : [32]
+         i_ctr = join (drop`{12} ivec) + 12
 
 
   aesni_gcm_decrypt_invariant :
@@ -541,26 +463,26 @@ let {{
          offset = processed_blocks * 16
          end = len64 - 96
 
-	 total_blocks =
-	   zext (bulk_result_length (6 * `AES_BLOCK_SIZE) len64) / `AES_BLOCK_SIZE
+         total_blocks =
+           zext (bulk_result_length (6 * `AES_BLOCK_SIZE) len64) / `AES_BLOCK_SIZE
 
-	 H = join (aes_hw_encrypt zero key)
+         H = join (aes_hw_encrypt zero key)
 
          rndkeys = aes_round_keys key
 
-	 // The value in the Xi register lags behind, so the actual
-	 // current Xi value appears to be c_Xi ^ c_Z0 ^ c_spill_Z3
-	 current_Xi : [128]
-	 current_Xi = c_spill_Z3 ^ (drop c_Z0 ^ drop c_Xi)
+         // The value in the Xi register lags behind, so the actual
+         // current Xi value appears to be c_Xi ^ c_Z0 ^ c_spill_Z3
+         current_Xi : [128]
+         current_Xi = c_spill_Z3 ^ (drop c_Z0 ^ drop c_Xi)
 
-	 iv : [128]
-	 iv = join (reverse (take`{12} ivec # split ctr))
+         iv : [128]
+         iv = join (reverse (take`{12} ivec # split ctr))
 
-	 ctr : [32]
-	 ctr = i_ctr + drop`{32} processed_blocks
+         ctr : [32]
+         ctr = i_ctr + drop`{32} processed_blocks
 
-	 i_ctr : [32]
-	 i_ctr = join (drop`{12} ivec)
+         i_ctr : [32]
+         i_ctr = join (drop`{12} ivec)
 
 }};
 
@@ -597,164 +519,161 @@ aesni_gcm_encrypt_ov <- llvm_verify_x86_with_invariant
        if loop_inv0 then do {
          return (run (print "<<initial loop invariant>>"));
 
-	 unfolding ["aesni_gcm_encrypt_invariant"];
-	 simplify (cryptol_ss ());
-	 simplify (addsimps [ arrayRange_gcm_enc_blocks_6x_lemma_8
-	                    , arrayRange_gcm_enc_blocks_6x_lemma_16
-			    ] empty_ss);
-	 go_less;
-//admit "skipping";
+         unfolding ["aesni_gcm_encrypt_invariant"];
+         simplify (cryptol_ss ());
+         simplify (addsimps [ arrayRange_gcm_enc_blocks_6x_lemma_8
+                            , arrayRange_gcm_enc_blocks_6x_lemma_16
+                            ] empty_ss);
+         go_less;
 
        } else if loop_inv then do {
          return (run (print "<<inductive loop invariant>>"));
 
          normalize_sequent;
 
-	 unfolding ["aesni_gcm_encrypt_invariant","ecEq","/\\"];
-	 simplify (cryptol_ss ());
-	 simplify (addsimp aesenclast_thm basic_ss);
+         unfolding ["aesni_gcm_encrypt_invariant","ecEq","/\\"];
+         simplify (cryptol_ss ());
+         simplify (addsimp aesenclast_thm basic_ss);
 
-	 focus_concl 2; // focus on loop invariant conclusion
-	 split_goal;
+         focus_concl 2; // focus on loop invariant conclusion
+         split_goal;
 
-	 // first prove the necessary facts about the ghash
-	 focus_hyp 4;
-	 simplify (addsimp ghash_6x_unfolding_lemma empty_ss);
-	 go;
-//	 admit "skipping";
-
-	 // now that's done, prove the rest of the invariant
-	 focus_hyp 4;
-	 simplify (addsimp gcm_enc_blocks_6x_unfolding_lemma empty_ss);
-	 focus_hyp 5;
-	 simplify (addsimps [ arrayRange_gcm_enc_blocks_6x_lemma_8
-	                    , arrayRange_gcm_enc_blocks_6x_lemma_16
-	                    ] empty_ss);
+         // first prove the necessary facts about the ghash
+         focus_hyp 4;
+         simplify (addsimp ghash_6x_unfolding_lemma empty_ss);
          go;
-//	 admit "skipping";
+
+         // now that's done, prove the rest of the invariant
+         focus_hyp 4;
+         simplify (addsimp gcm_enc_blocks_6x_unfolding_lemma empty_ss);
+         focus_hyp 5;
+         simplify (addsimps [ arrayRange_gcm_enc_blocks_6x_lemma_8
+                            , arrayRange_gcm_enc_blocks_6x_lemma_16
+                            ] empty_ss);
+         go;
 
        } else if Xi_post then do {
          return (run (print "<<Xi post>>"));
 
-	 normalize_sequent;
-	 simplify (addsimp aesenclast_thm (cryptol_ss ()));
+         normalize_sequent;
+         simplify (addsimp aesenclast_thm (cryptol_ss ()));
 
-	 focus_hyp 0;
-	 split_goal;
-	 go;
+         focus_hyp 0;
+         split_goal;
+         go;
 
-	 normalize_sequent;
-	 focus_concl 1;
-	 goal_revert_hyp 1;
+         normalize_sequent;
+         focus_concl 1;
+         goal_revert_hyp 1;
 
-	 // This lemma is applied to decompose this proof into
-	 // smaller subgoals, as the whole postcondition proof
-	 // is too large/complex to handle reasonably otherwise.
-	 //
-	 // The following 7 subgoals arise from appying this lemma.
-	 goal_apply enc_Xi_post_lemma;
+         // This lemma is applied to decompose this proof into
+         // smaller subgoals, as the whole postcondition proof
+         // is too large/complex to handle reasonably otherwise.
+         //
+         // The following 7 subgoals arise from appying this lemma.
+         goal_apply enc_Xi_post_lemma;
 
-	 // (1) boring/easy structural properties
-	 go;
+         // (1) boring/easy structural properties
+         go;
 
-	 // (2) Show that the term computed in symbolic simulation
-	 // matches the restatement from the enc_Xi_post_lemma.
-	 //
-	 // This is wierdly difficult, and requires several
-	 // annoying intermediate lemmas that are hyper-specific
-	 // to the terms generated by the symbolic simulator.
-	 // The intermediate function we are using here to restate
-	 // this lemma was supposed to be basically identical to the
-	 // term generated, so it feels very strange that this is so
-	 // difficult.
-	 //
-	 // It would be very nice to find a better way to do this.
-	 simplify (addsimp custom_append_lemma empty_ss);
-	 goal_apply bv128_ite_decompose_right;
-	 goal_intro_hyps 1;
+         // (2) Show that the term computed in symbolic simulation
+         // matches the restatement from the enc_Xi_post_lemma.
+         //
+         // This is wierdly difficult, and requires several
+         // annoying intermediate lemmas that are hyper-specific
+         // to the terms generated by the symbolic simulator.
+         // The intermediate function we are using here to restate
+         // this lemma was supposed to be basically identical to the
+         // term generated, so it feels very strange that this is so
+         // difficult.
+         //
+         // It would be very nice to find a better way to do this.
+         simplify (addsimp custom_append_lemma empty_ss);
+         goal_apply bv128_ite_decompose_right;
+         goal_intro_hyps 1;
 
-	 goal_apply extra_lemma1;
-	 go;
-	 goal_apply func_lemma_cong;
-	 go;
-	 goal_apply extra_lemma2;
-	 go;
-	 goal_apply func_lemma_cong;
-	 go;
-	 go;
-	 go;
-	 go;
-	 go;
+         goal_apply extra_lemma1;
+         go;
+         goal_apply func_lemma_cong;
+         go;
+         goal_apply extra_lemma2;
+         go;
+         goal_apply func_lemma_cong;
+         go;
+         go;
+         go;
+         go;
+         go;
 
-	 // (3) final block equalities.
-	 // Here we need to show that the AES counter mode encrypted
-	 // blocks computed in the final iteration of the loop match
-	 // the expected values of the final 6 blocks of output buffer.
-	 simplify (addsimp gcm_enc_blocks_6x_unfolding_lemma2 empty_ss);
-	 unfolding ["gcm_enc_blocks_6x_unfold"];
-	 simplify (cryptol_ss ());
-	 simplify (addsimp_shallow gcm_enc_blocks_6x_test_unfold_lemma empty_ss);
-	 w4_unint_yices (concat go_unint ["enc_block"]);
+         // (3) final block equalities.
+         // Here we need to show that the AES counter mode encrypted
+         // blocks computed in the final iteration of the loop match
+         // the expected values of the final 6 blocks of output buffer.
+         simplify (addsimp gcm_enc_blocks_6x_unfolding_lemma2 empty_ss);
+         unfolding ["gcm_enc_blocks_6x_unfold"];
+         simplify (cryptol_ss ());
+         simplify (addsimp_shallow gcm_enc_blocks_6x_test_unfold_lemma empty_ss);
+         w4_unint_yices (concat go_unint ["enc_block"]);
 
-	 // (4) mid block equalities
-	 // Here we need to show that blocks looked up in the "current output buffer"
-	 // are the ones expected. This is similar to one of the steps we need to
-	 // do when establishing the loop invariant.
-	 simplify (addsimp_shallow arrayRange_gcm_enc_blocks_6x_lemma_16 empty_ss);
-	 go;
+         // (4) mid block equalities
+         // Here we need to show that blocks looked up in the "current output buffer"
+         // are the ones expected. This is similar to one of the steps we need to
+         // do when establishing the loop invariant.
+         simplify (addsimp_shallow arrayRange_gcm_enc_blocks_6x_lemma_16 empty_ss);
+         go;
 
-	 // (5) first block equalities
-	 // Here, we simply need to show that the "prefetched" block data
-	 // at the loop head matches the expected values.  This is pretty much
-	 // directly stated by the loop invariant.
-	 go;
+         // (5) first block equalities
+         // Here, we simply need to show that the "prefetched" block data
+         // at the loop head matches the expected values.  This is pretty much
+         // directly stated by the loop invariant.
+         go;
 
-	 // (6) initial pipeline stage proof
-	 // Here, we have to show that the initial state of the output buffer
-	 // at the loop header matches the expected values. This involves reasoning
-	 // about the 12 blocks encrypted at the beginning of the function before
-	 // the loop begins.
+         // (6) initial pipeline stage proof
+         // Here, we have to show that the initial state of the output buffer
+         // at the loop header matches the expected values. This involves reasoning
+         // about the 12 blocks encrypted at the beginning of the function before
+         // the loop begins.
 
-	 // unfold once
-	 simplify (addsimp gcm_enc_blocks_6x_unfolding_lemma empty_ss);
-	 unfolding ["gcm_enc_blocks_6x_unfold"];
-	 simplify (cryptol_ss ());
-	 goal_apply arrayEq_ite_decompose_right;
-	 goal_intro_hyps 1;
-	 // unfold again
-	 simplify (addsimp gcm_enc_blocks_6x_unfolding_lemma empty_ss);
-	 unfolding ["gcm_enc_blocks_6x_unfold"];
-	 simplify (cryptol_ss ());
-	 goal_apply arrayEq_ite_decompose_right;
-	 goal_intro_hyps 1;
+         // unfold once
+         simplify (addsimp gcm_enc_blocks_6x_unfolding_lemma empty_ss);
+         unfolding ["gcm_enc_blocks_6x_unfold"];
+         simplify (cryptol_ss ());
+         goal_apply arrayEq_ite_decompose_right;
+         goal_intro_hyps 1;
+         // unfold again
+         simplify (addsimp gcm_enc_blocks_6x_unfolding_lemma empty_ss);
+         unfolding ["gcm_enc_blocks_6x_unfold"];
+         simplify (cryptol_ss ());
+         goal_apply arrayEq_ite_decompose_right;
+         goal_intro_hyps 1;
 
-	 // prove the main equation
-	 go;
-	 // clean up the other cases
-	 go;
-	 go;
+         // prove the main equation
+         go;
+         // clean up the other cases
+         go;
+         go;
 
-	 // (7) current Xi equality
-	 // Here, we need to show that the current Xi value at the loop head
-	 // corresponds as required to the ghash value we are computing.  This
-	 // basically involves manipulating the loop invariant to show that
-	 // the recursive ghash function (shifted back by 18) terminates along
-	 // with the loop condition.
-	 focus_hyp 1;
-	 unfolding ["aesni_gcm_encrypt_invariant","ecEq","/\\"];
-	 simplify (cryptol_ss ());
-	 simplify (addsimp ghash_6x_unfolding_lemma empty_ss);
-	 go;
+         // (7) current Xi equality
+         // Here, we need to show that the current Xi value at the loop head
+         // corresponds as required to the ghash value we are computing.  This
+         // basically involves manipulating the loop invariant to show that
+         // the recursive ghash function (shifted back by 18) terminates along
+         // with the loop condition.
+         focus_hyp 1;
+         unfolding ["aesni_gcm_encrypt_invariant","ecEq","/\\"];
+         simplify (cryptol_ss ());
+         simplify (addsimp ghash_6x_unfolding_lemma empty_ss);
+         go;
 
        } else if out_post then do {
          return (run (print "<<output buffer post>>"));
 
-	 normalize_sequent;
+         normalize_sequent;
          simplify (cryptol_ss ());
 
-	 // first thing we want to do is unroll the gcm_enc_block_6x
-	 // function twice to handle the two initial groups of 6 blocks
-	 // that are encrypted before the loop starts
+         // first thing we want to do is unroll the gcm_enc_block_6x
+         // function twice to handle the two initial groups of 6 blocks
+         // that are encrypted before the loop starts
          focus_concl 0;
            simplify (addsimp_shallow gcm_enc_blocks_6x_unfolding_lemma2 empty_ss);
            unfolding ["gcm_enc_blocks_6x_unfold"];
@@ -768,8 +687,8 @@ aesni_gcm_encrypt_ov <- llvm_verify_x86_with_invariant
          // deal with the final loop iteration.
          focus_hyp 0;
            unfolding ["aesni_gcm_encrypt_invariant","ecEq","/\\"];
-	   simplify (cryptol_ss ());
-	   simplify (addsimp_shallow gcm_enc_blocks_6x_unfolding_lemma empty_ss);
+           simplify (cryptol_ss ());
+           simplify (addsimp_shallow gcm_enc_blocks_6x_unfolding_lemma empty_ss);
            unfolding ["gcm_enc_blocks_6x_unfold"];
            simplify (cryptol_ss ());
          unfocus;
@@ -777,11 +696,9 @@ aesni_gcm_encrypt_ov <- llvm_verify_x86_with_invariant
          simplify (addsimp aesenclast_thm basic_ss);
          simplify (addsimp_shallow gcm_enc_blocks_6x_test_unfold_lemma empty_ss);
 
-	 go;
-//         admit "output buffer post";
+         go;
        } else do {
          go;
-//           admit "skipping";
        };
     };
 
@@ -810,57 +727,52 @@ aesni_gcm_decrypt_ov <- llvm_verify_x86_with_invariant
 
          normalize_sequent;
 
-	 focus_hyp 4; // focus on the loop induction hypothesis
-  	   unfolding ["aesni_gcm_decrypt_invariant","ecEq"];
-	   simplify (cryptol_ss ());
-	   simplify (addsimps [ gcm_enc_blocks_6x_unfolding_lemma
-	                      , ghash_6x_unfolding_lemma
-	 		      ] empty_ss);
-	 unfocus;
+         focus_hyp 4; // focus on the loop induction hypothesis
+           unfolding ["aesni_gcm_decrypt_invariant","ecEq"];
+           simplify (cryptol_ss ());
+           simplify (addsimps [ gcm_enc_blocks_6x_unfolding_lemma
+                              , ghash_6x_unfolding_lemma
+                              ] empty_ss);
+         unfocus;
 
-	 simplify (addsimp aesenclast_thm basic_ss);
-	 go;
-
-//	 admit "skipping";
+         simplify (addsimp aesenclast_thm basic_ss);
+         go;
 
        } else if Xi_post then do {
          return (run (print "<<Xi post>>"));
 
          normalize_sequent;
 
-	 focus_hyp 0; // focus on the loop induction hypothesis
-  	   unfolding ["aesni_gcm_decrypt_invariant","ecEq","/\\"];
-	   simplify (cryptol_ss ());
-	   simplify (addsimp ghash_6x_unfolding_lemma empty_ss);
-	   unfolding ["gcm_ghash_array_6x_unfold"];
-	 unfocus;
+         focus_hyp 0; // focus on the loop induction hypothesis
+           unfolding ["aesni_gcm_decrypt_invariant","ecEq","/\\"];
+           simplify (cryptol_ss ());
+           simplify (addsimp ghash_6x_unfolding_lemma empty_ss);
+           unfolding ["gcm_ghash_array_6x_unfold"];
+         unfocus;
 
          simplify (cryptol_ss ());
          simplify (addsimp_shallow ghash_6x_test_unfold_lemma empty_ss);
 
-	 go;
-//	 admit "Xi post";
+         go;
        } else if out_post then do {
          return (run (print "<<output buffer post>>"));
 
          normalize_sequent;
 
-	 focus_hyp 0; // focus on the loop induction hypothesis
-  	   unfolding ["aesni_gcm_decrypt_invariant","ecEq","/\\"];
-	   simplify (cryptol_ss ());
-	   simplify (addsimp gcm_enc_blocks_6x_unfolding_lemma empty_ss);
-	   unfolding ["gcm_enc_blocks_6x_unfold"];
-	 unfocus;
+         focus_hyp 0; // focus on the loop induction hypothesis
+           unfolding ["aesni_gcm_decrypt_invariant","ecEq","/\\"];
+           simplify (cryptol_ss ());
+           simplify (addsimp gcm_enc_blocks_6x_unfolding_lemma empty_ss);
+           unfolding ["gcm_enc_blocks_6x_unfold"];
+         unfocus;
 
          simplify (cryptol_ss ());
-	 simplify (addsimp aesenclast_thm basic_ss);
+         simplify (addsimp aesenclast_thm basic_ss);
          simplify (addsimp_shallow gcm_enc_blocks_6x_test_unfold_lemma empty_ss);
 
-	 go;
-//         admit "output buffer post";
+         go;
        } else do {
          go;
-	 //admit "skipping";
        };
    };
 
