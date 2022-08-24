@@ -1,11 +1,17 @@
 
+// The lemmas and definitions in this file are all
+// helper operations for the purpose of proving the
+// encryption routine postcondition regarding Xi.
+// It is an especially complicated condition to prove,
+// owing to the number of different blocks involved (18 blocks)
+// in three separate groups, each group of which must
+// be handled differently.
+
 let {{
   lemma_func :
-    [12][128] ->
-
-    [128] ->
-
-    [6][128] ->
+    [12][128] -> // Htable
+    [128] ->     // Xi_in
+    [6][128] ->  // blocks
     [128]
   lemma_func Htable Xi_in Blocks =
      (A ^ B ^ C ^ D ^ E ^ F ^ (clmul Lpoly X) ^ (0 # S_hi) ^ (X#O))
@@ -56,33 +62,65 @@ let {{
      S = (clmul H7  B1_lo) ^ A ^ (clmul H13 S2)  ^
          (clmul H8  B2_lo) ^ B ^ (clmul H14 S5)  ^
          (clmul H9  B3_lo) ^ C ^ (clmul H15 S8)  ^
-     	 (clmul H10 B4_lo) ^ D ^ (clmul H16 S11) ^
+         (clmul H10 B4_lo) ^ D ^ (clmul H16 S11) ^
          (clmul H11 B5_lo) ^ E ^ (clmul H17 S14) ^
-     	 (clmul H12 U_lo)  ^ F ^ (clmul H18 S17)
+         (clmul H12 U_lo)  ^ F ^ (clmul H18 S17)
 
      T = (clmul H7  B1_lo) ^
          (clmul H8  B2_lo) ^
-     	 (clmul H9  B3_lo) ^
-      	 (clmul H10 B4_lo) ^
-      	 (clmul H11 B5_lo) ^
-      	 (clmul H12 U_lo)
+         (clmul H9  B3_lo) ^
+         (clmul H10 B4_lo) ^
+         (clmul H11 B5_lo) ^
+         (clmul H12 U_lo)
 }};
 
 func_lemma_cong_stmt <- congruence_for {{ lemma_func }};
 func_lemma_cong <-
   prove_extcore (w4_unint_z3 ["lemma_func"]) func_lemma_cong_stmt;
 
+// At present, I'm not sure how to prove this. I think it relies on
+// particular properties of the "gcm_init_Htable" setup routine, as
+// well as particular propeties of the finite field representation polynomial.
+// There are also Karatsuba reduction steps involved, and the solver just doesn't
+// seem up to proving this all at on go.
+//
+// Random testing and the fact that the previous, bounded proof were able to navigate
+// this step gives me confidence that this is correct; but we should find a way
+// to finish the proof.
+
 func_lemma_eq <-
   prove_print
   do {
-    quickcheck 10; // admit "TODO! Find a proof for this";
+    quickcheck 50; // TODO! Find a proof for this
   }
   {{ \H Xi blocks ->
        lemma_func (gcm_init_Htable (gcm_init_H H)) Xi blocks ==
-       (aesni_gcm_cipher_block6 True (gcm_init_Htable (gcm_init_H H)) Xi blocks)
+       aesni_gcm_cipher_block6 True (gcm_init_Htable (gcm_init_H H)) Xi blocks
   }};
 
 
+// What follows is some truly egregious proof hacking.
+//
+// In "extra_lemma_statements" we are building a pair of lemmas
+// that will match _exactly_ the sequence of operations
+// produced in the final stages of the "aesni_gcm_encrypt"
+// operation, as it processes the authentication tag
+// computation on the final 12 blocks. In order to get
+// it to match exactly, we cannot state the lemma in
+// Cryptol, as the syntax doesn't quite work out.
+//
+// The ultimate and penultimate group of blocks are consumed
+// almost _but not quite_ the same way. We build two
+// closely related lemma statements below to handle these
+// two cases. The statement of these lemmas was essentially
+// reverse-engineered from the results of the symbolic
+// simulator, and may be fragile to changes in the code or
+// the simulator itself.
+//
+// For reasons I don't quite understand, the solvers
+// take far too long to show the equivelence we want
+// without using these lemmas. It would be quite nice
+// to find a way to do without these.
 
 let eqTrue x = term_apply (parse_core "EqTrue") [x];
 
@@ -133,11 +171,11 @@ extra_lemma_statements <-
 
    let Hlo i = term_apply (parse_core "slice Bool 0 64 64")
                 [(term_apply (parse_core "at 12 (Vec 128 Bool)")
-		  [Htable, nat_to_term i])];
+                  [Htable, nat_to_term i])];
 
    let Hhi i = term_apply (parse_core "slice Bool 64 64 0")
                 [(term_apply (parse_core "at 12 (Vec 128 Bool)")
-		  [Htable, nat_to_term i])];
+                  [Htable, nat_to_term i])];
 
    let H1  = Hlo 0;
    let H2  = Hlo 1;
@@ -191,9 +229,9 @@ extra_lemma_statements <-
    let S = {{ (clmul H7  B1_lo) ^ A ^ (clmul H13 S2)  ^
               (clmul H8  B2_lo) ^ B ^ (clmul H14 S5)  ^
               (clmul H9  B3_lo) ^ C ^ (clmul H15 S8)  ^
-	      (clmul H10 B4_lo) ^ D ^ (clmul H16 S11) ^
+              (clmul H10 B4_lo) ^ D ^ (clmul H16 S11) ^
               (clmul H11 B5_lo) ^ E ^ (clmul H17 S14) ^
-	      (clmul H12 U_lo)  ^ F ^ (clmul H18 S17)
+              (clmul H12 U_lo)  ^ F ^ (clmul H18 S17)
            }};
 
    let S_lo = term_apply (parse_core "slice Bool 64 64 0") [S];
@@ -201,10 +239,10 @@ extra_lemma_statements <-
 
    let T = {{ (clmul H7  B1_lo) ^
               (clmul H8  B2_lo) ^
-	      (clmul H9  B3_lo) ^
-	      (clmul H10 B4_lo) ^
-	      (clmul H11 B5_lo) ^
-	      (clmul H12 U_lo) }};
+              (clmul H9  B3_lo) ^
+              (clmul H10 B4_lo) ^
+              (clmul H11 B5_lo) ^
+              (clmul H12 U_lo) }};
 
    let R = {{ T ^ (S_lo # 0) }};
 
@@ -217,33 +255,33 @@ extra_lemma_statements <-
 
    let t1   = eqTrue {{ lemma_func Htable
                          (U1 ^ U2)
-			 [ B6
-			 , B5_hi # B5_lo
-			 , B4_hi # B4_lo
-			 , B3_hi # B3_lo
-			 , B2_hi # B2_lo
+                         [ B6
+                         , B5_hi # B5_lo
+                         , B4_hi # B4_lo
+                         , B3_hi # B3_lo
+                         , B2_hi # B2_lo
                          , B1_hi # B1_lo
-			 ]
+                         ]
                         == Q }};
 
    let t1'  = eqTrue {{ lemma_func Htable
                          (U1 ^ B6)
-			 [ U2
-			 , B5_hi # B5_lo
-			 , B4_hi # B4_lo
-			 , B3_hi # B3_lo
-			 , B2_hi # B2_lo
+                         [ U2
+                         , B5_hi # B5_lo
+                         , B4_hi # B4_lo
+                         , B3_hi # B3_lo
+                         , B2_hi # B2_lo
                          , B1_hi # B1_lo
-			 ]
+                         ]
                         == Q }};
 
    let t2   = eqTrue {{ [V2,V5,V8,V11,V14] ==
                         [ B1_hi # B1_lo
-			, B2_hi # B2_lo
-			, B3_hi # B3_lo
-			, B4_hi # B4_lo
-			, B5_hi # B5_lo
-			]
+                        , B2_hi # B2_lo
+                        , B3_hi # B3_lo
+                        , B4_hi # B4_lo
+                        , B5_hi # B5_lo
+                        ]
                      }};
 
    let tend = eqTrue {{ (A ^ B ^ C ^ D ^ E ^ F ^
@@ -259,36 +297,41 @@ extra_lemma_statements <-
    return (l1,l2);
  };
 
+// Now actually prove the lemmas.
+//
+// They are pretty easy (although, I feel
+// they they should be essentially instant
+// and I'm not sure why they are not).
+
 extra_lemma1 <-
   prove_extcore
-  do { go; // admit "extra_lemm1";
-     }
+  do { go; }
   (extra_lemma_statements.0);
 
 extra_lemma2 <-
   prove_extcore
-  do { go; // admit "extra_lemma2";
-     }
+  do { go; }
   (extra_lemma_statements.1);
 
 
-// This is a horribly gross hack.  Basically, I'm constructing
-// a lemma here whose sole purpose is to restate the Xi
-// postcondition of the encryption algorithm sufficently
-// that the solver can directly show that the result of simulation
-// matches.
+// This is some additional nasty proof engineering.
+// Basically, I'm constructing a lemma here whose
+// sole purpose is to restate the Xi postcondition of
+// the encryption algorithm sufficently that the solver can
+// directly show that the result of simulation matches.
 //
 // To that end, the conclusion of this lemma requires an
-// implication involving loop invariant hypothesis. This is primarily
+// implication involving the loop invariant hypothesis. This is primarily
 // a way to get enough values into scope here that I can use them
 // to write down the intermediate values I need. Without doing something
 // like this, it's very difficult to even figure out how to write down
 // what I want to say. Essentialy, we are using pattern matching via
 // the lemma conclusion to give names to the values we want.
 //
-// The proof of this lemma is where all the interesting reasoning
-// actually goes to use the loop invariant, unfold recursive
-// definitions, etc.
+// All the interesting reasoning is pushed back out to the calling
+// context via hypotheses, except that we apply the lemma regarding
+// modular arithmetic in the body of this proof. Thus, this proof
+// goes through rather easily.
 
 enc_Xi_post_lemma_statement <-
   do {
@@ -391,24 +434,26 @@ enc_Xi_post_lemma_statement <-
            i_ctr : [32]
            i_ctr = join (drop`{12} ivec) + 12
 
-	   // NB, while decryption requires only a minimum of 6 blocks,
-	   // the bulk encryption algorithm requires 18 blocks minimum.
-	   total_blocks =
-	     zext (bulk_result_length (18 * `AES_BLOCK_SIZE) len64) / `AES_BLOCK_SIZE
+           // NB, while decryption requires only a minimum of 6 blocks,
+           // the bulk encryption algorithm requires 18 blocks minimum.
+           total_blocks =
+             zext (bulk_result_length (18 * `AES_BLOCK_SIZE) len64) / `AES_BLOCK_SIZE
     }};
 
     let first_blocks = {{
-       	         [ (c_prefetch0 # c_prefetch1)
-		 , (c_prefetch2 # c_prefetch3)
-		 , (c_prefetch4 # c_prefetch5)
-		 , (c_prefetch6 # c_prefetch7)
-		 , (c_prefetch8 # c_prefetch9)
-		 , drop`{512-128} c_Z3
-		 ]
+                 [ (c_prefetch0 # c_prefetch1)
+                 , (c_prefetch2 # c_prefetch3)
+                 , (c_prefetch4 # c_prefetch5)
+                 , (c_prefetch6 # c_prefetch7)
+                 , (c_prefetch8 # c_prefetch9)
+                 , drop`{512-128} c_Z3
+                 ]
     }};
 
     let mid_blocks = {{
-       [ join (arrayRangeLookup c_buf (c_a + 96 + j*16 )) | j <- [ 0 .. 5 ] ]:[6][128]
+       [ join (arrayRangeLookup c_buf (c_a + 96 + j*16 ))
+       | j <- [ 0 .. 5 ]
+       ]:[6][128]
     }};
 
     let last_blocks = {{
@@ -449,17 +494,17 @@ enc_Xi_post_lemma_statement <-
 
     let tend = eqTrue
          (term_apply (parse_core "implies")
-	 [ {{ aesni_gcm_encrypt_invariant len64 key ivec Xi inp i_tuple c_tuple }}
+         [ {{ aesni_gcm_encrypt_invariant len64 key ivec Xi inp i_tuple c_tuple }}
          , {{ [A0,A1,A2,A3,A4,A5,A6,A7,A8,A9,A10,A11,A12,A13,A14,A15]
                  == split (gcm_ghash_array_6x_enc_final H (join Xi)
                             out_data
-		            blocks) }}
-	 ]);
+                            blocks) }}
+         ]);
 
     let tfinal =
       (implies_term t1 (implies_term t2
          (implies_term t3a (implies_term t3b (implies_term t3c
-	   (implies_term t3d (implies_term t3e tend)))))));
+           (implies_term t3d (implies_term t3e tend)))))));
 
     return (generalize_term allvars
       (rewrite (cryptol_ss ()) (unfold_term ["ecEq"] tfinal)));
