@@ -1,6 +1,4 @@
 
-let eqTrue x = term_apply (parse_core "EqTrue") [x];
-
 let {{
   lemma_func :
     [12][128] ->
@@ -10,26 +8,26 @@ let {{
     [6][128] ->
     [128]
   lemma_func Htable Xi_in Blocks =
-     (A ^ B ^ C ^ D ^ E ^ F ^ (clmul Lpoly X) ^ (0 # S_lo) ^ (X#O))
+     (A ^ B ^ C ^ D ^ E ^ F ^ (clmul Lpoly X) ^ (0 # S_hi) ^ (X#O))
     where
      Lpoly = 0xc200000000000000
-     N = (clmul Lpoly R_hi) ^ (R_hi # R_lo)
+     N = (clmul Lpoly R_lo) ^ (R_lo # R_hi)
      O#X = N
 
-     A = clmul H1 B1_lo
-     B = clmul H2 B2_lo
-     C = clmul H3 B3_lo
-     D = clmul H4 B4_lo
-     E = clmul H5 B5_lo
-     F = clmul H6 U_lo
+     A = clmul H1 B1_hi
+     B = clmul H2 B2_hi
+     C = clmul H3 B3_hi
+     D = clmul H4 B4_hi
+     E = clmul H5 B5_hi
+     F = clmul H6 U_hi
 
-     R_hi, R_lo, S_hi, S_lo, U_hi, U_lo : [64]
+     R_lo, R_hi, S_lo, S_hi, U_lo, U_hi : [64]
 
-     R_lo # R_hi = R
-     S_lo # S_hi = S
-     U_lo # U_hi = U
+     R_hi # R_lo = R
+     S_hi # S_lo = S
+     U_hi # U_lo = U
 
-     R = T ^ (S_hi # 0)
+     R = T ^ (S_lo # 0)
 
      H1  # H7  = Htable@0
      H2  # H8  = Htable@1
@@ -37,37 +35,37 @@ let {{
      H3  # H9  = Htable@3
      H4  # H10 = Htable@4
      H16 # H15 = Htable@5
-     H5 # H11  = Htable@6
-     H6 # H12  = Htable@7
+     H5  # H11 = Htable@6
+     H6  # H12 = Htable@7
      H18 # H17 = Htable@8
 
-     B1_lo # B1_hi = Blocks@0
-     B2_lo # B2_hi = Blocks@1
-     B3_lo # B3_hi = Blocks@2
-     B4_lo # B4_hi = Blocks@3
-     B5_lo # B5_hi = Blocks@4
-     U = Xi_in ^ Blocks@5
+     B1_hi # B1_lo = Blocks@5
+     B2_hi # B2_lo = Blocks@4
+     B3_hi # B3_lo = Blocks@3
+     B4_hi # B4_lo = Blocks@2
+     B5_hi # B5_lo = Blocks@1
+     U = Xi_in ^ Blocks@0
 
-     S2  = drop`{64} (Blocks@0 ^ (B1_lo # B1_lo))
-     S5  = drop`{64} (Blocks@1 ^ (B2_lo # B2_lo))
-     S8  = drop`{64} (Blocks@2 ^ (B3_lo # B3_lo))
-     S11 = drop`{64} (Blocks@3 ^ (B4_lo # B4_lo))
-     S14 = drop`{64} (Blocks@4 ^ (B5_lo # B5_lo))
-     S17 = drop`{64} (U        ^ (U_lo  # U_lo))
+     S2  = drop`{64} (Blocks@5 ^ (B1_hi # B1_hi))
+     S5  = drop`{64} (Blocks@4 ^ (B2_hi # B2_hi))
+     S8  = drop`{64} (Blocks@3 ^ (B3_hi # B3_hi))
+     S11 = drop`{64} (Blocks@2 ^ (B4_hi # B4_hi))
+     S14 = drop`{64} (Blocks@1 ^ (B5_hi # B5_hi))
+     S17 = drop`{64} (U        ^ (U_hi  # U_hi))
 
-     S = (clmul H7  B1_hi) ^ A ^ (clmul H13 S2)  ^
-         (clmul H8  B2_hi) ^ B ^ (clmul H14 S5)  ^
-         (clmul H9  B3_hi) ^ C ^ (clmul H15 S8)  ^
-     	 (clmul H10 B4_hi) ^ D ^ (clmul H16 S11) ^
-         (clmul H11 B5_hi) ^ E ^ (clmul H17 S14) ^
-     	 (clmul H12 U_hi)  ^ F ^ (clmul H18 S17)
+     S = (clmul H7  B1_lo) ^ A ^ (clmul H13 S2)  ^
+         (clmul H8  B2_lo) ^ B ^ (clmul H14 S5)  ^
+         (clmul H9  B3_lo) ^ C ^ (clmul H15 S8)  ^
+     	 (clmul H10 B4_lo) ^ D ^ (clmul H16 S11) ^
+         (clmul H11 B5_lo) ^ E ^ (clmul H17 S14) ^
+     	 (clmul H12 U_lo)  ^ F ^ (clmul H18 S17)
 
-     T = (clmul H7  B1_hi) ^
-         (clmul H8  B2_hi) ^
-     	 (clmul H9  B3_hi) ^
-      	 (clmul H10 B4_hi) ^
-      	 (clmul H11 B5_hi) ^
-      	 (clmul H12 U_hi)
+     T = (clmul H7  B1_lo) ^
+         (clmul H8  B2_lo) ^
+     	 (clmul H9  B3_lo) ^
+      	 (clmul H10 B4_lo) ^
+      	 (clmul H11 B5_lo) ^
+      	 (clmul H12 U_lo)
 }};
 
 func_lemma_cong_stmt <- congruence_for {{ lemma_func }};
@@ -77,13 +75,16 @@ func_lemma_cong <-
 func_lemma_eq <-
   prove_print
   do {
-    quickcheck 50; // admit "TODO! Find a proof for this";
+    quickcheck 10; // admit "TODO! Find a proof for this";
   }
   {{ \H Xi blocks ->
        lemma_func (gcm_init_Htable (gcm_init_H H)) Xi blocks ==
-       (aesni_gcm_cipher_block6 True (gcm_init_Htable (gcm_init_H H)) Xi (reverse blocks))
+       (aesni_gcm_cipher_block6 True (gcm_init_Htable (gcm_init_H H)) Xi blocks)
   }};
 
+
+
+let eqTrue x = term_apply (parse_core "EqTrue") [x];
 
 extra_lemma_statements <-
  do {
@@ -94,17 +95,17 @@ extra_lemma_statements <-
    U1 <- fresh_symbolic "U1" {| [128] |};
    U2 <- fresh_symbolic "U2" {| [128] |};
 
-   B1_lo <- fresh_symbolic "B1_lo" {| [64] |};
-   B2_lo <- fresh_symbolic "B2_lo" {| [64] |};
-   B3_lo <- fresh_symbolic "B3_lo" {| [64] |};
-   B4_lo <- fresh_symbolic "B4_lo" {| [64] |};
-   B5_lo <- fresh_symbolic "B5_lo" {| [64] |};
-
    B1_hi <- fresh_symbolic "B1_hi" {| [64] |};
    B2_hi <- fresh_symbolic "B2_hi" {| [64] |};
    B3_hi <- fresh_symbolic "B3_hi" {| [64] |};
    B4_hi <- fresh_symbolic "B4_hi" {| [64] |};
    B5_hi <- fresh_symbolic "B5_hi" {| [64] |};
+
+   B1_lo <- fresh_symbolic "B1_lo" {| [64] |};
+   B2_lo <- fresh_symbolic "B2_lo" {| [64] |};
+   B3_lo <- fresh_symbolic "B3_lo" {| [64] |};
+   B4_lo <- fresh_symbolic "B4_lo" {| [64] |};
+   B5_lo <- fresh_symbolic "B5_lo" {| [64] |};
 
    B6 <- fresh_symbolic "B6" {| [128] |};
 
@@ -124,8 +125,8 @@ extra_lemma_statements <-
      V11,
      V14,
 
-     B1_lo,B2_lo,B3_lo,B4_lo,B5_lo,
      B1_hi,B2_hi,B3_hi,B4_hi,B5_hi,
+     B1_lo,B2_lo,B3_lo,B4_lo,B5_lo,
      B6,
 
      Q];
@@ -159,15 +160,15 @@ extra_lemma_statements <-
    let H18 = Hlo 8;
 
    let U = {{ U1 ^ B6 ^ U2 }};
-   let U_hi = term_apply (parse_core "slice Bool 64 64 0") [U];
-   let U_lo = term_apply (parse_core "slice Bool 0 64 64") [U];
+   let U_lo = term_apply (parse_core "slice Bool 64 64 0") [U];
+   let U_hi = term_apply (parse_core "slice Bool 0 64 64") [U];
 
-   let A = {{ clmul H1 B1_lo }};
-   let B = {{ clmul H2 B2_lo }};
-   let C = {{ clmul H3 B3_lo }};
-   let D = {{ clmul H4 B4_lo }};
-   let E = {{ clmul H5 B5_lo }};
-   let F = {{ clmul H6 U_lo }};
+   let A = {{ clmul H1 B1_hi }};
+   let B = {{ clmul H2 B2_hi }};
+   let C = {{ clmul H3 B3_hi }};
+   let D = {{ clmul H4 B4_hi }};
+   let E = {{ clmul H5 B5_hi }};
+   let F = {{ clmul H6 U_hi }};
 
    let Lpoly = {{ 0xc200000000000000 }};
 
@@ -175,78 +176,78 @@ extra_lemma_statements <-
               [ {{ U1 ^ B6 ^ U2 }} ];
 
    let S2 = term_apply (parse_core "slice Bool 64 64 0")
-              [ {{ V2 ^ (B1_lo # B1_lo)  }} ];
+              [ {{ V2 ^ (B1_hi # B1_hi)  }} ];
    let S5 = term_apply (parse_core "slice Bool 64 64 0")
-              [ {{ V5 ^ (B2_lo # B2_lo )  }} ];
+              [ {{ V5 ^ (B2_hi # B2_hi )  }} ];
    let S8 = term_apply (parse_core "slice Bool 64 64 0")
-              [ {{ V8 ^ (B3_lo # B3_lo)  }} ];
+              [ {{ V8 ^ (B3_hi # B3_hi)  }} ];
    let S11 = term_apply (parse_core "slice Bool 64 64 0")
-              [ {{ V11 ^ (B4_lo # B4_lo)  }} ];
+              [ {{ V11 ^ (B4_hi # B4_hi)  }} ];
    let S14 = term_apply (parse_core "slice Bool 64 64 0")
-              [ {{ V14 ^ (B5_lo # B5_lo )  }} ];
+              [ {{ V14 ^ (B5_hi # B5_hi )  }} ];
    let S17 = term_apply (parse_core "slice Bool 64 64 0")
               [ {{ (U1 ^ B6 ^ U2) ^ (W17 # W17 )  }} ];
 
-   let S = {{ (clmul H7  B1_hi) ^ A ^ (clmul H13 S2)  ^
-              (clmul H8  B2_hi) ^ B ^ (clmul H14 S5)  ^
-              (clmul H9  B3_hi) ^ C ^ (clmul H15 S8)  ^
-	      (clmul H10 B4_hi) ^ D ^ (clmul H16 S11) ^
-              (clmul H11 B5_hi) ^ E ^ (clmul H17 S14) ^
-	      (clmul H12 U_hi)  ^ F ^ (clmul H18 S17)
+   let S = {{ (clmul H7  B1_lo) ^ A ^ (clmul H13 S2)  ^
+              (clmul H8  B2_lo) ^ B ^ (clmul H14 S5)  ^
+              (clmul H9  B3_lo) ^ C ^ (clmul H15 S8)  ^
+	      (clmul H10 B4_lo) ^ D ^ (clmul H16 S11) ^
+              (clmul H11 B5_lo) ^ E ^ (clmul H17 S14) ^
+	      (clmul H12 U_lo)  ^ F ^ (clmul H18 S17)
            }};
 
-   let S_hi = term_apply (parse_core "slice Bool 64 64 0") [S];
-   let S_lo = term_apply (parse_core "slice Bool 0 64 64") [S];
+   let S_lo = term_apply (parse_core "slice Bool 64 64 0") [S];
+   let S_hi = term_apply (parse_core "slice Bool 0 64 64") [S];
 
-   let T = {{ (clmul H7  B1_hi) ^
-              (clmul H8  B2_hi) ^
-	      (clmul H9  B3_hi) ^
-	      (clmul H10 B4_hi) ^
-	      (clmul H11 B5_hi) ^
-	      (clmul H12 U_hi) }};
+   let T = {{ (clmul H7  B1_lo) ^
+              (clmul H8  B2_lo) ^
+	      (clmul H9  B3_lo) ^
+	      (clmul H10 B4_lo) ^
+	      (clmul H11 B5_lo) ^
+	      (clmul H12 U_lo) }};
 
-   let R = {{ T ^ (S_hi # 0) }};
+   let R = {{ T ^ (S_lo # 0) }};
 
-   let R_hi = term_apply (parse_core "slice Bool 64 64 0") [R];
-   let R_lo = term_apply (parse_core "slice Bool 0 64 64") [R];
+   let R_lo = term_apply (parse_core "slice Bool 64 64 0") [R];
+   let R_hi = term_apply (parse_core "slice Bool 0 64 64") [R];
 
-   let N = {{ (clmul Lpoly R_hi) ^ (R_hi # R_lo) }};
+   let N = {{ (clmul Lpoly R_lo) ^ (R_lo # R_hi) }};
    let X = term_apply (parse_core "slice Bool 64 64 0") [N];
    let O = term_apply (parse_core "slice Bool 0 64 64") [N];
 
    let t1   = eqTrue {{ lemma_func Htable
                          (U1 ^ U2)
-                         [ B1_lo # B1_hi
-			 , B2_lo # B2_hi
-			 , B3_lo # B3_hi
-			 , B4_lo # B4_hi
-			 , B5_lo # B5_hi
-			 , B6
+			 [ B6
+			 , B5_hi # B5_lo
+			 , B4_hi # B4_lo
+			 , B3_hi # B3_lo
+			 , B2_hi # B2_lo
+                         , B1_hi # B1_lo
 			 ]
                         == Q }};
 
    let t1'  = eqTrue {{ lemma_func Htable
                          (U1 ^ B6)
-                         [ B1_lo # B1_hi
-			 , B2_lo # B2_hi
-			 , B3_lo # B3_hi
-			 , B4_lo # B4_hi
-			 , B5_lo # B5_hi
-			 , U2
+			 [ U2
+			 , B5_hi # B5_lo
+			 , B4_hi # B4_lo
+			 , B3_hi # B3_lo
+			 , B2_hi # B2_lo
+                         , B1_hi # B1_lo
 			 ]
                         == Q }};
 
    let t2   = eqTrue {{ [V2,V5,V8,V11,V14] ==
-                        [ B1_lo # B1_hi
-			, B2_lo # B2_hi
-			, B3_lo # B3_hi
-			, B4_lo # B4_hi
-			, B5_lo # B5_hi
+                        [ B1_hi # B1_lo
+			, B2_hi # B2_lo
+			, B3_hi # B3_lo
+			, B4_hi # B4_lo
+			, B5_hi # B5_lo
 			]
                      }};
 
    let tend = eqTrue {{ (A ^ B ^ C ^ D ^ E ^ F ^
-                             (clmul Lpoly X) ^ (0 # S_lo) ^ (X # O)) == Q }};
+                             (clmul Lpoly X) ^ (0 # S_hi) ^ (X # O)) == Q }};
    let tfinal  = implies_term t2 (implies_term t1 tend);
    let tfinal' = implies_term t2 (implies_term t1' tend);
 
@@ -407,7 +408,7 @@ enc_Xi_post_lemma_statement <-
     }};
 
     let mid_blocks = {{
-       [ join (arrayRangeLookup c_buf (c_a + 96 + j*16 )) | j <- [5,4,3,2,1,0] ]:[6][128]
+       [ join (arrayRangeLookup c_buf (c_a + 96 + j*16 )) | j <- [ 0 .. 5 ] ]:[6][128]
     }};
 
     let last_blocks = {{
@@ -415,7 +416,7 @@ enc_Xi_post_lemma_statement <-
            ((enc_block (join (reverse (take`{12} ivec # split (ctr+j)))) rndkeys)
             ^
             join (reverse (arrayRangeLookup inp (c_c + (zext j)*16))))
-       | j <- [ 5, 4, 3, 2, 1, 0:[32] ]
+       | j <- [ 0 .. 5 ]
        ]
     }};
 
@@ -440,9 +441,9 @@ enc_Xi_post_lemma_statement <-
 
     let t2 = eqTrue {{ X == enc_final_restated }};
 
-    let t3a = eqTrue {{ last_blocks  == [ join (arrayRangeLookup out_data_varying ((blocks-6+j) * 16 ))  | j <- [5,4,3,2,1,0] ] }};
-    let t3b = eqTrue {{ mid_blocks   == [ join (arrayRangeLookup out_data_varying ((blocks-12+j) * 16 )) | j <- [5,4,3,2,1,0] ] }};
-    let t3c = eqTrue {{ first_blocks == [ join (arrayRangeLookup out_data_varying ((blocks-18+j) * 16 )) | j <- [0 .. 5] ] }};
+    let t3a = eqTrue {{ last_blocks  == [ join (arrayRangeLookup out_data_varying ((blocks-6+j) * 16 ))  | j <- [ 0 .. 5 ] ] }};
+    let t3b = eqTrue {{ mid_blocks   == [ join (arrayRangeLookup out_data_varying ((blocks-12+j) * 16 )) | j <- [ 0 .. 5 ] ] }};
+    let t3c = eqTrue {{ first_blocks == [ join (arrayRangeLookup out_data_varying ((blocks-18+j) * 16 )) | j <- [ 0 .. 5 ] ] }};
     let t3d = eqTrue {{ arrayEq out_data_fixed out_data }};
     let t3e = eqTrue {{ current_Xi   == gcm_ghash_array_6x H (join Xi) out_data_fixed 0 (blocks-18) }};
 
