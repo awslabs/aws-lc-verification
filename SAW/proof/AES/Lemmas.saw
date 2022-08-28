@@ -323,6 +323,116 @@ gcm_ghash_array_unfolding_lemma2 <-
            gcm_ghash_array_internal_unfold H Xi inp i blocks
      }}));
 
+gcm_enc_blocks_unfolding_lemma2 <-
+  prove_print
+    do {
+      unfolding ["ecEq","gcm_enc_blocks"];
+      simplify (addsimp_shallow (core_thm "fix_unfold") empty_ss);
+      simplify (cryptol_ss ());
+      unfolding ["gcm_enc_blocks_unfold","gcm_enc_blocks"];
+      simplify (cryptol_ss ());
+      goal_intro "in";
+      goal_intro "iv";
+      goal_intro "ctr";
+      goal_intro "key";
+      goal_intro "buf";
+      goal_intro "i";
+      goal_intro "blocks";
+      goal_apply arrayEq_refl_thm;
+    }
+    (rewrite (cryptol_ss ())
+     {{ \in iv ctr key buf i blocks ->
+           (arrayEq (gcm_enc_blocks in iv ctr key buf i blocks)
+                    (gcm_enc_blocks_unfold in iv ctr key buf i blocks))
+     }});
+
+
+gcm_ghash_array_compose_lemma <-
+  prove_by_bv_induction
+  do {
+    H   <- goal_intro "H";
+    Xi  <- goal_intro "Xi";
+    inp <- goal_intro "inp";
+    x   <- goal_intro "x";
+    y   <- goal_intro "y";
+    z   <- goal_intro "z";
+    goal_intro_hyp;
+
+    goal_cut
+      {{ gcm_ghash_array_internal H Xi inp x y ==
+         gcm_ghash_array_internal_unfold H Xi inp x y }};
+    goal_cut
+      {{ gcm_ghash_array_internal H Xi inp x z ==
+         gcm_ghash_array_internal_unfold H Xi inp x z }};
+
+    focus_hyp 0;
+    goal_specialize_hyp [ H, {{ gcm_polyval (gcm_init_H H) (Xi ^ (join (arrayRangeLookup inp (x*16)))) }}
+                        , inp, {{x+1}}, y, z
+			];
+    delete_hyps [0];
+
+    w4_unint_z3 ["gcm_ghash_array_internal","gcm_polyval","gcm_init_H"];
+
+    unfolding ["ecEq"];
+    simplify (cryptol_ss ());
+    goal_apply gcm_ghash_array_unfolding_lemma2;
+
+    unfolding ["ecEq"];
+    simplify (cryptol_ss ());
+    goal_apply gcm_ghash_array_unfolding_lemma2;
+  }
+  {{ \H Xi inp x y z ->
+       ( y - x
+       , x <= y /\ y <= z ==>
+         gcm_ghash_array_internal H Xi inp x z ==
+           gcm_ghash_array_internal H
+             (gcm_ghash_array_internal H Xi inp x y)
+             inp y z
+       )
+  }};
+
+
+gcm_enc_blocks_compose_lemma <-
+  prove_by_bv_induction
+  do {
+    inp <- goal_intro "inp";
+    iv  <- goal_intro "iv";
+    ctr <- goal_intro "ctr";
+    rndkeys <- goal_intro "rndkeys";
+    buf <- goal_intro "buf";
+    x   <- goal_intro "x";
+    y   <- goal_intro "y";
+    z   <- goal_intro "z";
+    goal_intro_hyp;
+
+    goal_cut {{ arrayEq (gcm_enc_blocks inp iv ctr rndkeys buf x y)
+                        (gcm_enc_blocks_unfold inp iv ctr rndkeys buf x y) }};
+
+    goal_cut {{ arrayEq (gcm_enc_blocks inp iv ctr rndkeys buf x z)
+                        (gcm_enc_blocks_unfold inp iv ctr rndkeys buf x z) }};
+
+    focus_hyp 0;
+    goal_specialize_hyp [inp,iv,{{ctr+1}},rndkeys,{{gcm_enc inp iv ctr rndkeys buf x}},{{x+1}},y,z];
+    delete_hyps [0];
+
+    w4_unint_z3 ["gcm_enc_blocks","enc_block"];
+
+    simplify (cryptol_ss ());
+    goal_apply gcm_enc_blocks_unfolding_lemma2;
+
+    simplify (cryptol_ss ());
+    goal_apply gcm_enc_blocks_unfolding_lemma2;
+  }
+  {{ \inp iv ctr rndkeys buf x y z ->
+        ( y - x
+	, x <= y /\ y <= z ==>
+	  arrayEq
+            (gcm_enc_blocks inp iv ctr rndkeys buf x z)
+            (gcm_enc_blocks inp iv (ctr+drop`{32} (y-x)) rndkeys
+              (gcm_enc_blocks inp iv ctr rndkeys buf x y) y z)
+	)
+  }};
+
 
 let aesni_gcm_cipher_block6_tac =
   do {
@@ -356,28 +466,6 @@ aesni_gcm_cipher_block6_eq_lemma1 <-
     }}));
 
 
-gcm_enc_blocks_unfolding_lemma2 <-
-  prove_print
-    do {
-      unfolding ["ecEq","gcm_enc_blocks"];
-      simplify (addsimp_shallow (core_thm "fix_unfold") empty_ss);
-      simplify (cryptol_ss ());
-      unfolding ["gcm_enc_blocks_unfold","gcm_enc_blocks"];
-      simplify (cryptol_ss ());
-      goal_intro "in";
-      goal_intro "iv";
-      goal_intro "ctr";
-      goal_intro "key";
-      goal_intro "buf";
-      goal_intro "i";
-      goal_intro "blocks";
-      goal_apply arrayEq_refl_thm;
-    }
-    (rewrite (cryptol_ss ())
-     {{ \in iv ctr key buf i blocks ->
-           (arrayEq (gcm_enc_blocks in iv ctr key buf i blocks)
-                    (gcm_enc_blocks_unfold in iv ctr key buf i blocks))
-     }});
 
 enc_block_eq_lemma <-
   prove_theorem

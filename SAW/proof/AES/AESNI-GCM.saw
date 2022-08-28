@@ -110,8 +110,7 @@ let aesni_gcm_cipher_spec (enc:Term) : LLVMSetup () =
   crucible_points_to_untyped (crucible_elem Xi_ptr 1) (crucible_term {{ get_H ctx }});
   crucible_points_to_untyped (crucible_elem Xi_ptr 2) (crucible_term {{ get_Htable ctx }});
 
-  // NB, aes_hw_ctr32 works on BLOCKS
-//  let out_data = {{ aes_hw_ctr32_encrypt_blocks_array in_ key ivec_bytes 0 (res_len64/16) out_ }};
+  // NB, gcm_enc_blocks_6x works on BLOCKS
   let out_data = {{ gcm_enc_blocks_6x in_ iv ctr
                       (aes_round_keys key)
                       out_ 0 (res_len64/16) }};
