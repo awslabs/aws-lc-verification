@@ -169,6 +169,10 @@ key_expansion_prefix_lemma1 <-
       (aes_round_keys key)@1 == join (reverse (drop`{16} key))
   }};
 
+// The following collection of lemmas all provide various forms
+// of unfolding equations for the recursive functions we are
+// reasoning about.
+
 ghash_6x_unfolding_lemma <-
   prove_print
     do {
@@ -347,6 +351,168 @@ gcm_enc_blocks_unfolding_lemma2 <-
      }});
 
 
+// This is an in-progress proof of a lemma describing
+// how gcm_enc_blocks interacts with arrayCopy.
+// I think it is probably right (or close to it),
+// but the proof isn't done.
+//
+// Once the essential equations are figured out in
+// the middle of the proof, probably fewer cuts will
+// be necessary.
+gcm_enc_blocks_copyArray_lemma <-
+  prove_by_bv_induction
+  do {
+    inp   <- goal_intro "inp";
+    inp'  <- goal_intro "inp'";
+    iv    <- goal_intro "iv";
+    ctr   <- goal_intro "ctr";
+    keys  <- goal_intro "keys";
+    buf   <- goal_intro "buf";
+    buf'  <- goal_intro "buf'";
+    i     <- goal_intro "i";
+    i_end <- goal_intro "i_end";
+    j     <- goal_intro "j";
+    j_end <- goal_intro "j_end";
+    goal_intro_hyp;
+
+    // state the specific unfoldings we want to do
+    goal_cut {{ arrayEq (gcm_enc_blocks inp' iv ctr keys buf' i i_end)
+                        (gcm_enc_blocks_unfold inp' iv ctr keys buf' i i_end) }};
+    goal_cut {{ arrayEq (gcm_enc_blocks inp iv ctr keys buf j j_end)
+                        (gcm_enc_blocks_unfold inp iv ctr keys buf j j_end) }};
+
+    // specialize the induction hypothesis
+    focus_hyp 0;
+    goal_specialize_hyp [ inp, inp', iv, {{ctr+1}}, keys
+                        , {{gcm_enc inp iv ctr keys buf  j}}
+			, {{gcm_enc inp' iv ctr keys buf' i}}
+			, {{i+1}}, i_end
+			, {{j+1}}, j_end
+			];
+    delete_hyps [0];
+    simplify (cryptol_ss ());
+
+    // Get the ==> hypothesis into scope
+    focus_concl 0;
+    unfolding ["==>"];
+    simplify (cryptol_ss ());
+    split_goal;
+
+    // rewrite by the first unfolding equation and
+    // case split on the loop termination condition
+    simplify_local [0] empty_ss;
+    unfolding ["gcm_enc_blocks_unfold"];
+    simplify (cryptol_ss ());
+    hoist_ifs_in_goal;
+    split_goal;
+
+    // rewrite by the other equation, and case split
+    simplify_local [1] empty_ss;
+    unfolding ["gcm_enc_blocks_unfold"];
+    simplify (cryptol_ss ());
+    hoist_ifs_in_goal;
+    split_goal;
+
+    // we've used the equations now, don't need them anymore
+    delete_hyps [0,1];
+
+    // == main inductive case ==
+
+    // split the IH to move its hypotheses into separate
+    // subgoals
+    focus_hyp 0;
+    split_goal;
+    split_goal;
+
+    goal_cut {{
+      arrayEq
+        (arrayCopy buf (j*16) midpoint (i*16) ((i_end-i)*16))
+	(arrayCopy (gcm_enc inp iv ctr keys buf j) ((j+1)*16) midpoint ((i+1)*16) ((i_end-(i+1))*16))
+      where
+        midpoint = gcm_enc_blocks inp' iv (ctr+1) keys (gcm_enc inp' iv ctr keys buf' i) (i+1) i_end
+    }};
+    w4_unint_z3 ["gcm_enc_blocks","enc_block","arrayCopy"];
+
+    goal_cut {{
+      arrayEq
+        (arrayCopy buf (j*16) midpoint (i*16) ((i_end-i)*16))
+        (arrayCopy
+	   (arrayCopy buf (j*16) midpoint (i*16) 16)
+	   ((j+1)*16) midpoint ((i+1)*16) ((i_end-(i+1))*16))
+      where
+        midpoint = gcm_enc_blocks inp' iv (ctr+1) keys (gcm_enc inp' iv ctr keys buf' i) (i+1) i_end
+    }};
+
+    goal_cut {{
+      arrayEq
+        (arrayCopy buf (j*16) (gcm_enc_blocks inp' iv (ctr+1) keys (gcm_enc inp' iv ctr keys buf' i) (i+1) i_end) (i*16) 16)
+        (gcm_enc inp iv ctr keys buf j)
+    }};
+    w4_unint_z3 ["gcm_enc_blocks","enc_block"];
+
+    // this seems to be a key fact that is needed, probably
+    //  needs to be established by a separate induction
+    goal_cut {{
+      arrayEq
+        (arrayCopy buf (j*16) (gcm_enc_blocks inp' iv (ctr+1) keys (gcm_enc inp' iv ctr keys buf' i) (i+1) i_end) (i*16) 16)
+	(arrayCopy buf (j*16) (gcm_enc inp' iv ctr keys buf' i) (i*16) 16)
+    }};
+
+    goal_cut {{
+      arrayEq
+        (arrayCopy buf (j*16) (gcm_enc inp' iv ctr keys buf' i) (i*16) 16)
+        (gcm_enc inp iv ctr keys buf j)
+    }};
+    w4_unint_z3 ["gcm_enc_blocks","enc_block"];
+
+    // arrayCopy, to gcm_enc
+    // This looks right to me, but not sure how to get it to work....
+    //proof_subshell ();
+    admit "maybe??";
+
+    // arrayCopy goes through gcm_enc_blocks, pretty sure this needs a separate induction proof
+    //proof_subshell ();
+    admit "separate lemma, I think";
+
+    // proof about arrayCopy
+    w4_unint_z3 ["gcm_enc_blocks","enc_block"];
+
+    // bookkeeping hypothesis of the IH
+    delete_concl [0];
+    w4_unint_z3 ["gcm_enc_blocks","enc_block"];
+
+    // value we are doing induction on shrinks
+    w4_unint_z3 ["gcm_enc_blocks","enc_block"];
+
+    // impossible branch
+    w4_unint_z3 ["gcm_enc_blocks","enc_block"];
+
+    // base case, pretty easy
+    w4_unint_z3 ["gcm_enc_blocks","enc_block"];
+
+    // trivial case arising from splitting on ==>
+    trivial;
+
+    // cut case
+    simplify (cryptol_ss ());
+    goal_apply gcm_enc_blocks_unfolding_lemma2;
+
+    // cut case
+    simplify (cryptol_ss ());
+    goal_apply gcm_enc_blocks_unfolding_lemma2;
+  }
+  {{ \inp inp' iv ctr keys buf buf' i i_end j j_end ->
+       ( i_end - i
+       , i <= i_end /\ j <= j_end /\ j_end - j == i_end - i
+           /\ i_end <= 2^^32 /\ j_end <= 2^^32
+           /\ arrayRangeEqual inp (i*16) inp' (j*16) ((i_end-i)*16) ==>
+         arrayEq (arrayCopy buf (j*16) (gcm_enc_blocks inp' iv ctr keys buf' i i_end) (i*16) ((i_end-i)*16))
+                 (gcm_enc_blocks inp iv ctr keys buf j j_end)
+       )
+  }};
+
+// This shows how a gcm_ghash_array_internal
+// call is equal to two calls composed together.
 gcm_ghash_array_compose_lemma <-
   prove_by_bv_induction
   do {
@@ -392,6 +558,8 @@ gcm_ghash_array_compose_lemma <-
   }};
 
 
+// This lemma shows how a gcm_enc_blocks call
+// is equal to two calls composed together.
 gcm_enc_blocks_compose_lemma <-
   prove_by_bv_induction
   do {
@@ -447,6 +615,10 @@ let aesni_gcm_cipher_block6_tac =
     w4_unint_yices ["pmult", "pmod", "gcm_polyval", "aes_hw_encrypt"];
   };
 
+// These two lemmas characterize the behavior of
+// aesni_gcm_cipher_block6 as being equal to
+// a sequence of gcm_polyval calls
+
 aesni_gcm_cipher_block6_eq_lemma0 <-
   prove_theorem
     aesni_gcm_cipher_block6_tac
@@ -466,7 +638,6 @@ aesni_gcm_cipher_block6_eq_lemma1 <-
     }}));
 
 
-
 enc_block_eq_lemma <-
   prove_theorem
   do {
@@ -474,6 +645,9 @@ enc_block_eq_lemma <-
   }
   {{ \blk rndkeys -> enc_block blk rndkeys == swap8 (aesEncryptWithKeySchedule (swap8 blk) (aes_key_to_schedule rndkeys)) }};
 
+
+// This lemma proves a relation between the gcm_enc_blocks
+// function and the aes_hw_ctr32_encrypt_blocks_array function
 gcm_enc_blocks_eq_lemma <-
   prove_by_bv_induction
   do {
@@ -514,7 +688,9 @@ gcm_enc_blocks_eq_lemma <-
        )
   }};
 
-
+// This lemma shows that the gcm_ghash_array_6x
+// function is equal to a call to the gcm_ghash_array_internal
+// function, with a small tweak to the termination bound.
 gcm_ghash_6x_to_1x_lemma <-
   prove_by_bv_induction
   do {
@@ -587,7 +763,9 @@ gcm_ghash_6x_to_1x_lemma <-
        )
   }};
 
-
+// This lemma shows that a call to the gcm_enc_blocks_6x function
+// is equal to a call to the gcm_enc_blocks function with a
+// slightly tweaked termination bound.
 gcm_enc_6x_to_1x_lemma <-
   prove_by_bv_induction
   do {
@@ -646,6 +824,10 @@ gcm_enc_6x_to_1x_lemma <-
        )
   }};
 
+// looking up a block of bytes in the result of a
+// gcm_enc_blocks_6x function is equal to looking it up
+// in the input to that function, if the block being looked
+// up occurs before any changes made.
 arrayRange_gcm_enc_blocks_6x_lemma_8_aux <-
   prove_by_bv_induction
   do {
@@ -702,6 +884,10 @@ arrayRange_gcm_enc_blocks_6x_lemma_8 <-
            offset
     }}));
 
+// looking up a block of bytes in the result of a
+// gcm_enc_blocks_6x function is equal to looking it up
+// in the input to that function, if the block being looked
+// up occurs before any changes made.
 arrayRange_gcm_enc_blocks_6x_lemma_16_aux <-
   prove_by_bv_induction
   do {
@@ -741,7 +927,6 @@ arrayRange_gcm_enc_blocks_6x_lemma_16_aux <-
             == arrayRangeLookup`{n=16} buf offset
        )
   }};
-
 
 arrayRange_gcm_enc_blocks_6x_lemma_16 <-
   prove_theorem
