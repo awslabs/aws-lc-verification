@@ -619,21 +619,12 @@ let aesni_gcm_cipher_block6_tac =
 // aesni_gcm_cipher_block6 as being equal to
 // a sequence of gcm_polyval calls
 
-aesni_gcm_cipher_block6_eq_lemma0 <-
+aesni_gcm_cipher_block6_eq_lemma <-
   prove_theorem
     aesni_gcm_cipher_block6_tac
     (rewrite (cryptol_ss ()) (unfold_term ["ecEq"]
     {{ \H Xi blks ->
-         aesni_gcm_cipher_block6 False (gcm_init_Htable H) Xi blks ==
-         foldl (\x blk -> gcm_polyval H (x ^ blk)) Xi blks
-    }}));
-
-aesni_gcm_cipher_block6_eq_lemma1 <-
-  prove_theorem
-    aesni_gcm_cipher_block6_tac
-    (rewrite (cryptol_ss ()) (unfold_term ["ecEq"]
-    {{ \H Xi blks ->
-         aesni_gcm_cipher_block6 True (gcm_init_Htable H) Xi blks ==
+         aesni_gcm_cipher_block6 (gcm_init_Htable H) Xi blks ==
          foldl (\x blk -> gcm_polyval H (x ^ blk)) Xi blks
     }}));
 
@@ -714,7 +705,7 @@ gcm_ghash_6x_to_1x_lemma <-
     focus_hyp 0;
     goal_specialize_hyp
       [ H
-      , {{ (aesni_gcm_cipher_block6 False (gcm_init_Htable (gcm_init_H H)) Xi
+      , {{ (aesni_gcm_cipher_block6 (gcm_init_Htable (gcm_init_H H)) Xi
              [ join (arrayRangeLookup inp ((i+j) * 16 )) | j <- [0 .. 5] ]) }}
       , inp, {{i+6}}, blocks
       ];
@@ -728,7 +719,7 @@ gcm_ghash_6x_to_1x_lemma <-
 
     // apply the lemma regarding the 6x loop body
     unfocus;
-    simplify (addsimp aesni_gcm_cipher_block6_eq_lemma0 (cryptol_ss ()));
+    simplify (addsimp aesni_gcm_cipher_block6_eq_lemma (cryptol_ss ()));
 
     let go = w4_unint_yices ["gcm_ghash_array_6x","gcm_ghash_array_internal","gcm_polyval","gcm_init_Htable","gcm_init_H"];
     let unfold_gcm_ghash =

@@ -485,7 +485,6 @@ let {{
 
 }};
 
-
 // This file defines and proves some
 // lemmas that are specific to the
 // Xi-related postcondition of the

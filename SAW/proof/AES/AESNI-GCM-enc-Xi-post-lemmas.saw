@@ -8,6 +8,62 @@
 // be handled differently.
 
 let {{
+  // This is a somewhat cleaned-up version
+  // of the lemma_func appearing below. The structure
+  // of the computation starts to become more clear.
+  lemma_func_alt :
+    [12][128] -> // Htable
+    [128] ->     // Xi_in
+    [6][128] ->  // blocks
+    [128]
+  lemma_func_alt Htable Xi_in Blocks =
+    gcm_polyval_red_pmult
+      ( ( V            #   (0:[128])) ^
+        ( (0:[64])  #  S  # (0:[64])) ^
+        ( (0:[128])    #  T         )
+      )
+
+   where
+     H1  # H7  = Htable@0
+     H2  # H8  = Htable@1
+     H14 # H13 = Htable@2
+     H3  # H9  = Htable@3
+     H4  # H10 = Htable@4
+     H16 # H15 = Htable@5
+     H5  # H11 = Htable@6
+     H6  # H12 = Htable@7
+     H18 # H17 = Htable@8
+
+     B1_hi # B1_lo = Blocks@5
+     B2_hi # B2_lo = Blocks@4
+     B3_hi # B3_lo = Blocks@3
+     B4_hi # B4_lo = Blocks@2
+     B5_hi # B5_lo = Blocks@1
+     U_hi  # U_lo  = Xi_in ^ Blocks@0
+
+     S = T ^ V ^ W
+
+     V = (clmul H1 B1_hi) ^
+         (clmul H2 B2_hi) ^
+         (clmul H3 B3_hi) ^
+         (clmul H4 B4_hi) ^
+         (clmul H5 B5_hi) ^
+         (clmul H6 U_hi)
+
+     T = (clmul H7  B1_lo) ^
+         (clmul H8  B2_lo) ^
+         (clmul H9  B3_lo) ^
+         (clmul H10 B4_lo) ^
+         (clmul H11 B5_lo) ^
+         (clmul H12 U_lo)
+
+     W = (clmul H13 (B1_hi ^ B1_lo)) ^
+         (clmul H14 (B2_hi ^ B2_lo)) ^
+         (clmul H15 (B3_hi ^ B3_lo)) ^
+         (clmul H16 (B4_hi ^ B4_lo)) ^
+         (clmul H17 (B5_hi ^ B5_lo)) ^
+         (clmul H18 (U_hi  ^ U_lo))
+
   lemma_func :
     [12][128] -> // Htable
     [128] ->     // Xi_in
@@ -88,16 +144,68 @@ func_lemma_cong <-
 // this step gives me confidence that this is correct; but we should find a way
 // to finish the proof.
 
+
+xor_append64_lemma  <-
+ prove_print
+   (w4_unint_yices [])
+   {{ \ (a:[64]) (b:[64]) (c:[64]) (d:[64]) ->
+         (a^b)#(c^d) == (a#c)^(b#d)
+   }};
+
+func_lemma_alt_eq <-
+  prove_print
+  do {
+    w4_unint_yices ["pmult"];
+  }
+  {{ \Htable Xi blocks ->
+       lemma_func     Htable Xi blocks ==
+       lemma_func_alt Htable Xi blocks
+  }};
+
+gcm_polyval_red_pmult_cong_stmt <-
+  congruence_for {{ gcm_polyval_red_pmult }};
+gcm_polyval_red_pmult_cong <-
+  prove_extcore (w4_unint_yices ["gcm_polyval_red_pmult"])
+              gcm_polyval_red_pmult_cong_stmt;
+
+clmul_xor_distribute <-
+  prove_print
+  rme
+  (rewrite (cryptol_ss ()) (unfold_term ["ecEq"]
+  {{ \ (x:[64]) (y:[64]) (z:[64]) (w:[64]) ->
+       clmul (x ^ y) (z ^ w) ==
+       clmul x z ^ clmul x w ^ clmul y z ^ clmul y w }}));
+
+func_lemma_alt_eq2 <-
+  prove_print
+  do {
+    H      <- goal_intro "H";
+    Xi     <- goal_intro "Xi";
+    blocks <- goal_intro "blocks";
+    unfolding ["ecEq","lemma_func_alt","gcm_init_Htable","splitAt"];
+    simplify (cryptol_ss ());
+
+    goal_normalize ["EqTrue","aesni_gcm_cipher_block6","pmult","clmul","gcm_polyval_red_pmult","bvXor","gcm_polyval","gcm_init_H"];
+    simplify (addsimps xor_slice_append_thms empty_ss);
+    simplify (addsimp clmul_xor_distribute empty_ss);
+
+    w4_unint_yices ["pmult","gcm_polyval_red_pmult"];
+  }
+  {{ \H Xi blocks ->
+       lemma_func_alt (gcm_init_Htable (gcm_init_H H)) Xi blocks ==
+       aesni_gcm_cipher_block6 (gcm_init_Htable (gcm_init_H H)) Xi blocks
+  }};
+
 func_lemma_eq <-
   prove_print
   do {
-    quickcheck 50; // TODO! Find a proof for this
+    simplify (addsimps [func_lemma_alt_eq,func_lemma_alt_eq2] empty_ss);
+    w4_unint_yices ["aesni_gcm_cipher_block6"];
   }
   {{ \H Xi blocks ->
        lemma_func (gcm_init_Htable (gcm_init_H H)) Xi blocks ==
-       aesni_gcm_cipher_block6 True (gcm_init_Htable (gcm_init_H H)) Xi blocks
+       aesni_gcm_cipher_block6 (gcm_init_Htable (gcm_init_H H)) Xi blocks
   }};
-
 
 // What follows is some truly egregious proof hacking.
 //
@@ -469,7 +577,7 @@ enc_Xi_post_lemma_statement <-
       {{ (if blocks >= 18 then
            lemma_func (gcm_init_Htable (gcm_init_H H))
              (lemma_func (gcm_init_Htable (gcm_init_H H))
-               (aesni_gcm_cipher_block6 False (gcm_init_Htable (gcm_init_H H))
+               (aesni_gcm_cipher_block6 (gcm_init_Htable (gcm_init_H H))
                  current_Xi
                  first_blocks)
                mid_blocks)

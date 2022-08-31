@@ -77,8 +77,8 @@ aesni_gcm_cipher enc ctx in = split Xi''
       then split (aesni_gcm_ctr32_encrypt_block ctx in)
       else split (map join (split in))
     Htable = get_Htable ctx
-    Xi' = aesni_gcm_cipher_block6 False Htable (join ctx.Xi) (enc_blks @ 0)
-    Xi'' = foldl (aesni_gcm_cipher_block6 (enc ! 0) Htable) Xi' (drop`{1} enc_blks)
+    Xi' = aesni_gcm_cipher_block6 Htable (join ctx.Xi) (enc_blks @ 0)
+    Xi'' = foldl (aesni_gcm_cipher_block6 Htable) Xi' (drop`{1} enc_blks)
 
 aesni_gcm_ctr32_encrypt_block : {n} (fin n) => AES_GCM_Ctx -> [n * 16][8] -> [n][16 * 8]
 aesni_gcm_ctr32_encrypt_block ctx in = out
@@ -87,18 +87,15 @@ aesni_gcm_ctr32_encrypt_block ctx in = out
     in' = split in
     out = [ swap8 ((join (reverse blk)) ^ (join (reverse (EKi ctx (ctr + i))))) | blk <- in' | i <- [0 ...] ]
 
-aesni_gcm_cipher_block6 : Bit -> [12][128] -> [128] -> [6][128] -> [128]
-aesni_gcm_cipher_block6 karatsuba Htable Xi blks = Xi_6
+aesni_gcm_cipher_block6 : [12][128] -> [128] -> [6][128] -> [128]
+aesni_gcm_cipher_block6 Htable Xi blks = Xi_6
   where
-    gcm_polyval_mul_fun = if karatsuba
-      then gcm_polyval_mul_pmult3
-      else gcm_polyval_mul_pmult4
-    Xi_0 = gcm_polyval_mul_fun (Htable @ 0) (blks @ 5)
-    Xi_1 = gcm_polyval_mul_fun (Htable @ 1) (blks @ 4)
-    Xi_2 = gcm_polyval_mul_fun (Htable @ 3) (blks @ 3)
-    Xi_3 = gcm_polyval_mul_fun (Htable @ 4) (blks @ 2)
-    Xi_4 = gcm_polyval_mul_fun (Htable @ 6) (blks @ 1)
-    Xi_5 = gcm_polyval_mul_fun (Htable @ 7) (Xi ^ (blks @ 0))
+    Xi_0 = gcm_polyval_mul_pmult4 (Htable @ 0) (blks @ 5)
+    Xi_1 = gcm_polyval_mul_pmult4 (Htable @ 1) (blks @ 4)
+    Xi_2 = gcm_polyval_mul_pmult4 (Htable @ 3) (blks @ 3)
+    Xi_3 = gcm_polyval_mul_pmult4 (Htable @ 4) (blks @ 2)
+    Xi_4 = gcm_polyval_mul_pmult4 (Htable @ 6) (blks @ 1)
+    Xi_5 = gcm_polyval_mul_pmult4 (Htable @ 7) (Xi ^ (blks @ 0))
     Xi_6 = gcm_polyval_red_pmult (Xi_0 ^ Xi_1 ^ Xi_2 ^ Xi_3 ^ Xi_4 ^ Xi_5)
 
 
@@ -125,7 +122,7 @@ gcm_ghash_array_6x : [128] -> [128] -> Array [64] [8] -> [64] -> [64] -> [128]
 gcm_ghash_array_6x H Xi inp i blocks =
   if blocks - i >= 6 then
     gcm_ghash_array_6x H
-      (aesni_gcm_cipher_block6 False (gcm_init_Htable (gcm_init_H H)) Xi
+      (aesni_gcm_cipher_block6 (gcm_init_Htable (gcm_init_H H)) Xi
         [ join (arrayRangeLookup inp ((i+j) * 16 )) | j <- [0 .. 5] ])
       inp (i+6) blocks
   else
@@ -135,7 +132,7 @@ gcm_ghash_array_6x_unfold : [128] -> [128] -> Array [64] [8] -> [64] -> [64] -> 
 gcm_ghash_array_6x_unfold H Xi inp i blocks =
   if blocks - i >= 6 then
     gcm_ghash_array_6x H
-      (aesni_gcm_cipher_block6 False (gcm_init_Htable (gcm_init_H H)) Xi
+      (aesni_gcm_cipher_block6 (gcm_init_Htable (gcm_init_H H)) Xi
         [ join (arrayRangeLookup inp ((i+j) * 16 )) | j <- [0 .. 5] ])
       inp (i+6) blocks
   else
@@ -161,9 +158,9 @@ gcm_enc_6x in iv ctr rndkeys buf i =
 gcm_ghash_array_6x_enc_final : [128] -> [128] -> Array [64] [8] -> [64] -> [128]
 gcm_ghash_array_6x_enc_final H Xi outp blocks =
   if blocks >= 18 then
-    aesni_gcm_cipher_block6 True (gcm_init_Htable (gcm_init_H H))
-      (aesni_gcm_cipher_block6 True (gcm_init_Htable (gcm_init_H H))
-        (aesni_gcm_cipher_block6 False (gcm_init_Htable (gcm_init_H H))
+    aesni_gcm_cipher_block6 (gcm_init_Htable (gcm_init_H H))
+      (aesni_gcm_cipher_block6 (gcm_init_Htable (gcm_init_H H))
+        (aesni_gcm_cipher_block6 (gcm_init_Htable (gcm_init_H H))
           (gcm_ghash_array_6x H Xi outp 0 (blocks-18))
 	  [ join (arrayRangeLookup outp ((blocks-18+j) * 16 )) | j <- [0 .. 5] ])
         [ join (arrayRangeLookup outp ((blocks-12+j) * 16 )) | j <- [0 .. 5] ])
