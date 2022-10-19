@@ -35,6 +35,7 @@ apply_patch "noinline-GetInPlaceMethods"
 ./scripts/build_x86.sh  "Release"
 ./scripts/build_llvm.sh "Release"
 ./scripts/post_build.sh
+exit 1;
 ./scripts/run_checks_release.sh
 
 # ...finally, check the proofs using CMake's Debug settings.

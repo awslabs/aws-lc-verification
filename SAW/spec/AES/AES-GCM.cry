@@ -112,13 +112,17 @@ cipher_update_Xi_array ctx in i len Xi =
   if i < len then
     cipher_update_Xi_array ctx in (i+1) len Xi''
       where
-        H    = gcm_init_H (join (get_H ctx))
+        // H    = gcm_init_H (join (get_H ctx))
+        H    = (join (get_H ctx))
 	n    = (ctx.len+i) % 16
         Xi'  = update Xi n ((Xi@n)^b)
 	Xi'' = if (ctx.len+(i+1))%16 == 0
 	        then split (gcm_pmult_pmod H (join Xi'))
 	        else Xi'
-        b    = arrayLookup in i
+        // b    = byte ^ (EKij ctx ((take`{32} (drop`{28} ei)) + 1) (drop`{60} ei))
+        // ei   = ctx.len + i
+        b    = byte
+        byte = arrayLookup in i
   else
     Xi
 

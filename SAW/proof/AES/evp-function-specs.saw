@@ -97,6 +97,7 @@ let EVP_CipherUpdate_spec enc = do {
   llvm_precond {{ ctx.len <= `TOTAL_MESSAGE_MAX_LENGTH }};
   llvm_precond {{ ctx.len + (sext len) <= `TOTAL_MESSAGE_MAX_LENGTH }};
   
+  // SB: this assumption is what allows us to skip the prephase in update_foo_array?
   // TODO, remove this restiction on full blocks
   llvm_setup_with_tag "16-byte aligned" do {
      llvm_precond {{ ctx.len % 16 == 0 }};

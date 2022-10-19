@@ -76,6 +76,8 @@ let TOTAL_MESSAGE_BLOCKS = eval_size {| 2^^32 - 2 |};
 // for AES-GCM.
 let TOTAL_MESSAGE_MAX_LENGTH = eval_size {| TOTAL_MESSAGE_BLOCKS * AES_BLOCK_SIZE |};
 
+let do_prove = false;
+
 // This is the maximum number of blocks that can still need
 // to be processed following the bulk encrypt/decrypt phase.
 // This is due to the fact that the bulk encryption phase processes
@@ -116,7 +118,10 @@ include "AESNI-GCM.saw";
 // Specifications of the EVP level API functions.
 include "evp-function-specs.saw";
 
+let do_prove = true;
 // Correctness proofs of the EVP level API functions.
 include "evp-function-proofs.saw";
+
+exit 0;
 
 summarize_verification_json "AES-GCM-results.json";

@@ -1,0 +1,13 @@
+enable_experimental;
+
+import "../../spec/AES/AES-GCM.cry";
+import "../../../cryptol-specs/Primitive/Symmetric/Cipher/Authenticated/AES_256_GCM.cry";
+
+let {{
+  to_array : [1][8] -> Array [64] [8]
+  to_array inp = foldl (\a (idx, val) -> arrayUpdate a idx val) zeroByteArray (zip (take [0...]) inp)
+}};
+
+prove_print (quickcheck 1) {{ \(st : AES_GCM_Ctx) (inp : [1][8]) ->
+  cipher_update 0 st inp == cipher_update_array st (to_array inp) 0 1
+}};
