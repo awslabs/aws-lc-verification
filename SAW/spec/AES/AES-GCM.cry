@@ -100,17 +100,17 @@ EK_byte ctx = (EKi ctx i) @ j
     j : [4]
     j = drop`{60} ctx.len
 
-cipher_update_array : AES_GCM_Ctx -> Array [64] [8] -> [64] -> [64] -> AES_GCM_Ctx
-cipher_update_array ctx in i len =
+cipher_update_array : [32] -> AES_GCM_Ctx -> Array [64] [8] -> [64] -> [64] -> AES_GCM_Ctx
+cipher_update_array enc ctx in i len =
   { key = ctx.key, iv = ctx.iv, Xi = Xi', len = ctx.len + len }
  where
-   Xi' = cipher_update_Xi_array ctx in i len ctx.Xi
+   Xi' = cipher_update_Xi_array enc ctx in i len ctx.Xi
 
 cipher_update_Xi_array :
-  AES_GCM_Ctx -> Array [64] [8] -> [64] -> [64] -> [16][8] -> [16][8]
-cipher_update_Xi_array ctx in i len Xi =
+  [32] -> AES_GCM_Ctx -> Array [64] [8] -> [64] -> [64] -> [16][8] -> [16][8]
+cipher_update_Xi_array enc ctx in i len Xi =
   if i < len then
-    cipher_update_Xi_array ctx in (i+1) len Xi''
+    cipher_update_Xi_array enc ctx in (i+1) len Xi''
       where
         // H    = gcm_init_H (join (get_H ctx))
         H    = (join (get_H ctx))
@@ -119,9 +119,10 @@ cipher_update_Xi_array ctx in i len Xi =
 	Xi'' = if (ctx.len+(i+1))%16 == 0
 	        then split (gcm_pmult_pmod H (join Xi'))
 	        else Xi'
-        // b    = byte ^ (EKij ctx ((take`{32} (drop`{28} ei)) + 1) (drop`{60} ei))
-        // ei   = ctx.len + i
-        b    = byte
+        b    = if enc ! 0
+          then byte ^ (EKij ctx ((take`{32} (drop`{28} ei)) + 1) (drop`{60} ei))
+          else byte
+        ei = ctx.len + i
         byte = arrayLookup in i
   else
     Xi

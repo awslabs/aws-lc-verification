@@ -1,13 +1,39 @@
 enable_experimental;
 
 import "../../spec/AES/AES-GCM.cry";
+import "../../spec/AES/AES-GCM-implementation.cry";
 import "../../../cryptol-specs/Primitive/Symmetric/Cipher/Authenticated/AES_256_GCM.cry";
 
 let {{
-  to_array : [1][8] -> Array [64] [8]
+  to_array : {n} (fin n) => [n][8] -> Array [64] [8]
   to_array inp = foldl (\a (idx, val) -> arrayUpdate a idx val) zeroByteArray (zip (take [0...]) inp)
+
+  from_array : {n} (fin n) => Array [64] [8] -> [n][8]
+  from_array arr = [ arrayLookup arr idx | idx <- take [0...] ]
+}};
+
+// test 1: cipher_update_array is equivalent to cipher_update, so we're confident that it's a good spec
+/*
+prove_print (quickcheck 1) {{ \(st : AES_GCM_Ctx) (inp : [1][8]) ->
+  cipher_update 0 st inp == cipher_update_array 0 st (to_array inp) 0 1
 }};
 
 prove_print (quickcheck 1) {{ \(st : AES_GCM_Ctx) (inp : [1][8]) ->
-  cipher_update 0 st inp == cipher_update_array st (to_array inp) 0 1
+  cipher_update 1 st inp == cipher_update_array 1 st (to_array inp) 0 1
 }};
+*/
+
+// test 2: cipher_update_array is equivalent to update_enc_array / update_dec_array, so we're confident the implementation computes the spec
+/*
+prove_print (quickcheck 5) {{ \(key : [32][8]) (iv : [12][8]) (Xi : [16][8]) (inp : [16][8]) -> (
+  cipher_update_array 1 st (to_array inp) 0 16 == (update_enc_array (to_array inp) st zeroByteArray 0 16).1
+    where
+      st = {key = key, iv = iv, Xi = Xi, len = 16}
+)}};
+
+prove_print (quickcheck 5) {{ \(key : [32][8]) (iv : [12][8]) (Xi : [16][8]) (inp : [16][8]) -> (
+  cipher_update_array 0 st (to_array inp) 0 16 == (update_dec_array (to_array inp) st zeroByteArray 0 16).1
+    where
+      st = {key = key, iv = iv, Xi = Xi, len = 16}
+)}};
+*/
