@@ -1,0 +1,3 @@
+enable_experimental;
+
+write_coq_cryptol_module "EC_fiat_P384_7.cry" "../../../Coq/EC/EC_fiat_P384_7.v" [] [];

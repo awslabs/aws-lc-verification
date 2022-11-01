@@ -8,7 +8,7 @@ KNOWNFILES   := Makefile _CoqProject
 
 .DEFAULT_GOAL := invoke-coqmakefile
 
-CoqMakefile: Makefile _CoqProject
+CoqMakefile: Makefile _CoqProject CryptolToCoq
 	$(COQBIN)coq_makefile -f _CoqProject -o CoqMakefile
 
 invoke-coqmakefile: fiat-crypto saw-script CoqMakefile
@@ -20,7 +20,10 @@ saw-script:
 fiat-crypto:
 	$(MAKE) SKIP_BEDROCK2=1 -C fiat-crypto standalone-ocaml
 
-.PHONY: invoke-coqmakefile fiat-crypto saw-script $(KNOWNFILES)
+CryptolToCoq:
+	saw ../SAW/spec/EC/extract_EC_P384.saw
+
+.PHONY: invoke-coqmakefile fiat-crypto saw-script CryptolToCoq $(KNOWNFILES)
 
 ####################################################################
 ##                      Your targets here                         ##
