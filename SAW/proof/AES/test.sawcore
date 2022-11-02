@@ -1,0 +1,76 @@
+module test where
+import Prelude;
+import Cryptol (TCNum, PIntegralWord);
+
+updxor : Vec 16 (Vec 8 Bool) -> Nat -> (Vec 8 Bool) -> Vec 16 (Vec 8 Bool);
+updxor arr j x = upd 16 (Vec 8 Bool) arr j (bvXor 8 (at 16 (Vec 8 Bool) arr j) x);
+
+upd_collapse : Prop;
+upd_collapse
+  = (arr : Vec 16 (Vec 8 Bool))
+  -> (v0 : Vec 8 Bool)
+  -> (v1 : Vec 8 Bool)
+  -> (v2 : Vec 8 Bool)
+  -> (v3 : Vec 8 Bool)
+  -> (v4 : Vec 8 Bool)
+  -> (v5 : Vec 8 Bool)
+  -> (v6 : Vec 8 Bool)
+  -> (v7 : Vec 8 Bool)
+  -> (v8 : Vec 8 Bool)
+  -> (v9 : Vec 8 Bool)
+  -> (v10 : Vec 8 Bool)
+  -> (v11 : Vec 8 Bool)
+  -> (v12 : Vec 8 Bool)
+  -> (v13 : Vec 8 Bool)
+  -> (v14 : Vec 8 Bool)
+  -> (v15 : Vec 8 Bool)
+  -> EqTrue (vecEq 16 (Vec 8 Bool) (bvEq 8)
+    (updxor (updxor (updxor (updxor (updxor (updxor (updxor (updxor (updxor (updxor (updxor (updxor (updxor (updxor (updxor (updxor arr
+    0 v0)
+    1 v1)
+    2 v2)
+    3 v3)
+    4 v4)
+    5 v5)
+    6 v6)
+    7 v7)
+    8 v8)
+    9 v9)
+    10 v10)
+    11 v11)
+    12 v12)
+    13 v13)
+    14 v14)
+    15 v15)
+    (split 16 8 Bool (bvXor 128 (join 16 8 Bool arr) (join 16 8 Bool [v0, v1, v2, v3, v4, v5, v6, v7, v8, v9, v10, v11, v12, v13, v14, v15]))));
+
+arrayRangeLookup_arrayLookup : Prop;
+arrayRangeLookup_arrayLookup
+  = (arr : Array (Vec 64 Bool) (Vec 8 Bool))
+  -> EqTrue (vecEq 16 (Vec 8 Bool) (bvEq 8)
+    (map (Vec 64 Bool) (Vec 8 Bool)
+      (\ (i : Vec 64 Bool) ->
+        arrayLookup (Vec 64 Bool) (Vec 8 Bool)
+          (arrayCopy 64 (Vec 8 Bool) (arrayConstant (Vec 64 Bool) (Vec 8 Bool) (bvNat 8 0)) (bvNat 64 0) arr (bvNat 64 0) (bvNat 64 16))
+          (bvAdd 64 (bvNat 64 0) i)
+      )
+      16
+      (gen 16 (Vec 64 Bool) (\ (i : Nat) -> bvNat 64 (addNat i 0)))
+    )
+    [ arrayLookup (Vec 64 Bool) (Vec 8 Bool) arr (bvNat 64 0)
+    , arrayLookup (Vec 64 Bool) (Vec 8 Bool) arr (bvNat 64 1)
+    , arrayLookup (Vec 64 Bool) (Vec 8 Bool) arr (bvNat 64 2)
+    , arrayLookup (Vec 64 Bool) (Vec 8 Bool) arr (bvNat 64 3)
+    , arrayLookup (Vec 64 Bool) (Vec 8 Bool) arr (bvNat 64 4)
+    , arrayLookup (Vec 64 Bool) (Vec 8 Bool) arr (bvNat 64 5)
+    , arrayLookup (Vec 64 Bool) (Vec 8 Bool) arr (bvNat 64 6)
+    , arrayLookup (Vec 64 Bool) (Vec 8 Bool) arr (bvNat 64 7)
+    , arrayLookup (Vec 64 Bool) (Vec 8 Bool) arr (bvNat 64 8)
+    , arrayLookup (Vec 64 Bool) (Vec 8 Bool) arr (bvNat 64 9)
+    , arrayLookup (Vec 64 Bool) (Vec 8 Bool) arr (bvNat 64 10)
+    , arrayLookup (Vec 64 Bool) (Vec 8 Bool) arr (bvNat 64 11)
+    , arrayLookup (Vec 64 Bool) (Vec 8 Bool) arr (bvNat 64 12)
+    , arrayLookup (Vec 64 Bool) (Vec 8 Bool) arr (bvNat 64 13)
+    , arrayLookup (Vec 64 Bool) (Vec 8 Bool) arr (bvNat 64 14)
+    , arrayLookup (Vec 64 Bool) (Vec 8 Bool) arr (bvNat 64 15)
+    ]);

@@ -4,6 +4,8 @@ import "../../spec/AES/AES-GCM.cry";
 import "../../spec/AES/AES-GCM-implementation.cry";
 import "../../../cryptol-specs/Primitive/Symmetric/Cipher/Authenticated/AES_256_GCM.cry";
 
+load_sawcore_from_file "test.sawcore";
+
 let {{
   to_array : {n} (fin n) => [n][8] -> Array [64] [8]
   to_array inp = foldl (\a (idx, val) -> arrayUpdate a idx val) zeroByteArray (zip (take [0...]) inp)
@@ -31,9 +33,128 @@ prove_print (quickcheck 5) {{ \(key : [32][8]) (iv : [12][8]) (Xi : [16][8]) (in
       st = {key = key, iv = iv, Xi = Xi, len = 16}
 )}};
 
-prove_print (quickcheck 5) {{ \(key : [32][8]) (iv : [12][8]) (Xi : [16][8]) (inp : [16][8]) -> (
+prove_print (quickcheck 1) {{ \(key : [32][8]) (iv : [12][8]) (Xi : [16][8]) (inp : [16][8]) -> (
   cipher_update_array 0 st (to_array inp) 0 16 == (update_dec_array (to_array inp) st zeroByteArray 0 16).1
     where
       st = {key = key, iv = iv, Xi = Xi, len = 16}
 )}};
 */
+
+
+let pg = print_goal;
+let simpl = do {
+  simplify (cryptol_ss ());
+  beta_reduce_goal;
+};
+let rw lemma = simplify (addsimp lemma empty_ss);
+let rwh hyp = simplify_local [hyp] empty_ss;
+
+ite_const_true_lemma <- prove_print w4
+  {{ \(x : [16][8]) (y : [16][8]) -> (if True then x else y) == x }};
+ite_const_false_lemma <- prove_print w4
+  {{ \(x : [16][8]) (y : [16][8]) -> (if False then x else y) == y }};
+ite_const_true_bool_lemma <- prove_print w4
+  {{ \(x : Bit) (y : Bit) -> (if True then x else y) == x }};
+ite_const_false_vec8_lemma <- prove_print w4
+  {{ \(x : [8]) (y : [8]) -> (if False then x else y) == y }};
+ite_const_true_vec32_lemma <- prove_print w4
+  {{ \(x : [32]) (y : [32]) -> (if True then x else y) == x }};
+ite_const_false_vec128_lemma <- prove_print w4
+  {{ \(x : [128]) (y : [128]) -> (if False then x else y) == y }};
+ite_const_false_tuple_lemma <- prove_print w4
+  {{ \(x : ([64], AES_GCM_Ctx, Array [64] [8])) y -> (if False then x else y).1 == y.1 }};
+ecEq_elim_lemma <- prove_extcore w4
+  (parse_core "EqTrue (boolEq (ecEq (Vec 64 Bool) (PEqWord 64) (bvNat 64 16) (bvNat 64 0)) False)");
+intLe_refl_lemma <- prove_extcore w4
+  (parse_core "(x : Integer) -> EqTrue (boolEq (intLe x x) True)");
+intToNat_natToInt_lemma <- prove_extcore w4
+  (parse_core "EqTrue (boolEq (at 32 Bool (reverse 32 Bool (bvNat 32 0)) (intToNat (natToInt 0))) False)");
+upd_collapse_lemma <- prove_extcore w4 (beta_reduce_term (unfold_term ["updxor"] (unfold_term ["upd_collapse"] (parse_core_mod "test" "upd_collapse"))));
+arrayRangeLookup_arrayLookup_lemma <- prove_extcore w4 (beta_reduce_term (unfold_term ["arrayRangeLookup_arrayLookup"] (parse_core_mod "test" "arrayRangeLookup_arrayLookup")));
+split_join_lemma <- prove_extcore w4
+  (parse_core "(a : Vec 16 (Vec 8 Bool)) -> EqTrue (vecEq 16 (Vec 8 Bool) (bvEq 8) (split 16 8 Bool (join 16 8 Bool a)) a)");
+join_split_lemma <- prove_extcore w4
+  (parse_core "(a : Vec 128 Bool) -> EqTrue (bvEq 128 (join 16 8 Bool (split 16 8 Bool a)) a)");
+
+let update_dec_array_tactic = do {
+  key <- goal_intro "key";
+  iv <- goal_intro "iv";
+  Xi <- goal_intro "Xi";
+  inp <- goal_intro "inp";
+
+  // simpify the left-hand side of the equality
+  unfolding ["cipher_update_array"];
+  unfolding ["cipher_update_Xi_array"];
+  simpl;
+
+  for (eval_list {{ [1..17] : [17][8] }}) (\i -> do {
+    simplify (addsimp_shallow (core_thm "fix_unfold") empty_ss);
+    simpl;
+  });
+
+  
+  rw ite_const_true_lemma;
+  rw ite_const_false_lemma;
+  // expose aes_hw_encrypt, which is used by both sides of the equality
+  unfolding ["EKij"];
+  unfolding ["EKi"];
+
+  // simplify the right-hand side of the equality
+  unfolding ["update_dec_array"];
+  unfolding ["update_bulk_decrypt"];
+  unfolding ["max"];
+  simpl;
+  rw ite_const_true_vec32_lemma;
+  unfolding ["zext"];
+  simpl;
+  unfolding ["update_postbulk_decrypt"];
+  simpl;
+  rw ecEq_elim_lemma;
+  simpl;
+  rw ite_const_false_tuple_lemma;
+  unfolding ["gcm_ghash_array"];
+  simplify (addsimp_shallow (core_thm "fix_unfold") empty_ss);
+  simpl;
+  rw ite_const_true_lemma;
+  simplify (addsimp_shallow (core_thm "fix_unfold") empty_ss);
+  simpl;
+  rw ite_const_false_lemma;
+  unfolding ["gcm_ghash_block", "gcm_ghash_array_6x"];
+  simpl;
+  simplify (addsimp_shallow (core_thm "fix_unfold") empty_ss);
+  simpl;
+  rw ite_const_false_vec128_lemma;
+  simpl;
+  rw intLe_refl_lemma;
+  simpl;
+  rw ite_const_true_bool_lemma;
+  unfolding ["ecEq"];
+  simpl;
+  rw ite_const_false_lemma;
+  simpl;
+  rw intToNat_natToInt_lemma;
+  simpl;
+  rw ite_const_false_vec8_lemma;
+  simpl;
+  rw ite_const_true_lemma;
+  simpl;
+  rw upd_collapse_lemma;
+  unfolding ["arrayRangeLookup"];
+  simpl;
+  unfolding ["generate"];
+  simpl;
+  unfolding ["zeroByteArray"];
+  simpl;
+  rw arrayRangeLookup_arrayLookup_lemma;
+  rw split_join_lemma;
+  rw join_split_lemma;
+  w4_unint_yices ["gcm_polyval", "gcm_init_H", "get_H", "arrayLookup"];
+};
+
+  // goal_eval_unint ["cipher_update_array", "update_postbulk_decrypt", "gcm_ghash_array_6x", "gcm_enc_blocks_6x", "aes_hw_encrypt", "arrayCopy"];
+
+prove_print update_dec_array_tactic {{ \(key : [32][8]) (iv : [12][8]) (Xi : [16][8]) (inp : Array [64] [8]) -> (
+  cipher_update_array 0 st inp 0 16 == (update_dec_array inp st zeroByteArray 0 16).1
+    where
+      st = {key = key, iv = iv, Xi = Xi, len = 16}
+)}};
