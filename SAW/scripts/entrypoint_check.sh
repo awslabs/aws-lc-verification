@@ -28,7 +28,10 @@ apply_patch "noinline-ec_point_mul_scalar_base"
 apply_patch "noinline-ec_get_x_coordinate_as_bytes"
 apply_patch "noinline-ec_get_x_coordinate_as_scalar"
 apply_patch "noinline-value_barrier_w"
+apply_patch "noinline-value_barrier_u64"
 apply_patch "noinline-GetInPlaceMethods"
+apply_patch "noinline-fiat_p384_sub"
+apply_patch "noinline-p384_get_bit"
 
 
 # ...next, check the proofs using CMake's Release settings...
@@ -38,7 +41,7 @@ apply_patch "noinline-GetInPlaceMethods"
 ./scripts/post_build.sh
 ./scripts/run_checks_release.sh
 
-# The P-384 proof assumes correctness of Fiat field arithmetic functions, so they need to be enabled in the build
+# The P-384 proof assumes correctness of fiat-crypto field arithmetic functions, so they need to be enabled in the build
 
 rm -rf build/
 rm -rf build_src/

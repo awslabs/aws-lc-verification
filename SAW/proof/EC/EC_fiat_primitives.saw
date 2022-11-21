@@ -270,9 +270,9 @@ fiat_p384_sub_same_l_ov <- crucible_llvm_unsafe_assume_spec
   "fiat_p384_sub"
   p384_field_sub_same_l_spec;
 
-fiat_p384_get_bit_ov <- llvm_verify
+p384_get_bit_ov <- llvm_verify
   m
-  "fiat_p384_get_bit"
+  "p384_get_bit"
   []
   true
   p384_get_bit_spec
@@ -372,9 +372,8 @@ let points_to_fresh_EC_RAW_POINT ptr = do {
   return {{ { X = X, Y = Y, Z = Z } : JacobianBVPoint }};
 };
 
-fiat_p384_point_double_ov <- llvm_verify m "fiat_p384_point_double"
-  [ value_barrier_u64_ov
-  , fiat_p384_square_ov
+p384_point_double_ov <- llvm_verify m "p384_point_double"
+  [ fiat_p384_square_ov
   , fiat_p384_square_same_ov
   , fiat_p384_mul_ov
   , fiat_p384_mul_same_r_ov
@@ -389,7 +388,7 @@ fiat_p384_point_double_ov <- llvm_verify m "fiat_p384_point_double"
   p384_point_double_spec
   (w4_unint_z3 ["fiat_field_square", "fiat_field_mul", "fiat_field_add", "fiat_field_sub"]);
 
-fiat_p384_point_double_same_ov <- llvm_verify m "fiat_p384_point_double"
+p384_point_double_same_ov <- llvm_verify m "p384_point_double"
   [ value_barrier_u64_ov
   , fiat_p384_square_ov
   , fiat_p384_square_same_ov
