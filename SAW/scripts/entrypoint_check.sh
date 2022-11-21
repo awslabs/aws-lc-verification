@@ -30,12 +30,22 @@ apply_patch "noinline-ec_get_x_coordinate_as_scalar"
 apply_patch "noinline-value_barrier_w"
 apply_patch "noinline-GetInPlaceMethods"
 
+
 # ...next, check the proofs using CMake's Release settings...
 
 ./scripts/build_x86.sh  "Release"
 ./scripts/build_llvm.sh "Release"
 ./scripts/post_build.sh
 ./scripts/run_checks_release.sh
+
+# The P-384 proof assumes correctness of Fiat field arithmetic functions, so they need to be enabled in the build
+
+rm -rf build/
+rm -rf build_src/
+
+./scripts/build_llvm.sh  "Release" "-DMY_ASSEMBLER_IS_TOO_OLD_FOR_AVX=ON"
+./scripts/post_build.sh
+./scripts/run_checks_noasm.sh
 
 # ...finally, check the proofs using CMake's Debug settings.
 

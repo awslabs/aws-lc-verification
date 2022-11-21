@@ -10,6 +10,5 @@ cd proof/HMAC && go run HMAC-check-entrypoint.go
 cd proof/AES && go run AES-GCM-check-entrypoint.go
 saw proof/AES_KW/verify-AES_KW.saw
 saw proof/AES_KW/verify-AES_KWP.saw
-saw proof/EC/verify-P384.saw
 saw proof/ECDSA/verify-ECDSA.saw
 saw proof/ECDH/verify-ECDH.saw
