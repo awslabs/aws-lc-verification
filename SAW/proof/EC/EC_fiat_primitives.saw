@@ -6,6 +6,9 @@
 let limb_length = 64;
 let p384_felem_limbs = 6;
 
+let {{ ia32cap = [0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff] : [4][32] }};
+
+
 let points_to_point x_ptr y_ptr z_ptr point = do {
   crucible_points_to x_ptr (crucible_term {{ point@0 }});
   crucible_points_to y_ptr (crucible_term {{ point@1 }});
@@ -215,59 +218,59 @@ let p384_copy_spec = do {
 };
 
 
-fiat_p384_square_ov <- crucible_llvm_unsafe_assume_spec
+p384_square_ov <- crucible_llvm_unsafe_assume_spec
   m
-  "fiat_p384_square"
+  "bignum_montsqr_p384"
   p384_field_square_spec;
 
-fiat_p384_square_same_ov <- crucible_llvm_unsafe_assume_spec
+p384_square_same_ov <- crucible_llvm_unsafe_assume_spec
   m
-  "fiat_p384_square"
+  "bignum_montsqr_p384"
   p384_field_square_same_spec;
 
-fiat_p384_mul_ov <- crucible_llvm_unsafe_assume_spec
+p384_mul_ov <- crucible_llvm_unsafe_assume_spec
   m
-  "fiat_p384_mul"
+  "bignum_montmul_p384"
   p384_field_mul_spec;
 
-fiat_p384_mul_same_l_ov <- crucible_llvm_unsafe_assume_spec
+p384_mul_same_l_ov <- crucible_llvm_unsafe_assume_spec
   m
-  "fiat_p384_mul"
+  "bignum_montmul_p384"
   p384_field_mul_same_l_spec;
 
-fiat_p384_mul_same_r_ov <- crucible_llvm_unsafe_assume_spec
+p384_mul_same_r_ov <- crucible_llvm_unsafe_assume_spec
   m
-  "fiat_p384_mul"
+  "bignum_montmul_p384"
   p384_field_mul_same_r_spec;
 
-fiat_p384_add_ov <- crucible_llvm_unsafe_assume_spec
+p384_add_ov <- crucible_llvm_unsafe_assume_spec
   m
-  "fiat_p384_add"
+  "bignum_add_p384"
   p384_field_add_spec;
 
-fiat_p384_add_same_l_ov <- crucible_llvm_unsafe_assume_spec
+p384_add_same_l_ov <- crucible_llvm_unsafe_assume_spec
   m
-  "fiat_p384_add"
+  "bignum_add_p384"
   p384_field_add_same_l_spec;
 
-fiat_p384_add_same_in_ov <- crucible_llvm_unsafe_assume_spec
+p384_add_same_in_ov <- crucible_llvm_unsafe_assume_spec
   m
-  "fiat_p384_add"
+  "bignum_add_p384"
   p384_field_add_same_in_spec;
 
-fiat_p384_add_same_all_ov <- crucible_llvm_unsafe_assume_spec
+p384_add_same_all_ov <- crucible_llvm_unsafe_assume_spec
   m
-  "fiat_p384_add"
+  "bignum_add_p384"
   p384_field_add_same_all_spec;
 
-fiat_p384_sub_ov <- crucible_llvm_unsafe_assume_spec
+p384_sub_ov <- crucible_llvm_unsafe_assume_spec
   m
-  "fiat_p384_sub"
+  "bignum_sub_p384"
   p384_field_sub_spec;
 
-fiat_p384_sub_same_l_ov <- crucible_llvm_unsafe_assume_spec
+p384_sub_same_l_ov <- crucible_llvm_unsafe_assume_spec
   m
-  "fiat_p384_sub"
+  "bignum_sub_p384"
   p384_field_sub_same_l_spec;
 
 p384_get_bit_ov <- llvm_verify
@@ -283,6 +286,8 @@ p384_get_bit_ov <- llvm_verify
 
 let p384_point_double_spec = do {
 
+  global_alloc_init "OPENSSL_ia32cap_P" {{ ia32cap }};
+
   x_out_ptr <- crucible_alloc (llvm_array p384_felem_limbs (llvm_int limb_length));
   y_out_ptr <- crucible_alloc (llvm_array p384_felem_limbs (llvm_int limb_length));
   z_out_ptr <- crucible_alloc (llvm_array p384_felem_limbs (llvm_int limb_length));
@@ -293,16 +298,22 @@ let p384_point_double_spec = do {
 
   crucible_execute_func [x_out_ptr, y_out_ptr, z_out_ptr, x_in_ptr, y_in_ptr, z_in_ptr];
 
+  global_points_to "OPENSSL_ia32cap_P" {{ ia32cap }};
+
   points_to_point x_out_ptr y_out_ptr z_out_ptr {{ fiat_point_double [x_in, y_in, z_in] }};
 };
 
 let p384_point_double_same_spec = do {
+
+  global_alloc_init "OPENSSL_ia32cap_P" {{ ia32cap }};
 
   (x, x_ptr) <- ptr_to_fresh "x" (llvm_array p384_felem_limbs (llvm_int limb_length));
   (y, y_ptr) <- ptr_to_fresh "y" (llvm_array p384_felem_limbs (llvm_int limb_length));
   (z, z_ptr) <- ptr_to_fresh "z" (llvm_array p384_felem_limbs (llvm_int limb_length));
 
   crucible_execute_func [x_ptr, y_ptr, z_ptr, x_ptr, y_ptr, z_ptr];
+
+  global_points_to "OPENSSL_ia32cap_P" {{ ia32cap }};
 
   points_to_point x_ptr y_ptr z_ptr {{ fiat_point_double [x, y, z] }};
 };
@@ -373,33 +384,32 @@ let points_to_fresh_EC_RAW_POINT ptr = do {
 };
 
 p384_point_double_ov <- llvm_verify m "p384_point_double"
-  [ fiat_p384_square_ov
-  , fiat_p384_square_same_ov
-  , fiat_p384_mul_ov
-  , fiat_p384_mul_same_r_ov
-  , fiat_p384_add_ov
-  , fiat_p384_add_same_l_ov
-  , fiat_p384_add_same_in_ov
-  , fiat_p384_add_same_all_ov
-  , fiat_p384_sub_ov
-  , fiat_p384_sub_same_l_ov
+  [ p384_square_ov
+  , p384_square_same_ov
+  , p384_mul_ov
+  , p384_mul_same_r_ov
+  , p384_add_ov
+  , p384_add_same_l_ov
+  , p384_add_same_in_ov
+  , p384_add_same_all_ov
+  , p384_sub_ov
+  , p384_sub_same_l_ov
   ]
   true
   p384_point_double_spec
   (w4_unint_z3 ["fiat_field_square", "fiat_field_mul", "fiat_field_add", "fiat_field_sub"]);
 
 p384_point_double_same_ov <- llvm_verify m "p384_point_double"
-  [ value_barrier_u64_ov
-  , fiat_p384_square_ov
-  , fiat_p384_square_same_ov
-  , fiat_p384_mul_ov
-  , fiat_p384_mul_same_r_ov
-  , fiat_p384_add_ov
-  , fiat_p384_add_same_l_ov
-  , fiat_p384_add_same_in_ov
-  , fiat_p384_add_same_all_ov
-  , fiat_p384_sub_ov
-  , fiat_p384_sub_same_l_ov
+  [ p384_square_ov
+  , p384_square_same_ov
+  , p384_mul_ov
+  , p384_mul_same_r_ov
+  , p384_add_ov
+  , p384_add_same_l_ov
+  , p384_add_same_in_ov
+  , p384_add_same_all_ov
+  , p384_sub_ov
+  , p384_sub_same_l_ov
   ]
   true
   p384_point_double_same_spec
@@ -433,17 +443,17 @@ fiat_p384_cmovznz_same_r_ov <- llvm_verify m
 
 fiat_p384_point_add_jac_ov <- llvm_verify m "fiat_p384_point_add"
   [ value_barrier_u64_ov
-  , fiat_p384_square_ov
-  , fiat_p384_square_same_ov
-  , fiat_p384_mul_ov
-  , fiat_p384_mul_same_r_ov
-  , fiat_p384_mul_same_l_ov
-  , fiat_p384_add_ov
-  , fiat_p384_add_same_l_ov
-  , fiat_p384_add_same_in_ov
-  , fiat_p384_add_same_all_ov
-  , fiat_p384_sub_ov
-  , fiat_p384_sub_same_l_ov
+  , p384_square_ov
+  , p384_square_same_ov
+  , p384_mul_ov
+  , p384_mul_same_r_ov
+  , p384_mul_same_l_ov
+  , p384_add_ov
+  , p384_add_same_l_ov
+  , p384_add_same_in_ov
+  , p384_add_same_all_ov
+  , p384_sub_ov
+  , p384_sub_same_l_ov
   , fiat_p384_nz_ov
   , fiat_p384_cmovznz_ov
   , fiat_p384_cmovznz_same_r_ov
@@ -469,17 +479,17 @@ fiat_p384_point_add_jac_ov <- llvm_verify m "fiat_p384_point_add"
 
 fiat_p384_point_add_mixed_ov <- llvm_verify m "fiat_p384_point_add"
   [ value_barrier_u64_ov
-  , fiat_p384_square_ov
-  , fiat_p384_square_same_ov
-  , fiat_p384_mul_ov
-  , fiat_p384_mul_same_r_ov
-  , fiat_p384_mul_same_l_ov
-  , fiat_p384_add_ov
-  , fiat_p384_add_same_l_ov
-  , fiat_p384_add_same_in_ov
-  , fiat_p384_add_same_all_ov
-  , fiat_p384_sub_ov
-  , fiat_p384_sub_same_l_ov
+  , p384_square_ov
+  , p384_square_same_ov
+  , p384_mul_ov
+  , p384_mul_same_r_ov
+  , p384_mul_same_l_ov
+  , p384_add_ov
+  , p384_add_same_l_ov
+  , p384_add_same_in_ov
+  , p384_add_same_all_ov
+  , p384_sub_ov
+  , p384_sub_same_l_ov
   , fiat_p384_nz_ov
   , fiat_p384_cmovznz_ov
   , fiat_p384_cmovznz_same_r_ov
@@ -504,17 +514,17 @@ fiat_p384_point_add_mixed_ov <- llvm_verify m "fiat_p384_point_add"
 
 fiat_p384_point_add_same_r_jac_ov <- llvm_verify m "fiat_p384_point_add"
   [ value_barrier_u64_ov
-  , fiat_p384_square_ov
-  , fiat_p384_square_same_ov
-  , fiat_p384_mul_ov
-  , fiat_p384_mul_same_r_ov
-  , fiat_p384_mul_same_l_ov
-  , fiat_p384_add_ov
-  , fiat_p384_add_same_l_ov
-  , fiat_p384_add_same_in_ov
-  , fiat_p384_add_same_all_ov
-  , fiat_p384_sub_ov
-  , fiat_p384_sub_same_l_ov
+  , p384_square_ov
+  , p384_square_same_ov
+  , p384_mul_ov
+  , p384_mul_same_r_ov
+  , p384_mul_same_l_ov
+  , p384_add_ov
+  , p384_add_same_l_ov
+  , p384_add_same_in_ov
+  , p384_add_same_all_ov
+  , p384_sub_ov
+  , p384_sub_same_l_ov
   , fiat_p384_nz_ov
   , fiat_p384_cmovznz_ov
   , fiat_p384_cmovznz_same_r_ov
