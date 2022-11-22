@@ -31,7 +31,9 @@ apply_patch "noinline-value_barrier_w"
 apply_patch "noinline-GetInPlaceMethods"
 apply_patch "noinline-fiat_p384_sub"
 apply_patch "noinline-p384_get_bit"
-
+apply_patch "noinline-constant_time_is_zero_w"
+apply_patch "noinline-p384_felem_cmovznz"
+apply_patch "noinline-p384_select_point"
 
 # ...next, check the proofs using CMake's Release settings...
 
