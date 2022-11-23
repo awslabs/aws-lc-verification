@@ -36,14 +36,13 @@ fiat_mul_scalar_rwnaf_loop_body_ct s window i = (d, window')
     two_to_wsize = (1 << `wsize)
     wsize_mask = (1 << (`wsize + 1)) - 1
     d = ((window && (wsize_mask:[16])) - (two_to_wsize:[16]))
-    // Not sure why this compiled to unsigned shift && some constant
-    // constant is 0x1FFFFFF, so this just masks off the sign bit and other high order bits
-    // This is correct because d <= window, so the difference is non-negative, and all these bits are 0
-    window_0 = (((sign_extend_16_64 window) - (sign_extend_16_64 d)) >> (`wsize:[32])) && 0x0000000001FFFFFF
+    window_0 = drop (((sign_extend_16_32 window) - (sign_extend_16_32 d) >> (`wsize:[32]))) 
     i_wsize = (drop`{32} (i&&0x00000000000000FF)) * (`wsize:[32])
-    window_7 = foldl f window_0 [1..7]
-    f a j = a + ((fiat_get_bit s (i_wsize + ((`wsize:[32]) + j))) << j)
-    window' = drop`{48} window_7
+    // TODO: calculate this using wsize
+    window_5 = foldl f window_0 [1..5]
+    f a j = a + ((drop (fiat_get_bit s (i_wsize + ((`wsize:[32]) + j)))) << j)
+    window' = window_5
+
 
 fiat_mul_scalar_rwnaf_ct : scalar -> [(bit_length / wsize) + 1]point_id
 fiat_mul_scalar_rwnaf_ct in = out'
@@ -65,8 +64,9 @@ fiat_mul_scalar_rwnaf_loop_body_1 s window i = (d, window')
     window_0 = (((sign_extend_16_64 window) - (sign_extend_16_64 d)) >> (`wsize:[32]))
     i_wsize = (drop`{32} (i&&0x00000000000000FF)) * (`wsize:[32])
     bit_0_pos = i_wsize + (`wsize:[32])
-    window_7 = window_0 + ((drop (s>>bit_0_pos) && (0x00000000000000FE : [64])))
-    window' = drop`{48} window_7
+    // TODO: calculate this using wsize
+    window_5 = window_0 + ((drop (s>>bit_0_pos) && (0x000000000000003E : [64])))
+    window' = drop`{48} window_5
 
 
 fiat_mul_scalar_rwnaf_1 : scalar -> [(bit_length / wsize) + 1]point_id
@@ -78,6 +78,7 @@ fiat_mul_scalar_rwnaf_1 in = out'
     outls = scanl f (0, window) [0 .. ((bit_length/wsize) - 1)]
     window' = (outls!0).1
     out' = (drop`{1} ((map (\p -> p.0) outls)#[window']))
+
 
 fiat_mul_scalar_rwnaf_odd_loop_body : 
   scalar -> ([16], scalar)
