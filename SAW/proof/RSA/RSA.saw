@@ -452,7 +452,7 @@ let rsa_blinding_get_spec = do {
 
 let rsa_blinding_release_spec = do {
   (rsa_ptr, _, _) <- pointer_to_base_fresh_rsa_st true;
-  index_used <- crucible_fresh_var "index_used" i32;
+  index_used <- crucible_fresh_var "index_used" i64;
   blinding_ptr <- crucible_alloc (llvm_struct "struct.bn_blinding_st");
 
   crucible_execute_func [rsa_ptr, blinding_ptr, (crucible_term index_used)];
