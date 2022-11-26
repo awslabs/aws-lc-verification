@@ -444,7 +444,7 @@ let rsa_blinding_get_spec = do {
   crucible_points_to (crucible_field ret_ptr "counter") (crucible_term {{ 0 : [32] }});
 
 
-  index_used <- crucible_fresh_var "index_used" i32;
+  index_used <- crucible_fresh_var "index_used" i64;
   crucible_points_to index_used_ptr (crucible_term index_used);
 
   crucible_return ret_ptr;
