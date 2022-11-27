@@ -1,6 +1,20 @@
 module test where
 import Prelude;
-import Cryptol (TCNum, PIntegralWord);
+import Cryptol (ecEq, TCNum, PIntegralWord, PEqPair, PEqVec, PEqWord);
+
+recover_vecEq : Prop;
+recover_vecEq
+  = (v0 : Vec 16 (Vec 8 Bool))
+  -> (v1 : Vec 16 (Vec 8 Bool))
+  -> EqTrue (boolEq
+    (foldr Bool Bool 16 and True
+      (zipWith (Vec 8 Bool) (Vec 8 Bool) Bool (bvEq 8) 16
+        v0
+        v1
+      )
+    )
+    (vecEq 16 (Vec 8 Bool) (bvEq 8) v0 v1)
+  );
 
 updxor : Vec 16 (Vec 8 Bool) -> Nat -> (Vec 8 Bool) -> Vec 16 (Vec 8 Bool);
 updxor arr j x = upd 16 (Vec 8 Bool) arr j (bvXor 8 (at 16 (Vec 8 Bool) arr j) x);
@@ -74,3 +88,53 @@ arrayRangeLookup_arrayLookup
     , arrayLookup (Vec 64 Bool) (Vec 8 Bool) arr (bvNat 64 14)
     , arrayLookup (Vec 64 Bool) (Vec 8 Bool) arr (bvNat 64 15)
     ]);
+
+key_type : sort 0;
+key_type = Vec 32 (Vec 8 Bool);
+
+iv_type : sort 0;
+iv_type = Vec 12 (Vec 8 Bool);
+
+Xi_type : sort 0;
+Xi_type = Vec 16 (Vec 8 Bool);
+
+ctx_type : sort 0;
+ctx_type = Xi_type * (iv_type * (key_type * Vec 64 Bool));
+
+ite_tuple : Prop;
+ite_tuple
+  = (cond : Bool)
+  -> (a : Vec 64 Bool)
+  -> (d : Vec 64 Bool)
+  -> (b : ctx_type)
+  -> (e : ctx_type)
+  -> (c : Array (Vec 64 Bool) (Vec 8 Bool))
+  -> (f : Array (Vec 64 Bool) (Vec 8 Bool))
+  -> EqTrue
+    (ecEq ctx_type
+      (PEqPair Xi_type (iv_type * (key_type * Vec 64 Bool)) (PEqVec 16 (Vec 8 Bool) (PEqWord 8))
+        (PEqPair iv_type (key_type * Vec 64 Bool) (PEqVec 12 (Vec 8 Bool) (PEqWord 8))
+          (PEqPair key_type (Vec 64 Bool) (PEqVec 32 (Vec 8 Bool) (PEqWord 8)) (PEqWord 64))))
+      (ite (Vec 64 Bool * (ctx_type * Array (Vec 64 Bool) (Vec 8 Bool))) cond (a, b, c) (d, e, f)).2
+      (ite ctx_type cond b e)
+    );
+
+ecEq_ctx_sym : Prop;
+ecEq_ctx_sym
+  = (x : ctx_type)
+  -> (y : ctx_type)
+  -> EqTrue
+    (boolEq
+      (ecEq ctx_type
+        (PEqPair Xi_type (iv_type * (key_type * Vec 64 Bool)) (PEqVec 16 (Vec 8 Bool) (PEqWord 8))
+          (PEqPair iv_type (key_type * Vec 64 Bool) (PEqVec 12 (Vec 8 Bool) (PEqWord 8))
+            (PEqPair key_type (Vec 64 Bool) (PEqVec 32 (Vec 8 Bool) (PEqWord 8)) (PEqWord 64))))
+        x
+        y)
+      (ecEq ctx_type
+        (PEqPair Xi_type (iv_type * (key_type * Vec 64 Bool)) (PEqVec 16 (Vec 8 Bool) (PEqWord 8))
+          (PEqPair iv_type (key_type * Vec 64 Bool) (PEqVec 12 (Vec 8 Bool) (PEqWord 8))
+            (PEqPair key_type (Vec 64 Bool) (PEqVec 32 (Vec 8 Bool) (PEqWord 8)) (PEqWord 64))))
+        y
+        x)
+    );

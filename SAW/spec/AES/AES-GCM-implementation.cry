@@ -503,14 +503,14 @@ update_bulk_decrypt in ctx buf i len =
 		  (drop`{32} (ctx.len/16) + 2)
 		  (aes_round_keys ctx.key)
 		  buf // (arrayCopy zeroByteArray 0 buf i res_len) I think this array copy will be necessary when we enable the prephase
-		  0
+		  (i / 16) // NOTE
 		  (res_len/16)
 
     Xi_final = gcm_ghash_array_6x
                   (join (aes_hw_encrypt zero ctx.key))
 		  (join ctx.Xi)
 		  in
-		  0
+		  (i / 16) // NOTE
 		  (res_len/16)
 
     len32 = drop`{32} len

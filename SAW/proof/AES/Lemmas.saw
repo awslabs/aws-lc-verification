@@ -299,7 +299,7 @@ aes_hw_ctr32_encrypt_blocks_array_unfold_lemma2 <-
     }});
 
 
-gcm_ghash_array_unfolding_lemma <-
+gcm_ghash_array_internal_unfolding_lemma <-
   prove_print
     do {
       unfolding ["ecEq","gcm_ghash_array_internal"];
@@ -315,7 +315,7 @@ gcm_ghash_array_unfolding_lemma <-
            (A == (gcm_ghash_array_internal_unfold H Xi in i blocks))
      }}));
 
-gcm_ghash_array_unfolding_lemma2 <-
+gcm_ghash_array_internal_unfolding_lemma2 <-
   prove_print
     do {
       unfolding ["ecEq","gcm_ghash_array_internal"];
@@ -545,11 +545,11 @@ gcm_ghash_array_compose_lemma <-
 
     unfolding ["ecEq"];
     simplify (cryptol_ss ());
-    goal_apply gcm_ghash_array_unfolding_lemma2;
+    goal_apply gcm_ghash_array_internal_unfolding_lemma2;
 
     unfolding ["ecEq"];
     simplify (cryptol_ss ());
-    goal_apply gcm_ghash_array_unfolding_lemma2;
+    goal_apply gcm_ghash_array_internal_unfolding_lemma2;
   }
   {{ \H Xi inp x y z ->
        ( y - x
@@ -700,7 +700,7 @@ gcm_ghash_6x_to_1x_lemma <-
 
     let go = w4_unint_yices ["gcm_ghash_array_6x","gcm_ghash_array_internal","gcm_polyval","gcm_init_Htable","gcm_init_H"];
     let unfold_gcm_ghash =
-         do { simplify (addsimp gcm_ghash_array_unfolding_lemma2 empty_ss);
+         do { simplify (addsimp gcm_ghash_array_internal_unfolding_lemma2 empty_ss);
               unfolding ["gcm_ghash_array_internal_unfold"];
               simplify (cryptol_ss ());
          };
@@ -727,7 +727,7 @@ gcm_ghash_6x_to_1x_lemma <-
 
     let go = w4_unint_yices ["gcm_ghash_array_6x","gcm_ghash_array_internal","gcm_polyval","gcm_init_Htable","gcm_init_H"];
     let unfold_gcm_ghash =
-         do { simplify (addsimp gcm_ghash_array_unfolding_lemma2 empty_ss);
+         do { simplify (addsimp gcm_ghash_array_internal_unfolding_lemma2 empty_ss);
               unfolding ["gcm_ghash_array_internal_unfold"];
               simplify (cryptol_ss ());
          };
@@ -812,12 +812,14 @@ gcm_enc_6x_to_1x_lemma <-
     go;
   }
 
-  {{ \in iv ctr rndkeys buf i blocks ->
-       ( blocks - i
-       , arrayEq (gcm_enc_blocks_6x in iv ctr rndkeys buf i blocks)
-                 (gcm_enc_blocks in iv ctr rndkeys buf i (blocks - ((blocks-i)%6)))
-       )
-  }};
+  (normalize_term_opaque ["gcm_enc_blocks_6x", "gcm_enc_blocks"]
+    {{ \in iv ctr rndkeys buf i blocks ->
+         ( blocks - i
+         , arrayEq (gcm_enc_blocks_6x in iv ctr rndkeys buf i blocks)
+                   (gcm_enc_blocks in iv ctr rndkeys buf i (blocks - ((blocks-i)%6)))
+         )
+    }}
+  );
 
 // looking up a block of bytes in the result of a
 // gcm_enc_blocks_6x function is equal to looking it up

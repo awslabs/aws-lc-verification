@@ -1,8 +1,17 @@
 enable_experimental;
 
 import "../../spec/AES/AES-GCM.cry";
+import "../../spec/AES/X86.cry";
 import "../../spec/AES/AES-GCM-implementation.cry";
+import "../../../cryptol-specs/Primitive/Symmetric/Cipher/Block/AES.cry";
 import "../../../cryptol-specs/Primitive/Symmetric/Cipher/Authenticated/AES_256_GCM.cry";
+
+include "../common/helpers.saw";
+
+let do_prove = false;
+include "goal-rewrites.saw";
+include "Lemmas.saw";
+let do_prove = true;
 
 load_sawcore_from_file "test.sawcore";
 
@@ -61,6 +70,8 @@ ite_const_true_vec32_lemma <- prove_print w4
   {{ \(x : [32]) (y : [32]) -> (if True then x else y) == x }};
 ite_const_false_vec128_lemma <- prove_print w4
   {{ \(x : [128]) (y : [128]) -> (if False then x else y) == y }};
+ite_const_true_ctx_lemma <- prove_print w4
+  {{ \(x : AES_GCM_Ctx) y -> (if True then x else y) == x }};
 ite_const_false_tuple_lemma <- prove_print w4
   {{ \(x : ([64], AES_GCM_Ctx, Array [64] [8])) y -> (if False then x else y).1 == y.1 }};
 ecEq_elim_lemma <- prove_extcore w4
@@ -69,92 +80,328 @@ intLe_refl_lemma <- prove_extcore w4
   (parse_core "(x : Integer) -> EqTrue (boolEq (intLe x x) True)");
 intToNat_natToInt_lemma <- prove_extcore w4
   (parse_core "EqTrue (boolEq (at 32 Bool (reverse 32 Bool (bvNat 32 0)) (intToNat (natToInt 0))) False)");
+recover_vecEq_lemma <- prove_extcore w4 (beta_reduce_term (unfold_term ["recover_vecEq"] (parse_core_mod "test" "recover_vecEq")));
 upd_collapse_lemma <- prove_extcore w4 (beta_reduce_term (unfold_term ["updxor"] (unfold_term ["upd_collapse"] (parse_core_mod "test" "upd_collapse"))));
 arrayRangeLookup_arrayLookup_lemma <- prove_extcore w4 (beta_reduce_term (unfold_term ["arrayRangeLookup_arrayLookup"] (parse_core_mod "test" "arrayRangeLookup_arrayLookup")));
 split_join_lemma <- prove_extcore w4
   (parse_core "(a : Vec 16 (Vec 8 Bool)) -> EqTrue (vecEq 16 (Vec 8 Bool) (bvEq 8) (split 16 8 Bool (join 16 8 Bool a)) a)");
 join_split_lemma <- prove_extcore w4
   (parse_core "(a : Vec 128 Bool) -> EqTrue (bvEq 128 (join 16 8 Bool (split 16 8 Bool a)) a)");
+bvEq_byte_refl_lemma <- prove_extcore w4
+  (parse_core "(x : Vec 8 Bool) -> EqTrue (boolEq (bvEq 8 x x) True)");
+bvult_64_refl_false_lemma <- prove_extcore w4
+  (parse_core "(x : Vec 64 Bool) -> EqTrue (boolEq (bvult 64 x x) False)");
+ite_tuple_lemma <- prove_extcore w4 (beta_reduce_term (unfold_term ["key_type", "iv_type", "Xi_type"] (unfold_term ["ctx_type"] (unfold_term ["ite_tuple"] (parse_core_mod "test" "ite_tuple")))));
+ecEq_ctx_sym_lemma <- prove_extcore w4 (beta_reduce_term (unfold_term ["key_type", "iv_type", "Xi_type"] (unfold_term ["ctx_type"] (unfold_term ["ecEq_ctx_sym"] (parse_core_mod "test" "ecEq_ctx_sym")))));
+bvSub_refl_zero_lemma <- prove_extcore w4
+  (parse_core "(x : Vec 64 Bool) -> EqTrue (bvEq 64 (bvSub 64 x x) (bvNat 64 0))");
+bvult_bvule_bvSub_lemma <- prove_extcore w4
+  (parse_core "(x : Vec 64 Bool) -> (y : Vec 64 Bool) -> EqTrue (bvule 64 x y) -> EqTrue (boolEq (bvule 64 (bvNat 64 1) (bvSub 64 y x)) (bvult 64 x y))");
+ite_bool_implies_lemma <- prove_extcore w4
+  (parse_core "(h : Bool) -> (c : Bool) -> EqTrue (boolEq (ite Bool h c True) (implies h c))");
+ite_bool_and_lemma <- prove_extcore w4
+  (parse_core "(h : Bool) -> (c : Bool) -> EqTrue (boolEq (ite Bool h c False) (and h c))");
+vecEq_refl_lemma <- prove_extcore w4
+  (parse_core "(x : Vec 16 (Vec 8 Bool)) -> EqTrue (boolEq (vecEq 16 (Vec 8 Bool) (bvEq 8) x x) True)");
+bvule_zero_lemma <- prove_extcore w4
+  (parse_core "(x : Vec 64 Bool) -> EqTrue (boolEq (bvule 64 (bvNat 64 0) x) True)");
+bvAdd_identity_zero_lemma <- prove_extcore w4
+  (parse_core "(x : Vec 64 Bool) -> EqTrue (bvEq 64 (bvAdd 64 (bvNat 64 0) x) x)");
+bvAdd_right_identity_zero_lemma <- prove_extcore w4
+  (parse_core "(x : Vec 64 Bool) -> EqTrue (bvEq 64 (bvAdd 64 x (bvNat 64 0)) x)");
+bvSub_identity_zero_lemma <- prove_extcore w4
+  (parse_core "(x : Vec 64 Bool) -> EqTrue (bvEq 64 (bvSub 64 x (bvNat 64 0)) x)");
+
+n_sub_lemma <-
+  prove_print
+  w4
+  {{
+    \(n : [64]) ->
+      (
+        ((n <= (2^^32)) /\ (n % 96 == 0)) ==> ((n - x2) && 18446744073709551600) == 0
+          where
+            x2 = zext (((drop`{32} n) / x3) * x3)
+            x3 = max x4 (((drop`{32} n) / x4) * x4)
+            x4 = 96
+      )
+  }};
+
+gcm_ghash_array_unfolding_lemma <-
+  prove_print
+    do {
+      unfolding ["ecEq","gcm_ghash_array"];
+      simplify (addsimp_shallow (core_thm "fix_unfold") empty_ss);
+      simplify (cryptol_ss ());
+      unfolding ["gcm_ghash_array_unfold","gcm_ghash_array"];
+      simpl;
+      rw vecEq_refl_lemma;
+      trivial;
+    }
+    (rewrite (cryptol_ss ()) (unfold_term ["ecEq"]
+      {{ \H Xi inp i blocks ->
+        gcm_ghash_array H Xi inp i blocks ==
+        gcm_ghash_array_unfold H Xi inp i blocks
+      }}
+    ));
+
+cipher_update_array_helper_unfolding_lemma <-
+  prove_print
+    do {
+      unfolding ["ecEq","cipher_update_array_helper"];
+      simplify (addsimp_shallow (core_thm "fix_unfold") empty_ss);
+      simplify (cryptol_ss ());
+      unfolding ["cipher_update_array_helper_unfold","cipher_update_array_helper"];
+      simpl;
+      unfolding ["ecEq"];
+      simpl;
+      rw vecEq_refl_lemma;
+      trivial;
+    }
+    (rewrite (cryptol_ss ()) (unfold_term ["ecEq"]
+      {{ \enc ctx in i len ->
+        cipher_update_array_helper enc ctx in i len ==
+        cipher_update_array_helper_unfold enc ctx in i len
+      }}
+    ));
+
+lt_lemma <- prove_print w4 {{ \(i : [64]) (n : [64]) -> (i == n) \/ (n - (i + 1) < n - i) }};
+
+gcm_ghash_array_internal_lemma <-
+  prove_by_bv_induction
+  do {
+    i <- goal_intro "i";
+    blocks <- goal_intro "blocks";
+    H <- goal_intro "H";
+    Xi <- goal_intro "Xi";
+    inp <- goal_intro "inp";
+    goal_intro_hyp;
+    rw gcm_ghash_array_internal_unfolding_lemma2;
+    rw gcm_ghash_array_unfolding_lemma;
+    unfolding ["gcm_ghash_array_unfold", "gcm_ghash_array_internal_unfold"];
+    simpl;
+
+    unfocus;
+    goal_insert_and_specialize lt_lemma [i, blocks];
+    simpl;
+    focus_hyp 1;
+    split_goal;
+    unfocus;
+
+    rwh 2;
+    rw bvult_64_refl_false_lemma;
+    rw ite_const_false_vec128_lemma;
+    rw ite_const_false_lemma;
+    simpl;
+    rw bvSub_refl_zero_lemma;
+    rw ite_const_false_vec128_lemma;
+    simpl;
+    delete_hyps [0, 1, 2];
+    w4;
+
+    focus_hyp 0;
+    goal_specialize_hyp
+      [ {{ i + 1 }}
+      , blocks
+      , H
+      , {{ gcm_ghash_block (gcm_init_H H) Xi (arrayRangeLookup inp (i * 16) : [16][8]) }}
+      , inp
+      ];
+    delete_hyps [0, 2];
+    focus_hyp 0;
+    unfolding ["EqTrue"];
+    simpl;
+    focus_hyp 1;
+    simpl;
+    rwh 0;
+    goal_specialize_hyp [parse_core "Refl Bool True"];
+    delete_hyps [0, 1];
+    focus_hyp 0;
+    rw recover_vecEq_lemma;
+    unfolding ["ecMul"];
+    simpl;
+    w4_unint_yices ["gcm_ghash_array", "gcm_ghash_array_internal"];
+  }
+  {{ \(i : [64]) (blocks : [64]) (H : [128]) (Xi : [16][8]) (inp : Array [64] [8]) ->
+    ( blocks - i
+    , (i <= blocks) ==>
+      gcm_ghash_array (gcm_init_H H) Xi inp i blocks == split (gcm_ghash_array_internal H (join Xi) inp i blocks)
+    )
+  }};
 
 let update_dec_array_tactic = do {
+  i <- goal_intro "i";
+  n <- goal_intro "n";
   key <- goal_intro "key";
   iv <- goal_intro "iv";
-  Xi <- goal_intro "Xi";
   inp <- goal_intro "inp";
+  Xi <- goal_intro "Xi";
+  goal_intro_hyp;
 
-  // simpify the left-hand side of the equality
+  focus_hyp 0;
+  goal_specialize_hyp [ {{ i + 1 }}, n, key, iv, inp];
+  delete_hyps [0];
+
+  // split the goal into the two convenient cases
+  unfocus;
+  goal_insert_and_specialize lt_lemma [i, n];
+  simpl;
+  focus_hyp 1;
+  split_goal;
+  unfocus;
+
+  // base case
+  focus_concl 0;
+  rwh 2;
+  delete_hyps [0, 1, 2];
+
+  // eliminate cipher_update_array ite
   unfolding ["cipher_update_array"];
-  unfolding ["cipher_update_Xi_array"];
   simpl;
-
-  for (eval_list {{ [1..17] : [17][8] }}) (\i -> do {
-    simplify (addsimp_shallow (core_thm "fix_unfold") empty_ss);
-    simpl;
-  });
-
-  
-  rw ite_const_true_lemma;
+  unfolding ["cipher_update_array_helper"];
+  simpl;
+  simplify (addsimp_shallow (core_thm "fix_unfold") empty_ss);
+  simpl;
+  rw bvult_64_refl_false_lemma;
   rw ite_const_false_lemma;
-  // expose aes_hw_encrypt, which is used by both sides of the equality
-  unfolding ["EKij"];
-  unfolding ["EKi"];
-
-  // simplify the right-hand side of the equality
+  simpl;
   unfolding ["update_dec_array"];
-  unfolding ["update_bulk_decrypt"];
-  unfolding ["max"];
   simpl;
-  rw ite_const_true_vec32_lemma;
-  unfolding ["zext"];
+  unfolding ["update_bulk_decrypt", "update_postbulk_decrypt"];
   simpl;
-  unfolding ["update_postbulk_decrypt"];
+  rw aes_hw_ctr32_encrypt_blocks_array_unfold_lemma2;
+  unfolding ["aes_hw_ctr32_encrypt_blocks_array_unfold"];
+  rw ite_tuple_lemma;
+  unfolding ["==>", "/\\"];
+  rw ite_bool_implies_lemma;
+  rw ite_bool_and_lemma;
+  normalize_sequent;
+
+  // eliminate update_postbulk_decrypt ite
+  goal_insert_and_specialize n_sub_lemma [n];
+  focus_hyp 2;
+  recover_eqtrue;
   simpl;
-  rw ecEq_elim_lemma;
+  focus_hyp 0;
+  unfolding ["EqTrue"];
   simpl;
-  rw ite_const_false_tuple_lemma;
-  unfolding ["gcm_ghash_array"];
-  simplify (addsimp_shallow (core_thm "fix_unfold") empty_ss);
+  focus_hyp 1;
+  unfolding ["EqTrue"];
   simpl;
-  rw ite_const_true_lemma;
-  simplify (addsimp_shallow (core_thm "fix_unfold") empty_ss);
+  focus_hyp 2;
+  rwh 0;
+  rwh 1;
   simpl;
-  rw ite_const_false_lemma;
-  unfolding ["gcm_ghash_block", "gcm_ghash_array_6x"];
-  simpl;
-  simplify (addsimp_shallow (core_thm "fix_unfold") empty_ss);
-  simpl;
-  rw ite_const_false_vec128_lemma;
-  simpl;
-  rw intLe_refl_lemma;
+  unfolding ["/\\"];
   simpl;
   rw ite_const_true_bool_lemma;
-  unfolding ["ecEq"];
+  unfocus;
+  rw bvSub_identity_zero_lemma;
+  rw bvAdd_identity_zero_lemma;
+  focus_hyp 2;
+  unfolding ["EqTrue"];
   simpl;
-  rw ite_const_false_lemma;
+  focus_concl 0;
+  rwh 2;
+  rw ite_const_true_ctx_lemma;
+
+  // eliminate update_bulk_decrypt ite and solve
+  rw ghash_6x_unfolding_lemma2;
+  unfolding ["gcm_ghash_array_6x_unfold"];
   simpl;
-  rw intToNat_natToInt_lemma;
+  w4_unint_z3 ["arrayLookup", "gcm_ghash_array_6x", "aesni_gcm_cipher_block6", "gcm_init_Htable", "gcm_init_H", "aes_hw_encrypt"];
+
+  // inductive case
+
+  // simplify precondition of inductive hypothesis
+  unfolding ["EqTrue"];
   simpl;
-  rw ite_const_false_vec8_lemma;
+  focus_hyp 0;
+  rwh 1;
+
+  // pull preconditions out of conclusion
+  focus_concl 0;
+  unfolding ["==>"];
   simpl;
-  rw ite_const_true_lemma;
+  rw ite_bool_implies_lemma;
+  normalize_sequent;
+  delete_concl [0];
+  focus_hyp 2;
+  unfolding ["EqTrue"];
   simpl;
-  rw upd_collapse_lemma;
-  unfolding ["arrayRangeLookup"];
+
+  // eliminate the ite in the inductive hypothesis
+  focus_hyp 0;
+  rwh 2;
+  delete_hyps [2];
+  rw ite_const_true_bool_lemma;
+
+  // work the conclusion until the inductive hypothesis matches
+  unfocus;
+  unfolding ["cipher_update_array"];
   simpl;
-  unfolding ["generate"];
+  focus_concl 0;
+  rw cipher_update_array_helper_unfolding_lemma;
+  unfolding ["cipher_update_array_helper_unfold"];
   simpl;
-  unfolding ["zeroByteArray"];
+
+  focus_hyp 0;
+  goal_specialize_hyp
+    [ {{ (cipher_update_array_ctx 0 {key = key, iv = iv, Xi = Xi, len = 0} i (arrayLookup inp i)).Xi }}
+    , parse_core "Refl Bool True"
+    ];
+  unfocus;
   simpl;
-  rw arrayRangeLookup_arrayLookup_lemma;
+  unfolding ["cipher_update_array_ctx"];
+  simpl;
+  normalize_sequent;
+  focus_concl 0;
+  rwh 2;
+  delete_hyps [0, 2];
+
+  unfolding ["update_dec_array"];
+  simpl;
+  unfolding ["update_bulk_decrypt", "update_postbulk_decrypt"];
+  simpl;
+  rw ite_tuple_lemma;
+  rw gcm_ghash_6x_to_1x_lemma;
+
+  // apply gcm_ghash_array_internal_lemma to eliminate gcm_ghash_array calls
+  goal_insert_and_specialize gcm_ghash_array_internal_lemma [ {{ 0 : [64] }} ];
+  focus_hyp 4;
+  simpl;
+  rw bvule_zero_lemma;
+  rw ite_const_true_bool_lemma;
+  recover_eqtrue;
+  focus_concl 0;
+  rwh 4;
+  delete_hyps [1, 2, 3, 4];
+
+  unfocus;
   rw split_join_lemma;
   rw join_split_lemma;
-  w4_unint_yices ["gcm_polyval", "gcm_init_H", "get_H", "arrayLookup"];
+  simpl;
+  rw intLe_refl_lemma;
+  rw ite_const_true_bool_lemma;
+  rw bvAdd_identity_zero_lemma;
+  rw bvAdd_right_identity_zero_lemma;
+  rw bvSub_identity_zero_lemma;
+  unfolding ["ecEq"];
+  simpl;
+
+  goal_insert_and_specialize n_sub_lemma [n];
+  focus_hyp 2;
+  recover_eqtrue;
+  simpl;
+
+  pg;
+  proof_subshell ();
 };
 
-  // goal_eval_unint ["cipher_update_array", "update_postbulk_decrypt", "gcm_ghash_array_6x", "gcm_enc_blocks_6x", "aes_hw_encrypt", "arrayCopy"];
-
-prove_print update_dec_array_tactic {{ \(key : [32][8]) (iv : [12][8]) (Xi : [16][8]) (inp : Array [64] [8]) -> (
-  cipher_update_array 0 st inp 0 16 == (update_dec_array inp st zeroByteArray 0 16).1
+prove_by_bv_induction update_dec_array_tactic {{ \(i : [64]) (n : [64]) (key : [32][8]) (iv : [12][8]) (inp : Array [64] [8]) (Xi : [16][8]) ->
+  ( n - i
+  , ((n <= 2^^32) /\ n % 96 == 0) ==>
+     cipher_update_array 0 st inp i n == (update_dec_array inp st zeroByteArray i n).1
     where
-      st = {key = key, iv = iv, Xi = Xi, len = 16}
-)}};
+      st = {key = key, iv = iv, Xi = Xi, len = 0}
+  )
+}};
