@@ -425,7 +425,7 @@ let rsa_blinding_get_spec = do {
   crucible_ghost_value rsa_blinding_factor a;
 
   (rsa_ptr, n, e) <- pointer_to_base_fresh_rsa_st true;
-  index_used_ptr <- crucible_alloc i32;
+  index_used_ptr <- crucible_alloc i64;
   ctx_ptr <- pointer_to_bignum_ctx;
 
   crucible_execute_func [rsa_ptr, index_used_ptr, ctx_ptr];
