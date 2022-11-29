@@ -34,6 +34,7 @@ apply_patch "noinline-p384_get_bit"
 apply_patch "noinline-constant_time_is_zero_w"
 apply_patch "noinline-p384_felem_cmovznz"
 apply_patch "noinline-p384_select_point"
+apply_patch "noinline-p384_felem_copy"
 
 # ...next, check the proofs using CMake's Release settings...
 

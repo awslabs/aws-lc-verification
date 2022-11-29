@@ -128,13 +128,15 @@ p384_point_mul_ov <- llvm_verify m "ec_GFp_nistp384_point_mul"
   ]
   true
   p384_point_mul_spec
-  (w4_unint_z3 ["fiat_field_square", "fiat_field_add", "fiat_field_sub", 
+  (do{
+  w4_unint_z3 ["fiat_select_point_ct", "fiat_field_square", "fiat_field_add", "fiat_field_sub", 
   "fiat_field_mul",
   "fiat_mul_scalar_rwnaf", "fiat_field_opp",
    "fiat_select_point", 
   "fiat_field_cmovznz",
   "fiat_to_bytes", "fiat_from_bytes"
-  ]);
+  ];
+  });
 
 
 

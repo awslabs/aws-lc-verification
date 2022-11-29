@@ -10,4 +10,3 @@ index 72b93a063..a913e51a9 100644
  static void p384_select_point(p384_felem out[3],
                                size_t idx,
                                p384_felem table[][3],
-                               

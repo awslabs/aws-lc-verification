@@ -123,8 +123,12 @@ fiat_double_add_body : [tsize]point -> point -> point_id -> point
 fiat_double_add_body t p d = res
   where
     doubled = foldl (\x -> \y -> fiat_point_double x) p [0 .. (wsize - 1)]
-    is_neg = (d >> 7) && 1
-    abs_d = (d ^ (-is_neg)) + is_neg
+    // TODO: calculate the expression below from wsize
+    is_neg = (d >> 15)
+    // is_neg = (d >>$ 7) & 1
+    neg_is_neg = (d >>$ 15)
+    // neg_is_neg = - is_neg
+    abs_d = is_neg + (d ^ neg_is_neg)
     idx = abs_d >>$ 1
     tmp = (fiat_select_point_ct (sign_extend_16_64 idx) t)
     ftmp = fiat_field_opp (tmp@1)

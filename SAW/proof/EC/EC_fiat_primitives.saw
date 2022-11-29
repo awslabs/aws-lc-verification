@@ -618,9 +618,8 @@ bignum_neg_p384_ov <- crucible_llvm_unsafe_assume_spec m
   "bignum_neg_p384" 
   p384_opp_spec;
 
-/*
 p384_felem_copy_ov <- llvm_verify m "p384_felem_copy"
   [] true
   p384_copy_spec (w4_unint_z3 []);
-*/
+
 
