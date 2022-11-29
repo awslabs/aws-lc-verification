@@ -3,9 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 
-module EC_fiat_mul where
+module EC_mul where
 
-import EC_fiat_primitives
+import EC_primitives
 
 type wsize_max = 7
 

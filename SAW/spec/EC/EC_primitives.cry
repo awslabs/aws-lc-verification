@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 
-module EC_fiat_primitives where
+module EC_primitives where
 
 type bit_length = 384
 

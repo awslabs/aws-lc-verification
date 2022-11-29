@@ -1,3 +1,0 @@
-module EC_fiat_P384_5 = EC_fiat_mul where
-
-type wsize = 5
