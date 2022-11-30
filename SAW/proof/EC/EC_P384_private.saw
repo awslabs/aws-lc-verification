@@ -3,6 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 
+import "../../spec/EC/EC_P384_5.cry";
+
+include "../common/helpers.saw";
+include "../common/internal.saw";
+include "EC_P384_primitives.saw";
+
 let limb_length = 64;
 let p384_felem_limbs = 6;
 let wsize = 5;
@@ -32,18 +38,6 @@ let p384_mul_scalar_rwnaf_spec = do {
 };
 
 
-let p384_point_mul_spec = do {
-
-  res_ptr <- crucible_alloc (llvm_array 3 (llvm_array p384_felem_limbs (llvm_int limb_length)));
-  table_ptr <- crucible_alloc (llvm_array tsize (llvm_array 3 (llvm_array p384_felem_limbs (llvm_int limb_length))));
-  p <- crucible_fresh_var "p" (llvm_array 3 (llvm_array p384_felem_limbs (llvm_int limb_length)));
-  crucible_points_to (crucible_elem table_ptr 0) (crucible_term p);
-  (scalar, scalar_ptr) <- ptr_to_fresh_readonly "p_scalar" i384;
-
-  crucible_execute_func [res_ptr, table_ptr, scalar_ptr];
-
-  crucible_points_to res_ptr (crucible_term {{ point_mul p scalar }});
-};
 
 let p384_point_mul_spec = do {
 

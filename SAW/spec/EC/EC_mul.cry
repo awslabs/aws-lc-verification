@@ -5,7 +5,9 @@
 
 module EC_mul where
 
+import Common::EC::EC_P384
 import EC_primitives
+
 
 type wsize_max = 7
 

@@ -5,6 +5,8 @@
 
 module EC_primitives where
 
+import Common::EC::EC_P384
+
 type bit_length = 384
 
 type limb_size = 64
@@ -16,7 +18,6 @@ type felem = [nlimbs][64]
 type scalar = [bit_length]
 
 type point = [3]felem
-type JacobianBVPoint = { X : [bit_length], Y : [bit_length], Z : [bit_length] }
 
 zero_felem: felem
 zero_felem = repeat 0

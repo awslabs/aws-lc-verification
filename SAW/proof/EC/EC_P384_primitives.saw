@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 
+import "../../spec/EC/EC_primitives.cry";
+
 let limb_length = 64;
 let p384_felem_limbs = 6;
 
@@ -427,7 +429,7 @@ p384_point_double_same_ov <- llvm_verify m "p384_point_double"
   p384_point_double_same_spec
   (w4_unint_z3 ["felem_sqr", "felem_mul", "felem_add", "felem_sub"]);
 
-double_test_equiv <- prove_folding_theorem {{ \a b c d-> (testForDouble a b c d) == (testForDouble_ct a b c d) }};
+double_test_equiv <- prove_folding_theorem {{ \w x y z-> (testForDouble w x y z) == (testForDouble_ct w x y z) }};
 
 constant_time_is_zero_w_ov <- llvm_verify m
   "constant_time_is_zero_w" [] true
