@@ -42,7 +42,7 @@ mul_scalar_rwnaf_loop_body_ct s window i = (d, window')
     i_wsize = (drop`{32} (i&&0x00000000000000FF)) * (`wsize:[32])
     // TODO: calculate this using wsize
     window_5 = foldl f window_0 [1..5]
-    f a j = a + ((drop (scalar_get_bit s (i_wsize + ((`wsize:[32]) + j)))) << j)
+    f x j = x + ((drop (scalar_get_bit s (i_wsize + ((`wsize:[32]) + j)))) << j)
     window' = window_5
 
 
