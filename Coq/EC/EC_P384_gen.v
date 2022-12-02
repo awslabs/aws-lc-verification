@@ -32,7 +32,7 @@ From CryptolToCoq Require Import Everything.
 
 
 From EC Require Import CryptolToCoq_equiv.
-From EC Require Import EC_fiat_P384_7.
+From EC Require Import EC_P384_5.
 
 
 Definition append_comm (m n : Nat) (a : Type) (Inh_a : Inhabited a) 
@@ -52,7 +52,7 @@ Local Arguments bvSub [n] _ _.
 Local Arguments SAWCorePrelude.map [a]%type_scope {Inh_a} [b]%type_scope f%function_scope _ _.
 
 
-Definition fiat_mul_scalar_rwnaf_odd_loop_body_gen (wsize : nat)(s : bitvector 384) :=
+Definition mul_scalar_rwnaf_odd_loop_body_gen (wsize : nat)(s : bitvector 384) :=
 (drop Bool 368 16
    (bvSub
       (bvURem 384 s
@@ -67,13 +67,13 @@ shiftR 384 bool false
               (shiftL 384 bool false (bvNat 384 1) wsize)))
         (shiftL 384 bool false (bvNat 384 1) wsize))) wsize).
 
-Theorem fiat_mul_scalar_rwnaf_odd_loop_body_gen_equiv : forall s,
-  fiat_mul_scalar_rwnaf_odd_loop_body_gen 7 s = fiat_mul_scalar_rwnaf_odd_loop_body s.
+Theorem mul_scalar_rwnaf_odd_loop_body_gen_equiv : forall s,
+  mul_scalar_rwnaf_odd_loop_body_gen 5 s = mul_scalar_rwnaf_odd_loop_body s.
 
   intros.
-  unfold fiat_mul_scalar_rwnaf_odd_loop_body, fiat_mul_scalar_rwnaf_odd_loop_body.
-  repeat ecSimpl_one.
+  unfold mul_scalar_rwnaf_odd_loop_body, mul_scalar_rwnaf_odd_loop_body_gen.
   removeCoerce.
+  simpl.
   reflexivity.
 
 Qed.
@@ -88,20 +88,20 @@ Require Import Nat.
 Require Import List.
 Require Import Arith.
 
-Definition fiat_mul_scalar_rwnaf_odd_gen wsize numWindows s :=
+Definition mul_scalar_rwnaf_odd_gen wsize numWindows s :=
   List.map (fun x : bitvector 16 * bitvector 384 => fst x)
   (scanl
      (fun (__p2 : bitvector 16 * bitvector 384) (_ : Integer) =>
-      fiat_mul_scalar_rwnaf_odd_loop_body_gen wsize (snd __p2)) (toN_int numWindows)
-     (fiat_mul_scalar_rwnaf_odd_loop_body_gen wsize s)) ++
+      mul_scalar_rwnaf_odd_loop_body_gen wsize (snd __p2)) (toN_int numWindows)
+     (mul_scalar_rwnaf_odd_loop_body_gen wsize s)) ++
 [drop Bool 368%nat 16%nat
    (snd
       (hd (inhabitant (Inhabited_prod (bitvector 16) (bitvector 384)))
          (rev
             (scanl
                (fun (__p2 : bitvector 16 * bitvector 384) (_ : Integer) =>
-                fiat_mul_scalar_rwnaf_odd_loop_body_gen wsize (snd __p2)) 
-               (toN_int numWindows) (fiat_mul_scalar_rwnaf_odd_loop_body_gen wsize s)))))].
+                mul_scalar_rwnaf_odd_loop_body_gen wsize (snd __p2)) 
+               (toN_int numWindows) (mul_scalar_rwnaf_odd_loop_body_gen wsize s)))))].
 
 
 Local Open Scope Z_scope.
@@ -127,12 +127,11 @@ Qed.
 
 Require Import Coq.ZArith.Zdigits.
 
-
-Theorem fiat_mul_scalar_rwnaf_odd_gen_equiv : forall s,
-  to_list (fiat_mul_scalar_rwnaf_odd s) = (fiat_mul_scalar_rwnaf_odd_gen 7 52 s).
+Theorem mul_scalar_rwnaf_odd_gen_equiv : forall s,
+  to_list (mul_scalar_rwnaf_odd s) = (mul_scalar_rwnaf_odd_gen 5 74 s).
 
   intros.
-  unfold fiat_mul_scalar_rwnaf_odd.
+  unfold mul_scalar_rwnaf_odd.
   repeat removeCoerce.
 
   Local Opaque append of_list ecFromTo.
@@ -159,41 +158,41 @@ Theorem fiat_mul_scalar_rwnaf_odd_gen_equiv : forall s,
     replace (to_list (SAWCoreVectorsAsCoqVectors.scanl t1 t2 n f a v)) with (scanl f (to_list v) a); [idtac | symmetry; apply toList_scanl_equiv]
   end.
 
-  rewrite <- fiat_mul_scalar_rwnaf_odd_loop_body_gen_equiv.
+  rewrite <- mul_scalar_rwnaf_odd_loop_body_gen_equiv.
   rewrite (scanl_ext _ (fun (__p2 : bitvector 16 * bitvector 384) (_ : Integer) =>
-      fiat_mul_scalar_rwnaf_odd_loop_body_gen 7 (snd __p2))).
+      mul_scalar_rwnaf_odd_loop_body_gen 5 (snd __p2))).
 
   rewrite ecFromTo_0_n_equiv.
-  trivial.
+  reflexivity.
 
   intros.
   symmetry.
-  apply fiat_mul_scalar_rwnaf_odd_loop_body_gen_equiv.
+  apply mul_scalar_rwnaf_odd_loop_body_gen_equiv.
 
   lia.
 
 Qed.
 
-Definition fiat_mul_scalar_rwnaf_gen wsize nw s := 
-  fiat_mul_scalar_rwnaf_odd_gen wsize nw
+Definition mul_scalar_rwnaf_gen wsize nw s := 
+  mul_scalar_rwnaf_odd_gen wsize nw
     (bvOr s (intToBv 384%nat 1)).
 
-Theorem fiat_mul_scalar_rwnaf_equiv : forall s,
-  to_list (fiat_mul_scalar_rwnaf s) = fiat_mul_scalar_rwnaf_gen 7 52 s.
+Theorem mul_scalar_rwnaf_equiv : forall s,
+  to_list (mul_scalar_rwnaf s) = mul_scalar_rwnaf_gen 5 74 s.
 
   intros.
-  unfold fiat_mul_scalar_rwnaf.
-  rewrite fiat_mul_scalar_rwnaf_odd_gen_equiv.
-  Local Opaque fiat_mul_scalar_rwnaf_odd_gen.
+  unfold mul_scalar_rwnaf.
+  rewrite mul_scalar_rwnaf_odd_gen_equiv.
+  Local Opaque mul_scalar_rwnaf_odd_gen.
   simpl.
   reflexivity.
 
 Qed.
 
-Definition fiat_select_point_ct_gen x t :=
+Definition select_point_ct_gen x t :=
   fold_left
   (fun acc p =>
-   fiat_select_point_loop_body x acc (fst p) (snd p))
+   select_point_loop_body x acc (fst p) (snd p))
   (combine (toN_excl_bv 64%nat (length t)) t) (of_list [zero_felem; zero_felem; zero_felem]).
 
 Theorem to_list_length : forall (A : Type)(n : nat)(x : Vector.t A n),
@@ -209,23 +208,23 @@ Theorem to_list_length : forall (A : Type)(n : nat)(x : Vector.t A n),
 Qed.
 
 
-Theorem fiat_select_point_ct_gen_equiv : forall x t,
-  fiat_select_point_ct x t = fiat_select_point_ct_gen x (to_list t).
+Theorem select_point_ct_gen_equiv : forall x t,
+  select_point_ct x t = select_point_ct_gen x (to_list t).
 
   intros.
-  unfold fiat_select_point_ct, fiat_select_point_ct_gen.
+  unfold select_point_ct, select_point_ct_gen.
   removeCoerce.
   rewrite ecFoldl_foldl_equiv.
   rewrite toList_zip_equiv. 
 
   replace ((to_list
-        (ecFromTo 0%nat 63%nat (CryptolPrimitivesForSAWCore.seq 64%nat Bool)
+        (ecFromTo 0%nat 15%nat (CryptolPrimitivesForSAWCore.seq 64%nat Bool)
            (PLiteralSeqBool 64%nat))))
   with (toN_excl_bv 64%nat (length (to_list t))).
   reflexivity.
   rewrite to_list_length.
   symmetry.
-  apply (@ecFromTo_0_n_bv_excl_equiv 64%nat 63%nat).
+  apply (@ecFromTo_0_n_bv_excl_equiv 64%nat 15%nat).
 Qed.
 
 Require Import Coq.Logic.EqdepFacts.
@@ -235,30 +234,30 @@ Section PointMul.
   Definition felem := Vector.t (bitvector 64) 6.
   Definition prodPoint := (felem * felem * felem)%type.
   Definition point := Vector.t felem 3.
-  Variable field_square : felem -> felem.
-  Variable field_mul field_sub field_add : felem -> felem -> felem.
+  Variable felem_sqr : felem -> felem.
+  Variable felem_mul felem_sub felem_add : felem -> felem -> felem.
   Variable field_opp : felem -> felem.
 
-  Definition fiat_point_opp (p : point) : point :=
+  Definition point_opp (p : point) : point :=
     Vector.cons (sawAt _ _ p 0%nat) 
       (Vector.cons (field_opp (sawAt _ _ p 1%nat) ) 
         (Vector.cons (sawAt _ _ p 2%nat)  (Vector.nil felem))).
 
-  Definition fiat_point_mul := fiat_point_mul field_square field_mul field_sub field_add field_opp.
+  Definition point_mul := point_mul felem_sqr felem_mul felem_sub felem_add field_opp.
  
   Definition conditional_subtract_if_even_ct := 
-    conditional_subtract_if_even_ct field_square field_mul field_sub field_add field_opp.
+    conditional_subtract_if_even_ct felem_sqr felem_mul felem_sub felem_add field_opp.
 
-  Definition fiat_point_add := 
-    fiat_point_add field_square field_mul field_sub field_add.
+  Definition point_add := 
+    point_add felem_sqr felem_mul felem_sub felem_add.
 
   Theorem conditional_subtract_if_even_ct_equiv : forall (p1 : point) n (p2 : point),
     conditional_subtract_if_even_ct p1 n p2 = 
-    if (even (bvToNat _ n)) then (fiat_point_add false p1 (fiat_point_opp p2)) else p1.
+    if (even (bvToNat _ n)) then (point_add false p1 (point_opp p2)) else p1.
 
     intros.
-    unfold conditional_subtract_if_even_ct, EC_fiat_P384_7.conditional_subtract_if_even_ct.
-    unfold fiat_field_cmovznz.
+    unfold conditional_subtract_if_even_ct, EC_P384_5.conditional_subtract_if_even_ct.
+    unfold felem_cmovznz.
     match goal with
     | [|- context[of_list [if ?a then _ else _; _; _]]] =>
       case_eq a; intros
@@ -334,77 +333,78 @@ Section PointMul.
 
   Qed.
 
-  Definition fiat_pre_comp_table := fiat_pre_comp_table field_square field_mul field_sub field_add .
+  Definition pre_comp_table := pre_comp_table felem_sqr felem_mul felem_sub felem_add .
 
-  Definition fiat_pre_comp_table_gen pred_tsize p :=
+  Definition pre_comp_table_gen pred_tsize p :=
     scanl
   (fun
      (z : CryptolPrimitivesForSAWCore.seq 3%nat
             (CryptolPrimitivesForSAWCore.seq 6%nat
                (CryptolPrimitivesForSAWCore.seq 64%nat Bool))) 
      (_ : Integer) =>
-   EC_fiat_P384_7.fiat_point_add field_square field_mul field_sub field_add
+   EC_P384_5.point_add felem_sqr felem_mul felem_sub felem_add
      (ecNumber 0%nat Bool PLiteralBit)
-     (fiat_point_double field_square field_mul field_sub field_add p) z)
+     (point_double felem_sqr felem_mul felem_sub felem_add p) z)
   (map (BinIntDef.Z.add (BinIntDef.Z.of_nat 1)) (toN_int pred_tsize)) p .
 
-  Theorem fiat_pre_comp_table_gen_equiv : forall p,
-    to_list (fiat_pre_comp_table p) = fiat_pre_comp_table_gen 62%nat p.
+  Theorem pre_comp_table_gen_equiv : forall p,
+    to_list (pre_comp_table p) = pre_comp_table_gen 14%nat p.
 
     intros. 
-    unfold fiat_pre_comp_table_gen, fiat_pre_comp_table, EC_fiat_P384_7.fiat_pre_comp_table.
+    unfold pre_comp_table_gen, pre_comp_table, EC_P384_5.pre_comp_table.
     removeCoerce.
     removeCoerce.
     rewrite toList_scanl_equiv.
-    replace (map (BinIntDef.Z.add (BinIntDef.Z.of_nat 1)) (toN_int 62))
-      with (to_list (ecFromTo (TCNum 1%nat) (TCNum 63%nat) Integer PLiteralInteger)).
+    replace (map (BinIntDef.Z.add (BinIntDef.Z.of_nat 1)) (toN_int 14))
+      with (to_list (ecFromTo (TCNum 1%nat) (TCNum 15%nat) Integer PLiteralInteger)).
     reflexivity.
     apply ecFromTo_m_n_equiv.
   Qed.
 
   
-  Definition fiat_double_add_body := 
-    fiat_double_add_body field_square field_mul field_sub field_add field_opp.
+  Definition double_add_body := 
+    double_add_body felem_sqr felem_mul felem_sub felem_add field_opp.
   
 
   Definition conditional_point_opp (t : bitvector 64) (p : point): point :=
-    Vector.cons (sawAt _ _ p 0%nat) (Vector.cons (fiat_field_cmovznz t (sawAt _ _ p 1%nat) (field_opp (sawAt _ _ p 1%nat))) (Vector.cons (sawAt _ _ p 2%nat) (Vector.nil _))).
+    Vector.cons (sawAt _ _ p 0%nat) (Vector.cons (felem_cmovznz t (sawAt _ _ p 1%nat) (field_opp (sawAt _ _ p 1%nat))) (Vector.cons (sawAt _ _ p 2%nat) (Vector.nil _))).
 
-  Definition fiat_double_add_body_gen pred_wsize t p id :=
-    EC_fiat_P384_7.fiat_point_add field_square field_mul field_sub
-  field_add false
+  Definition double_add_body_gen pred_wsize t p id :=
+    EC_P384_5.point_add felem_sqr felem_mul felem_sub
+  felem_add false
   (fold_left
      (fun
         (x : CryptolPrimitivesForSAWCore.seq 3%nat
                (CryptolPrimitivesForSAWCore.seq 6%nat
                   (CryptolPrimitivesForSAWCore.seq 64%nat Bool)))
         (_ : Integer) =>
-      fiat_point_double field_square field_mul field_sub field_add x)
+      point_double felem_sqr felem_mul felem_sub felem_add x)
      (toN_int pred_wsize) p)
   (conditional_point_opp
      (point_id_to_limb
-        (bvAnd (shiftR 16 bool false id (S pred_wsize)) (bvNat 16%nat 1%nat)))
-     (fiat_select_point_ct_gen
+        (shiftR 16 bool false id 15))
+     (select_point_ct_gen
         (sign_extend_16_64
            (bvSShr 15%nat
               (bvAdd 16
-                 (bvXor 16%nat id
-                    (bvNeg 16
-                       (bvAnd (shiftR 16 bool false id (S pred_wsize))
-                          (bvNat 16%nat 1%nat))))
-                 (bvAnd (shiftR 16 bool false id (S pred_wsize))
-                    (bvNat 16%nat 1%nat))) 1%nat)) t)).
+                  (shiftR 16 bool false id 15)
 
-  Theorem fiat_double_add_body_gen_equiv : forall t p id,
-    fiat_double_add_body t p id = fiat_double_add_body_gen 6 (to_list t) p id.
+
+                 (bvXor 16%nat id
+                      (bvSShr 15%nat id 15)
+)) 1%nat)) t)).
+
+  Theorem double_add_body_gen_equiv : forall t p id,
+    double_add_body t p id = double_add_body_gen 4 (to_list t) p id.
 
     intros.
-    unfold fiat_double_add_body, EC_fiat_P384_7.fiat_double_add_body.
+    unfold double_add_body, EC_P384_5.double_add_body.
     removeCoerce.
     rewrite ecFoldl_foldl_equiv.
-    replace (to_list (ecFromTo 0%nat 6%nat Integer PLiteralInteger))
-      with (toN_int 6%nat).
-    repeat rewrite fiat_select_point_ct_gen_equiv.
+
+    replace (to_list (ecFromTo 0%nat 4%nat Integer PLiteralInteger))
+      with (toN_int 4%nat).
+    repeat rewrite select_point_ct_gen_equiv.
     reflexivity.
 
     symmetry.
@@ -412,49 +412,49 @@ Section PointMul.
 
   Qed.
 
-  Definition fiat_point_mul_gen wsize nw pred_tsize p s : point := 
-    EC_fiat_P384_7.conditional_subtract_if_even_ct field_square field_mul
-  field_sub field_add field_opp
+  Definition point_mul_gen wsize nw pred_tsize p s : point := 
+    EC_P384_5.conditional_subtract_if_even_ct felem_sqr felem_mul
+  felem_sub felem_add field_opp
   (fold_left
-     (fiat_double_add_body_gen (pred wsize) (fiat_pre_comp_table_gen pred_tsize p))
-     (skipn 1 (rev (fiat_mul_scalar_rwnaf_gen wsize nw s)))
-     (fiat_select_point_ct_gen
+     (double_add_body_gen (pred wsize) (pre_comp_table_gen pred_tsize p))
+     (skipn 1 (rev (mul_scalar_rwnaf_gen wsize nw s)))
+     (select_point_ct_gen
         (sign_extend_16_64
            (bvSShr 15
-              (nth (S (S nw)) (fiat_mul_scalar_rwnaf_gen wsize nw s)
+              (nth (S (S nw)) (mul_scalar_rwnaf_gen wsize nw s)
                  (bvNat 16%nat 0%nat))
               1%nat) )
-        (fiat_pre_comp_table_gen pred_tsize p))) s
-  (nth 0 (fiat_pre_comp_table_gen pred_tsize p)
+        (pre_comp_table_gen pred_tsize p))) s
+  (nth 0 (pre_comp_table_gen pred_tsize p)
      (inhabitant (ecNumber 0%nat Integer PLiteralInteger))).
 
-  Theorem fiat_point_mul_gen_equiv : forall p s,
-    fiat_point_mul p s = fiat_point_mul_gen 7 52 62 p s.
+  Theorem point_mul_gen_equiv : forall p s,
+    point_mul p s = point_mul_gen 5 74 14 p s.
 
     intros.
-    unfold fiat_point_mul, EC_fiat_P384_7.fiat_point_mul.
+    unfold point_mul, EC_P384_5.point_mul.
 
     rewrite ecFoldl_foldl_equiv.
 
     Local Opaque fold_left.
     simpl.
     rewrite (fold_left_ext _
-      (fiat_double_add_body_gen 6%nat
-        (fiat_pre_comp_table_gen 62%nat p))
+      (double_add_body_gen 4%nat
+        (pre_comp_table_gen 14%nat p))
     ).
     rewrite toList_drop_equiv.
     rewrite toList_reverse_equiv.
-    rewrite fiat_mul_scalar_rwnaf_equiv.
+    rewrite mul_scalar_rwnaf_equiv.
 
-    rewrite fiat_select_point_ct_gen_equiv.
-    rewrite fiat_pre_comp_table_gen_equiv.
+    rewrite select_point_ct_gen_equiv.
+    rewrite pre_comp_table_gen_equiv.
 
-    unfold fiat_point_mul_gen.
+    unfold point_mul_gen.
     rewrite sawAt_nth_equiv.
-    rewrite fiat_mul_scalar_rwnaf_equiv.
+    rewrite mul_scalar_rwnaf_equiv.
 
     rewrite sawAt_nth_equiv.
-    rewrite fiat_pre_comp_table_gen_equiv.
+    rewrite pre_comp_table_gen_equiv.
 
     reflexivity.
 
@@ -462,10 +462,10 @@ Section PointMul.
     lia.
 
     intros.
-    rewrite <- fiat_pre_comp_table_gen_equiv.
-    unfold fiat_pre_comp_table.
+    rewrite <- pre_comp_table_gen_equiv.
+    unfold pre_comp_table.
   
-    rewrite <- fiat_double_add_body_gen_equiv.
+    rewrite <- double_add_body_gen_equiv.
     reflexivity.
 
   Qed.
