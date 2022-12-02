@@ -18,7 +18,7 @@ saw-script:
 	$(MAKE) -C saw-script/saw-core-coq/coq
 
 fiat-crypto:
-	$(MAKE) SKIP_BEDROCK2=1 -C fiat-crypto standalone-ocaml
+	$(MAKE) SKIP_BEDROCK2=1 -C fiat-crypto
 
 extract:
 	saw ../SAW/spec/EC/extract_EC_P384.saw

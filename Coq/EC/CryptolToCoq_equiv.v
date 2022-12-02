@@ -33,11 +33,10 @@ From Bits Require Import spec.properties.
 (*
 Axioms on which the main proof depends. If you prove something in this file, remove it from the list. 
 
-foldl_dep_tuple_cons
 
 toList_reverse_cons_eq
-
-
+  : forall (A : Type) (inh : Inhabited A) (n : nat) (ls : Vec n A) (a : A),
+    to_list (reverse (S n) A (cons A a n ls)) = to_list (reverse n A ls) ++ [a]
 toList_drop_equiv
   : forall (A : Type) (inh : Inhabited A) (n1 n2 : Nat) (ls : Vec (addNat n1 n2) A),
     to_list (drop A n1 n2 ls) = skipn n1 (to_list ls)
@@ -45,23 +44,16 @@ toList_append_equiv
   : forall (A : Type) (inh : Inhabited A) (n m : nat) (v1 : Vec n A) (v2 : Vec m A),
     to_list (append n m A v1 v2) = to_list v1 ++ to_list v2
 ssr_double_even : forall n : nat, Nat.even (ssrnat.double n) = true
-ssr_addn_even
-  : forall n1 n2 : nat, Nat.even n1 = true -> Nat.even n2 = true -> Nat.even (ssrnat.addn n1 n2) = true
-shiftR_small_nonneg
-  : forall (n1 n2 : nat) (v : bitvector n1),
-    (0 <= sbvToInt n1 v < 2 ^ BinInt.Z.of_nat n2)%Z -> shiftR n1 bool false v n2 = replicate n1 bool false
-shiftR_shiftR_eq
-  : forall (A : Type) (n1 n2 len : nat) (v : Vec len A) (a : A),
-    shiftR len A a (shiftR len A a v n1) n2 = shiftR len A a v (n1 + n2)
-shiftR_false_0
-  : forall n1 n2 : nat, shiftR n1 bool false (replicate n1 bool false) n2 = replicate n1 bool false
-shiftR1_eq : forall (A : Type) (len : nat) (v : Vec len A) (a : A), shiftR1 len A a v = shiftR len A a v 1
+ssr_addn_even : forall n1 n2 : nat, Nat.even n1 = true -> Nat.even n2 = true -> Nat.even (ssrnat.addn n1 n2) = true
+shiftR_false_0 : forall n1 n2 : nat, shiftR n1 bool false (replicate n1 bool false) n2 = replicate n1 bool false
+shiftR_all_nonneg
+  : forall (n1 : nat) (v : bitvector n1),
+    (0 <= sbvToInt n1 v)%Z -> shiftR n1 bool false v (Nat.pred n1) = replicate n1 bool false
+shiftR_all_neg
+  : forall (n1 : nat) (v : bitvector n1), (sbvToInt n1 v < 0)%Z -> shiftR n1 bool false v (Nat.pred n1) = intToBv n1 1
 shiftL_shiftL
   : forall (A : Type) (n : nat) (b : A) (v : t A n) (n1 n2 : nat),
     shiftL n A b (shiftL n A b v n1) n2 = shiftL n A b v (n1 + n2)
-sbvToInt_z_nth
-  : forall (n : nat) (v : Vec n bool),
-    (forall (n' : nat) (nlt : n' < n), nth_order v nlt = false) -> sbvToInt n v = 0%Z
 sbvToInt_sign_extend_equiv
   : forall (n1 : Nat) (n2 : nat) (x : bitvector n1),
     sbvToInt (addNat n2 n1)
@@ -71,23 +63,14 @@ sbvToInt_sign_extend_equiv
           else ecZero (bitvector n2) (intToBv n2 0)) x) = sbvToInt n1 x
 sbvToInt_shiftL_1_equiv
   : forall n s : nat,
-    n > 0 ->
-    s < Nat.pred n ->
-    sbvToInt n (shiftL n bool false (intToBv n 1) s) = BinInt.Z.shiftl 1 (BinInt.Z.of_nat s)
+    n > 0 -> s < Nat.pred n -> sbvToInt n (shiftL n bool false (intToBv n 1) s) = BinInt.Z.shiftl 1 (BinInt.Z.of_nat s)
 sbvToInt_replicate_0 : forall n : Nat, sbvToInt n (replicate n bool false) = 0%Z
-sbvToInt_nz_nth
-  : forall (n : nat) (v : Vec n bool) (n' : nat) (nlt : n' < n),
-    nth_order v nlt = true -> sbvToInt n v <> 0%Z
-sbvToInt_nonneg_bits_clear
-  : forall (n wsize : nat) (b2 : bitvector n) (n' : nat) (ltpf : n' < n),
-    n' <= n - wsize -> (0 <= sbvToInt n b2 < 2 ^ BinInt.Z.of_nat wsize)%Z -> nth_order b2 ltpf = false
-sbvToInt_neg_bits_set
-  : forall (n wsize : nat) (b2 : bitvector n) (n' : nat) (ltpf : n' < n),
-    n' <= n - wsize -> (- 2 ^ BinInt.Z.of_nat wsize <= sbvToInt n b2 < 0)%Z -> nth_order b2 ltpf = true
+sbvToInt_nz_nth : forall (n : nat) (v : Vec n bool) (n' : nat) (nlt : n' < n), nth_order v nlt = true -> sbvToInt n v <> 0%Z
+sbvToInt_neg_sign_bit_set
+  : forall (n : nat) (b2 : bitvector n) (ltpf : 0 < n), (sbvToInt n b2 < 0)%Z -> nth_order b2 ltpf = true
 sbvToInt_intToBv_id
   : forall (n : nat) (v : Z),
-    (- 2 ^ BinInt.Z.of_nat (Nat.pred n) <= v < 2 ^ BinInt.Z.of_nat (Nat.pred n))%Z ->
-    sbvToInt n (intToBv n v) = v
+    (- 2 ^ BinInt.Z.of_nat (Nat.pred n) <= v < 2 ^ BinInt.Z.of_nat (Nat.pred n))%Z -> sbvToInt n (intToBv n v) = v
 sbvToInt_drop_equiv_h
   : forall (n1 : Nat) (n2 : nat) (x : bitvector (addNat n1 (S n2))),
     (- 2 ^ BinInt.Z.of_nat n2 <= sbvToInt (addNat n1 (S n2)) x < 2 ^ BinInt.Z.of_nat n2)%Z ->
@@ -96,58 +79,52 @@ sbvToInt_bvToInt_id : forall (n : Nat) (x : bitvector n), intToBv n (sbvToInt n 
 sbvToInt_bvSub_equiv
   : forall (n : nat) (v1 v2 : bitvector n),
     n > 1 ->
-    (- 2 ^ BinInt.Z.of_nat (Nat.pred (Nat.pred n)) <= sbvToInt n v1 <
-     2 ^ BinInt.Z.of_nat (Nat.pred (Nat.pred n)))%Z ->
-    (- 2 ^ BinInt.Z.of_nat (Nat.pred (Nat.pred n)) <= sbvToInt n v2 <
-     2 ^ BinInt.Z.of_nat (Nat.pred (Nat.pred n)))%Z ->
+    (- 2 ^ BinInt.Z.of_nat (Nat.pred (Nat.pred n)) <= sbvToInt n v1 < 2 ^ BinInt.Z.of_nat (Nat.pred (Nat.pred n)))%Z ->
+    (- 2 ^ BinInt.Z.of_nat (Nat.pred (Nat.pred n)) <= sbvToInt n v2 < 2 ^ BinInt.Z.of_nat (Nat.pred (Nat.pred n)))%Z ->
     sbvToInt n (bvSub n v1 v2) = (sbvToInt n v1 - sbvToInt n v2)%Z
 sbvToInt_bvNeg_equiv : forall (n : Nat) (v : bitvector n), sbvToInt n (bvNeg n v) = (- sbvToInt n v)%Z
-sbvToInt_0_replicate
-  : forall (n : Nat) (b2 : bitvector n), sbvToInt n b2 = 0%Z -> b2 = replicate n bool false
+sbvToInt_0_replicate : forall (n : Nat) (b2 : bitvector n), sbvToInt n b2 = 0%Z -> b2 = replicate n bool false
 sawAt_nth_order_equiv
-  : forall (A : Type) (inh : Inhabited A) (n1 n2 : nat) (v : Vec n1 A) (ltpf : n2 < n1),
-    sawAt n1 A v n2 = nth_order v ltpf
+  : forall (A : Type) (inh : Inhabited A) (n1 n2 : nat) (v : Vec n1 A) (ltpf : n2 < n1), sawAt n1 A v n2 = nth_order v ltpf
 sawAt_3_equiv
   : forall (A : Type) (inh : Inhabited A) (v : t A 3),
     cons A (sawAt 3 A v 0%nat) 2 (cons A (sawAt 3 A v 1%nat) 1 (cons A (sawAt 3 A v 2) 0 (nil A))) = v
 rep_false_eq_int_bv : forall n : Nat, replicate n bool false = intToBv n 0
-nth_order_shiftR_eq
-  : forall (A : Type) (n1 n2 len : nat) (v : Vec len A) (nlt : n2 < len) (nlt' : n2 - n1 < len) (a : A),
-    n1 <= n2 -> nth_order (shiftR len A a v n1) nlt = nth_order v nlt'
+nth_order_shiftR_all_eq
+  : forall (A : Type) (n2 len : nat) (v : Vec len A) (nlt : n2 < len) (zlt : 0 < len) (a : A),
+    nth_order (shiftR len A a v n2) nlt = nth_order v zlt
 nth_order_drop_eq
-  : forall (A : Type) (inh : Inhabited A) (n1 n2 : Nat) (v : Vec (addNat n1 n2) A) 
-      (n' : Nat) (lt1 : addNat n1 n' < addNat n1 n2) (lt2 : n' < n2),
-    nth_order (drop A n1 n2 v) lt2 = nth_order v lt1
+  : forall (A : Type) (inh : Inhabited A) (n1 n2 : Nat) (v : Vec (addNat n1 n2) A) (n' : Nat)
+      (lt1 : addNat n1 n' < addNat n1 n2) (lt2 : n' < n2), nth_order (drop A n1 n2 v) lt2 = nth_order v lt1
 nth_order_bvAnd_l_eq
   : forall (n : nat) (v : bitvector n) (n' : nat) (plt : n' < n),
     n' < Nat.pred n -> nth_order (bvAnd n v (intToBv n 1)) plt = false
 nth_order_bvAnd_eq
-  : forall (n : nat) (v : bitvector n) (plt : Nat.pred n < n),
-    nth_order (bvAnd n v (intToBv n 1)) plt = nth_order v plt
-nth_order_append_r_eq
-  : forall (A : Type) (inh : Inhabited A) (n1 : nat) (v1 : Vec n1 A) (n2 : nat) 
-      (v2 : Vec n2 A) (n' : nat) (nlt2 : n' < addNat n2 n1) (nlt1 : n' - n2 < n1),
-    n' >= n2 -> nth_order (append n2 n1 A v2 v1) nlt2 = nth_order v1 nlt1
+  : forall (n : nat) (v : bitvector n) (plt : Nat.pred n < n), nth_order (bvAnd n v (intToBv n 1)) plt = nth_order v plt
 nth_order_append_l_eq
-  : forall (A : Type) (inh : Inhabited A) (n1 : nat) (v1 : Vec n1 A) (n2 : nat) 
-      (v2 : Vec n2 A) (n' : nat) (nlt2 : n' < addNat n2 n1) (nlt1 : n' < n2),
-    nth_order (append n2 n1 A v2 v1) nlt2 = nth_order v2 nlt1
+  : forall (A : Type) (inh : Inhabited A) (n1 : nat) (v1 : Vec n1 A) (n2 : nat) (v2 : Vec n2 A) (n' : nat)
+      (nlt2 : n' < addNat n2 n1) (nlt1 : n' < n2), nth_order (append n2 n1 A v2 v1) nlt2 = nth_order v2 nlt1
 nth_order_append_eq
-  : forall (A : Type) (inh : Inhabited A) (n1 : nat) (v1 : Vec n1 A) (n2 : nat) 
-      (v2 : Vec n2 A) (n' : Nat) (nlt2 : addNat n' n2 < addNat n2 n1) (nlt1 : n' < n1),
-    nth_order (append n2 n1 A v2 v1) nlt2 = nth_order v1 nlt1
+  : forall (A : Type) (inh : Inhabited A) (n1 : nat) (v1 : Vec n1 A) (n2 : nat) (v2 : Vec n2 A) (n' : Nat)
+      (nlt2 : addNat n' n2 < addNat n2 n1) (nlt1 : n' < n1), nth_order (append n2 n1 A v2 v1) nlt2 = nth_order v1 nlt1
 nth_order_0 : forall (n1 n2 : nat) (nlt : n2 < n1), nth_order (intToBv n1 0) nlt = false
 intToBv_eq_pos
   : forall (n : nat) (x y : Z),
-    (0 <= x < 2 ^ BinInt.Z.of_nat n)%Z ->
-    (0 <= y < 2 ^ BinInt.Z.of_nat n)%Z -> intToBv n x = intToBv n y -> x = y
+    (0 <= x < 2 ^ BinInt.Z.of_nat n)%Z -> (0 <= y < 2 ^ BinInt.Z.of_nat n)%Z -> intToBv n x = intToBv n y -> x = y
 intToBv_add_equiv : forall (n : Nat) (x y : Z), intToBv n (x + y) = bvAdd n (intToBv n x) (intToBv n y)
 intToBv_0_eq_replicate : forall n : Nat, intToBv n 0 = replicate n bool false
 intToBv_0_S : forall n : nat, intToBv (S n) 0 = cons bool false n (intToBv n 0)
 holds_up_to_3 : forall P : nat -> Prop, P 0%nat -> P 1%nat -> P 2 -> P 3 -> forall n : nat, P n
+foldl_dep_tuple_cons
+  : forall (n : nat) (x : t bool n) (b : bool),
+    foldl_dep bool (fun n0 : Nat => tuple.tuple_of (S n0) bool) n
+      (fun (n0 : Nat) (bs : tuple.tuple_of (S n0) bool) (b0 : bool) => tuple.cons_tuple b0 bs)
+      (tuple.cons_tuple b (tuple.nil_tuple bool)) x =
+    tuple.cons_tuple b
+      (foldl_dep bool (fun n0 : Nat => tuple.tuple_of n0 bool) n
+         (fun (n0 : Nat) (bs : tuple.tuple_of n0 bool) (b0 : bool) => tuple.cons_tuple b0 bs) (tuple.nil_tuple bool) x)
 error : forall a : Type, Inhabited a -> string -> a
-Eqdep.Eq_rect_eq.eq_rect_eq
-  : forall (U : Type) (p : U) (Q : U -> Type) (x : Q p) (h : p = p), x = eq_rect p Q x p h
+Eqdep.Eq_rect_eq.eq_rect_eq : forall (U : Type) (p : U) (Q : U -> Type) (x : Q p) (h : p = p), x = eq_rect p Q x p h
 ecOr_0_if
   : forall (n : nat) (x y : bitvector n),
     ecOr (bitvector n) (PLogicWord n) x y = replicate n bool false ->
@@ -159,12 +136,10 @@ ecNotEq_vec_bv_false
   : forall (n1 n2 : nat) (v : Vec n1 (bitvector n2)),
     ecNotEq (Vec n1 (bitvector n2)) (PEqVec n1 (bitvector n2) (PEqWord n2)) v v = false
 ecFromTo_m_n_equiv
-  : forall m n : Nat,
-    to_list (ecFromTo m n Integer PLiteralInteger) = List.map (Z.add (Z.of_nat m)) (toN_int (n - m))
+  : forall m n : Nat, to_list (ecFromTo m n Integer PLiteralInteger) = List.map (Z.add (Z.of_nat m)) (toN_int (n - m))
 ecFromTo_0_n_equiv : forall n : Nat, to_list (ecFromTo 0%nat n Integer PLiteralInteger) = toN_int n
 ecFromTo_0_n_bv_excl_equiv
-  : forall (s : nat) (n : Nat),
-    to_list (ecFromTo 0%nat n (seq s Bool) (PLiteralSeqBool s)) = toN_excl_bv s (S n)
+  : forall (s : nat) (n : Nat), to_list (ecFromTo 0%nat n (seq s Bool) (PLiteralSeqBool s)) = toN_excl_bv s (S n)
 ecFoldl_foldl_equiv
   : forall (A B : Type) (inhB : Inhabited B) (f : A -> B -> A) (n : Nat) (ls : seq n B) (a : A),
     ecFoldl n A B f a ls = List.fold_left f (to_list ls) a
@@ -175,11 +150,9 @@ ecEq_vec_bv_false
   : forall (n1 n2 : nat) (v1 v2 : Vec n1 (bitvector n2)),
     v1 <> v2 -> ecEq (Vec n1 (bitvector n2)) (PEqVec n1 (bitvector n2) (PEqWord n2)) v1 v2 = false
 bvToNat_toZ_equiv : forall (n : Nat) (x : bitvector n), BinInt.Z.of_nat (bvToNat n x) = bvToInt n x
-bvToNat_lt_word
-  : forall (n : Nat) (x : bitvector n), (BinInt.Z.of_nat (bvToNat n x) < 2 ^ BinInt.Z.of_nat n)%Z
+bvToNat_lt_word : forall (n : Nat) (x : bitvector n), (BinInt.Z.of_nat (bvToNat n x) < 2 ^ BinInt.Z.of_nat n)%Z
 bvToNat_Z_to_nat_equiv
-  : forall (n : Nat) (x : bitvector n) (z : Z),
-    (0 <= z)%Z -> sbvToInt n x = z -> bvToNat n x = BinInt.Z.to_nat z
+  : forall (n : Nat) (x : bitvector n) (z : Z), (0 <= z)%Z -> sbvToInt n x = z -> bvToNat n x = BinInt.Z.to_nat z
 bvToInt_shiftR_lt
   : forall (n : Nat) (v : bitvector n) (s : nat) (b : Z),
     (bvToInt n v < 2 ^ (BinInt.Z.of_nat s + b))%Z -> (bvToInt n (shiftR n bool false v s) < 2 ^ b)%Z
@@ -187,11 +160,9 @@ bvToInt_shiftR_equiv
   : forall (n s : nat) (x : t bool n),
     s >= 0 -> bvToInt n (shiftR n bool false x s) = BinInt.Z.shiftr (bvToInt n x) (BinInt.Z.of_nat s)
 bvToInt_shiftL_1_equiv
-  : forall n s : nat,
-    s < n -> bvToInt n (shiftL n bool false (intToBv n 1) s) = BinInt.Z.shiftl 1 (BinInt.Z.of_nat s)
+  : forall n s : nat, s < n -> bvToInt n (shiftL n bool false (intToBv n 1) s) = BinInt.Z.shiftl 1 (BinInt.Z.of_nat s)
 bvToInt_sbvToInt_range
-  : forall (n : Nat) (v : bitvector n) (x : Z),
-    (bvToInt n v < 2 ^ (1 + x))%Z -> (- 2 ^ x <= sbvToInt n v < 2 ^ x)%Z
+  : forall (n : Nat) (v : bitvector n) (x : Z), (bvToInt n v < 2 ^ (1 + x))%Z -> (- 2 ^ x <= sbvToInt n v < 2 ^ x)%Z
 bvToInt_sbvToInt_equiv
   : forall (n : nat) (v : bitvector n),
     n > 0 -> (bvToInt n v < 2 ^ BinInt.Z.of_nat (Nat.pred n))%Z -> sbvToInt n v = bvToInt n v
@@ -202,27 +173,31 @@ bvToInt_bvAdd_small_equiv
     (0 <= bvToInt n v1 + sbvToInt n v2 < 2 ^ BinInt.Z.of_nat n)%Z ->
     bvToInt n (bvAdd n v1 v2) = (bvToInt n v1 + sbvToInt n v2)%Z
 bvToInt_bound : forall (n : Nat) (v : bitvector n), (0 <= bvToInt n v < 2 ^ BinInt.Z.of_nat n)%Z
+bvToBITS_z_equiv : forall (n : Nat) (z : Z), bvToBITS (intToBv n z) = spec.fromZ z
+bvToBITS_bitsToBv_id : forall (n : nat) (v : spec.BITS n), bvToBITS (bitsToBv v) = v
+bvSShr_all_nonneg
+  : forall (n1 : nat) (v : bitvector (S n1)), (0 <= sbvToInt (S n1) v)%Z -> bvSShr n1 v n1 = replicate (S n1) bool false
+bvSShr_all_neg
+  : forall (n1 : nat) (v : bitvector (S n1)), (sbvToInt (S n1) v < 0)%Z -> bvSShr n1 v n1 = replicate (S n1) bool true
 bvSShr_Z_shiftr_equiv
   : forall (n : nat) (x1 : bitvector (S n)) (x2 : Z) (y1 : nat) (y2 : Z),
-    BinInt.Z.of_nat y1 = y2 ->
-    sbvToInt (S n) x1 = x2 -> sbvToInt (S n) (bvSShr n x1 y1) = BinInt.Z.shiftr x2 y2
-bvOr_bvToInt_equiv
-  : forall (n : Nat) (x y : bitvector n), bvToInt n (bvOr n x y) = BinInt.Z.lor (bvToInt n x) (bvToInt n y)
-bvNeg_replicate_0 : forall n : Nat, bvNeg n (replicate n bool false) = replicate n bool false
-bvNeg_1_replicate : forall n : nat, bvNeg n (intToBv n 1) = replicate n bool true
+    BinInt.Z.of_nat y1 = y2 -> sbvToInt (S n) x1 = x2 -> sbvToInt (S n) (bvSShr n x1 y1) = BinInt.Z.shiftr x2 y2
+bvOr_bvToInt_equiv : forall (n : Nat) (x y : bitvector n), bvToInt n (bvOr n x y) = BinInt.Z.lor (bvToInt n x) (bvToInt n y)
 bvNat_bvToNat_id : forall (n : Nat) (x : bitvector n), Eq (bitvector n) (bvNat n (bvToNat n x)) x
-bvMul_2_shiftl_equiv
-  : forall (n : nat) (v : bitvector n), bvMul n (intToBv n 2) v = shiftL n bool false v 1
+bvMul_2_shiftl_equiv : forall (n : nat) (v : bitvector n), bvMul n (intToBv n 2) v = shiftL n bool false v 1
 bvEq_nth_order
   : forall (n : nat) (v1 v2 : bitvector n),
     bvEq n v1 v2 = true -> forall (n' : nat) (pf : n' < n), nth_order v1 pf = nth_order v2 pf
 bvEq_false_ne
   : forall (n : nat) (v1 v2 : bitvector n),
     bvEq n v1 v2 = false -> exists (n' : nat) (nlt : n' < n), nth_order v1 nlt <> nth_order v2 nlt
-bvAnd_shiftR_small_neg
-  : forall (n1 n2 : nat) (v : bitvector n1),
-    (- 2 ^ BinInt.Z.of_nat n2 <= sbvToInt n1 v < 0)%Z ->
-    bvAnd n1 (shiftR n1 bool false v n2) (intToBv n1 1) = intToBv n1 1
+bits_cons_decomp : forall (n : nat) (v : spec.BITS (S n)), exists (b : bool) (v' : spec.BITS n), v = spec.consB b v'
+bitsToBv_cons_eq
+  : forall (n : nat) (x : spec.BITS n) (h : Bool), VectorDef.cons Bool h n (bitsToBv x) = bitsToBv (spec.consB h x)
+adcB_0_1_equiv : forall (n : nat) (a : spec.BITS n), adcB 1 (spec.fromZ 0) a = adcB 0 (spec.fromZ 1) a
+JMeq.JMeq_eq : forall (A : Type) (x y : A), JMeq.JMeq x y -> x = y
+Constant CryptolToCoq.SAWCoreVectorsAsCoqVectors.bvToInt
+
 *)
 
 Ltac ecSimpl_one :=
@@ -1821,6 +1796,16 @@ Theorem shiftR_small_nonneg : forall n1 n2 v,
   (shiftR n1 bool false v n2) = replicate n1 bool false.
 Admitted.
 
+Theorem shiftR_all_nonneg : forall n1 v,
+  (0 <= sbvToInt _ v)%Z ->
+  (shiftR n1 bool false v (pred n1)) = replicate n1 bool false.
+Admitted.
+
+Theorem bvSShr_all_nonneg : forall n1 v,
+  (0 <= sbvToInt _ v)%Z ->
+  bvSShr n1 v n1 = replicate (S n1) bool false.
+Admitted.
+
 Theorem bvNeg_1_replicate : forall n,
     bvNeg n (intToBv n 1) = replicate n bool true.
 Admitted.
@@ -2133,10 +2118,22 @@ Theorem shiftR1_eq : forall (A : Type)(len : nat)(v : Vec len A) a,
   shiftR1 _ _ a v = shiftR _ _ a v 1.
 Admitted.
 
+
+
 Theorem nth_order_shiftR_eq : forall (A : Type)(n1 n2 len : nat)(v : Vec len A) (nlt : (n2 < len)%nat)(nlt' : (n2-n1 < len)%nat) a,
   (n1 <= n2)%nat ->
   nth_order (shiftR _ _ a v n1) nlt = nth_order v nlt'.
 
+Admitted.
+
+Theorem nth_order_shiftR_all_eq : forall (A : Type)(n2 len : nat)(v : Vec len A) (nlt : (n2 < len)%nat)(zlt : (0 < len)%nat) a,
+  nth_order (shiftR _ _ a v n2) nlt = nth_order v zlt.
+
+Admitted.
+
+Theorem sbvToInt_neg_sign_bit_set : forall n  b2 (ltpf : (0 < n)%nat),
+    (sbvToInt n b2 < 0)%Z ->
+    nth_order b2 ltpf = true.
 Admitted.
 
 Theorem sbvToInt_neg_bits_set : forall n wsize b2 n' (ltpf : (n' < n)%nat),
@@ -2409,6 +2406,20 @@ Theorem nth_order_eq_impl_eq : forall (A : Type) n (v1 v2 : Vec n A),
   eapply H.
 Qed.
 
+Theorem shiftR_all_neg : forall n1 v,
+  (sbvToInt _ v < 0)%Z ->
+  (shiftR n1 bool false v (pred n1)) = intToBv _ 1.
+
+Admitted.
+
+
+Theorem bvSShr_all_neg : forall n1 v,
+  (sbvToInt _ v < 0)%Z ->
+  (bvSShr n1 v n1) = replicate (S n1) bool true.
+
+Admitted.
+
+(*
 Theorem bvAnd_shiftR_small_neg : forall n1 n2 v,
   (-2^(Z.of_nat n2) <= sbvToInt _ v < 0)%Z ->
   (bvAnd (shiftR n1 bool false v n2) (intToBv _ 1)) = intToBv _ 1.
@@ -2437,3 +2448,4 @@ Theorem bvAnd_shiftR_small_neg : forall n1 n2 v,
 
 
 Admitted.
+*)

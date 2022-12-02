@@ -35,8 +35,8 @@ From Crypto Require Import Curves.Weierstrass.AffineProofs.
 
 From EC Require Import GroupMulWNAF.
 From EC Require Import Zfacts.
-From EC Require Import EC_fiat_P384_7.
-From EC Require Import EC_fiat_P384_gen.
+From EC Require Import EC_P384_5.
+From EC Require Import EC_P384_gen.
 From EC Require Import CryptolToCoq_equiv.
 
 Set Implicit Arguments.
@@ -68,16 +68,16 @@ Section ECEqProof.
   Local Notation "x ^ 2" := (x*x) (at level 30).
   Local Notation "x ^ 3" := (x^2*x) (at level 30).
 
-  Theorem fiat_field_nz_eq_0 : 
-    (fiat_field_nz 0) = (intToBv 64 0).
+  Theorem felem_nz_eq_0 : 
+    (felem_nz 0) = (intToBv 64 0).
 
     reflexivity.
 
   Qed.
 
-  Theorem fiat_field_nz_neq_0 : forall x,
+  Theorem felem_nz_neq_0 : forall x,
     x <> 0 ->
-    (fiat_field_nz x) <> (intToBv 64 0).
+    (felem_nz x) <> (intToBv 64 0).
 
     intuition.
     eapply H.
@@ -425,33 +425,33 @@ Section ECEqProof.
 
   Variable Fsquare : F -> F.
 
-  Definition fiat_point_add := fiat_point_add Fsquare Fmul Fsub Fadd.
-  Definition fiat_point_add_jac := fiat_point_add false.
+  Definition point_add := point_add Fsquare Fmul Fsub Fadd.
+  Definition point_add_jac := point_add false.
 
-  Definition fiat_point_add_jac_prod (p1 p2 : (F * F * F)) : (F * F * F) :=
-    let p3 := fiat_point_add_jac (prodToSeq p1) (prodToSeq p2) in
+  Definition point_add_jac_prod (p1 p2 : (F * F * F)) : (F * F * F) :=
+    let p3 := point_add_jac (prodToSeq p1) (prodToSeq p2) in
     (seqToProd p3).
 
 
 (*
-  Theorem fiat_point_add_jac_prod_is_jacobian : forall p1 p2,
+  Theorem point_add_jac_prod_is_jacobian : forall p1 p2,
     is_jacobian p1 ->
     is_jacobian p2 ->
-    is_jacobian (fiat_point_add_jac_prod p1 p2).
+    is_jacobian (point_add_jac_prod p1 p2).
 
     intros.
-    unfold is_jacobian, fiat_point_add_jac_prod, fiat_point_add_jac in *.
+    unfold is_jacobian, point_add_jac_prod, point_add_jac in *.
     
   Qed.
 
-  Definition fiat_point_add_jacobian (p1 p2 : point) : point :=
+  Definition point_add_jacobian (p1 p2 : point) : point :=
     toPoint 
-      (fiat_point_add_jac_prod (fromPoint p1) (fromPoint p2)) 
-      (fiat_point_add_jac_prod_is_jacobian (fromPoint p1) (fromPoint p2) (proj2_sig p1) (proj2_sig p2)).
+      (point_add_jac_prod (fromPoint p1) (fromPoint p2)) 
+      (point_add_jac_prod_is_jacobian (fromPoint p1) (fromPoint p2) (proj2_sig p1) (proj2_sig p2)).
 *)
 
   (* Assume that squaring satisifes its spec. *)
-  Hypothesis fiat_field_square_spec : forall (x : F), Fsquare x = Fmul x x.
+  Hypothesis felem_sqr_spec : forall (x : F), Fsquare x = Fmul x x.
 
   (* Assume that the curve paramFrometer a = -3, as it does for P-384. *)
   Hypothesis a_is_minus_3 : a = Fopp (1 + 1 + 1).
@@ -461,16 +461,16 @@ Section ECEqProof.
      point-doubling procedure from fiat-crypto.
   *)
 
-  Definition fiat_point_double := fiat_point_double Fsquare Fmul Fsub Fadd.
+  Definition point_double := point_double Fsquare Fmul Fsub Fadd.
 
   Lemma double_eq_minus_3_h : forall p:point,
       fromPoint (Jacobian.double_minus_3 a_is_minus_3 p) =
-      seqToProd (fiat_point_double (prodToSeq (fromPoint p))).
+      seqToProd (point_double (prodToSeq (fromPoint p))).
   Proof.
 
       intros [ [[x y] z] Hp ]; simpl.
-      unfold prodToSeq, seqToProd, fromPoint, fiat_point_double, EC_fiat_P384_7.fiat_point_double; simpl.
-      repeat rewrite fiat_field_square_spec.
+      unfold prodToSeq, seqToProd, fromPoint, point_double, EC_P384_5.point_double; simpl.
+      repeat rewrite felem_sqr_spec.
       unfold sawAt, atWithDefault. simpl.
       unfold nth_order, nth. simpl.
 
@@ -507,7 +507,7 @@ Section ECEqProof.
 
   Theorem double_eq_minus_3 : forall p:point,
       prodToSeq (fromPoint (Jacobian.double_minus_3 a_is_minus_3 p)) =
-      (fiat_point_double (prodToSeq (fromPoint p))).
+      (point_double (prodToSeq (fromPoint p))).
 
     intros.
     rewrite double_eq_minus_3_h.
@@ -518,12 +518,12 @@ Section ECEqProof.
 
   Lemma point_add_jac_eq_h : forall (a b:point),
       jac_eq (fromPoint (Jacobian.add a b))
-      (seqToProd (fiat_point_add_jac (prodToSeq (fromPoint a)) (prodToSeq (fromPoint b)))).
+      (seqToProd (point_add_jac (prodToSeq (fromPoint a)) (prodToSeq (fromPoint b)))).
   Proof.
       intros [ [[xa ya] za] Ha ] [ [[xb yb] zb] Hb ]; simpl.
     
-      unfold fiat_point_add_jac, fromPoint, fiat_point_add, EC_fiat_P384_gen.fiat_point_add, EC_fiat_P384_7.fiat_point_add, ecNotEq, ecEq, ecZero, ecAnd, ecOr, ecCompl, fiat_field_cmovznz; simpl.
-      repeat rewrite fiat_field_square_spec.
+      unfold point_add_jac, fromPoint, point_add, EC_P384_gen.point_add, EC_P384_5.point_add, ecNotEq, ecEq, ecZero, ecAnd, ecOr, ecCompl, felem_cmovznz; simpl.
+      repeat rewrite felem_sqr_spec.
       unfold sawAt, atWithDefault. simpl.
       
       replace ((negb (if dec (xb * za ^ 2 - xa * zb ^ 2 = Fzero) then 0 else 1) &&
@@ -552,20 +552,20 @@ Section ECEqProof.
       apply jac_eq_refl_gen.
       unfold Feq, seqToProd, nth_order, nth. simpl.
       destruct (dec (zb = 0)); subst.
-      rewrite fiat_field_nz_eq_0.
+      rewrite felem_nz_eq_0.
       rewrite ecEq_bv_true.
       trivial.
       destruct (dec (za = 0)); subst.
-      rewrite fiat_field_nz_eq_0.
+      rewrite felem_nz_eq_0.
       rewrite ecEq_bv_true.
       rewrite ecEq_bv_false.
       trivial.
-      eapply fiat_field_nz_neq_0.
+      eapply felem_nz_neq_0.
       trivial.
       repeat rewrite ecEq_bv_false; simpl.
       reflexivity.
-      eapply fiat_field_nz_neq_0. trivial.
-      eapply fiat_field_nz_neq_0. trivial.
+      eapply felem_nz_neq_0. trivial.
+      eapply felem_nz_neq_0. trivial.
 
       unfold testForDouble.
       destruct (dec (xb * za ^ 2 - xa * zb ^ 2 = 0)).
@@ -888,7 +888,7 @@ Section ECEqProof.
   Lemma point_add_jac_eq : forall (a b:point) a' b',
     jac_eq (fromPoint a) (seqToProd a') ->
     jac_eq (fromPoint b) (seqToProd b') -> 
-    jac_eq (fromPoint (Jacobian.add a b)) (seqToProd (fiat_point_add_jac a' b')).
+    jac_eq (fromPoint (Jacobian.add a b)) (seqToProd (point_add_jac a' b')).
 
     intros.  
     edestruct (jac_eq_point_ex _ _ H).
@@ -913,7 +913,7 @@ Section ECEqProof.
   Qed.
 
   Definition groupMul := @groupMul point Jacobian.add zero_point.
-  Definition fiat_point_mul := fiat_point_mul Fsquare Fmul Fsub Fadd Fopp.
+  Definition point_mul := point_mul Fsquare Fmul Fsub Fadd Fopp.
 
   (* Variable min_l : forall n, Nat.min n n = n.*)
 
@@ -1199,13 +1199,13 @@ Feq
   (scanl Integer (Vec 3 (Vec 6 (bitvector 64)))
      (S pred_pred_tsize)
      (fun (z : Vec 3 (Vec 6 (bitvector 64))) (_ : Integer) =>
-      EC_fiat_P384_7.fiat_point_add Fsquare Fmul Fsub Fadd false
-        (EC_fiat_P384_7.fiat_point_double Fsquare Fmul Fsub Fadd
+      EC_P384_5.point_add Fsquare Fmul Fsub Fadd false
+        (EC_P384_5.point_double Fsquare Fmul Fsub Fadd
            (prodToSeq (fromPoint p))) z)
      p2'
      (ecFromTo 1%nat (S pred_pred_tsize) Integer PLiteralInteger))).
 
-    Local Opaque Jacobian.double Jacobian.add EC_fiat_P384_7.fiat_point_double EC_fiat_P384_7.fiat_point_add.
+    Local Opaque Jacobian.double Jacobian.add EC_P384_5.point_double EC_P384_5.point_add.
 
     induction pred_pred_tsize; intuition; simpl in *.
     rewrite seqTolist_cons.
@@ -1294,18 +1294,18 @@ Feq
 *)
 
 (*
-  Theorem fiat_mul_scalar_rwnaf_odd_loop_body_gen_equiv : forall wsize z,
+  Theorem mul_scalar_rwnaf_odd_loop_body_gen_equiv : forall wsize z,
     wsize < 15 -> 
     sbvToInt _ z = bvToInt _ z ->
     recode_rwnaf_odd_scanl_fix_body wsize (bvToInt _ z) =
     (sbvToInt _ 
-          (fst (fiat_mul_scalar_rwnaf_odd_loop_body_gen wsize z)),
+          (fst (mul_scalar_rwnaf_odd_loop_body_gen wsize z)),
     sbvToInt _ 
-         (snd (fiat_mul_scalar_rwnaf_odd_loop_body_gen wsize z))).
+         (snd (mul_scalar_rwnaf_odd_loop_body_gen wsize z))).
 
     intros.
     
-    unfold recode_rwnaf_odd_scanl_fix_body, fiat_mul_scalar_rwnaf_odd_loop_body_gen.
+    unfold recode_rwnaf_odd_scanl_fix_body, mul_scalar_rwnaf_odd_loop_body_gen.
     simpl.
     f_equal.
     rewrite sbvToInt_drop_equiv_h.
@@ -1625,13 +1625,13 @@ Feq
 *)
 
 
-  Theorem fiat_mul_scalar_rwnaf_odd_loop_body_gen_snd_nonneg : 
+  Theorem mul_scalar_rwnaf_odd_loop_body_gen_snd_nonneg : 
     forall wsize x, 
       wsize > 0 ->
-     (VectorDef.hd (snd (fiat_mul_scalar_rwnaf_odd_loop_body_gen wsize x)) = false).
+     (VectorDef.hd (snd (mul_scalar_rwnaf_odd_loop_body_gen wsize x)) = false).
 
     intros.
-    unfold fiat_mul_scalar_rwnaf_odd_loop_body_gen.
+    unfold mul_scalar_rwnaf_odd_loop_body_gen.
     unfold snd, Datatypes.snd.
     apply shiftR_bvToInt_nonneg.
     lia.
@@ -2246,22 +2246,22 @@ Feq
 
   Theorem recode_rwnaf_odd_bv_scanl_fix_body_fiat_equiv : forall wsize z, 
     recode_rwnaf_odd_bv_scanl_fix_body wsize z = 
-    fiat_mul_scalar_rwnaf_odd_loop_body_gen wsize z.
+    mul_scalar_rwnaf_odd_loop_body_gen wsize z.
 
     intros. 
     unfold recode_rwnaf_odd_bv_scanl_fix_body.
-    unfold fiat_mul_scalar_rwnaf_odd_loop_body_gen.
+    unfold mul_scalar_rwnaf_odd_loop_body_gen.
     reflexivity.
 
   Qed.
 
-  Theorem fiat_mul_scalar_rwnaf_odd_gen_equiv : forall nw wsize z,
+  Theorem mul_scalar_rwnaf_odd_gen_equiv : forall nw wsize z,
     0 < wsize < 16 ->
     (* bvToInt _ z = sbvToInt _ z -> *)
     (bvToInt 384%nat z < 2 ^ Z.of_nat (S (S (S nw)) * wsize))%Z ->
     List.Forall2 (fun (x : Z) (y : bitvector 16) => x = (sbvToInt _ y))
   (recode_rwnaf_odd wsize (S (S nw)) (bvToInt _ z))
-  (fiat_mul_scalar_rwnaf_odd_gen wsize nw z).
+  (mul_scalar_rwnaf_odd_gen wsize nw z).
 
     intros.
     eapply (@forall2_trans  _ _ _ _ (eq)).
@@ -2273,18 +2273,18 @@ Feq
     intros; subst; trivial.
     apply forall2_eq.
 
-    unfold fiat_mul_scalar_rwnaf_odd_gen.
+    unfold mul_scalar_rwnaf_odd_gen.
   
     rewrite (@scanl_fix_equiv (bitvector 16 * bitvector 384) Integer (bitvector 16) (inhabitant
             (Inhabited_prod (bitvector 16)
                (bitvector 384)))
       (fun p =>
-         fiat_mul_scalar_rwnaf_odd_loop_body_gen wsize (snd p))
+         mul_scalar_rwnaf_odd_loop_body_gen wsize (snd p))
       (toN_int nw)
       (S nw)
       (fun (p : bitvector 16 * bitvector 384) => fst p) 
       (fun p => drop _ 368 16 (snd p))
-      (fiat_mul_scalar_rwnaf_odd_loop_body_gen wsize z)); intros.
+      (mul_scalar_rwnaf_odd_loop_body_gen wsize z)); intros.
 
     rewrite recode_rwnaf_odd_bv_scanl_equiv.
     reflexivity.
@@ -2294,19 +2294,19 @@ Feq
     
   Qed.
 
-  Theorem fiat_mul_scalar_rwnaf_gen_equiv : forall nw wsize z,
+  Theorem mul_scalar_rwnaf_gen_equiv : forall nw wsize z,
     0 < wsize < 16 ->
     (bvToInt 384%nat z < 2 ^ Z.of_nat (S (S (S nw)) * wsize))%Z ->
    (*  sbvToInt _ z = bvToInt _ z -> *)
     List.Forall2 (fun x (y : bitvector 16) => x = (sbvToInt _ y))
     (recode_rwnaf wsize (S (S (S nw))) (bvToInt _ z)) 
-    (fiat_mul_scalar_rwnaf_gen wsize nw z).
+    (mul_scalar_rwnaf_gen wsize nw z).
 
     intros. 
-    unfold recode_rwnaf, fiat_mul_scalar_rwnaf_gen.
+    unfold recode_rwnaf, mul_scalar_rwnaf_gen.
     replace (BinInt.Z.lor (bvToInt 384 z) 1) with
       (bvToInt _ (bvOr 384 z (intToBv 384 1))).
-    apply fiat_mul_scalar_rwnaf_odd_gen_equiv.
+    apply mul_scalar_rwnaf_odd_gen_equiv.
     lia.
   
     rewrite bvOr_bvToInt_equiv.
@@ -2382,11 +2382,11 @@ Feq
   Qed.
 
   Definition conditional_subtract_if_even_ct := conditional_subtract_if_even_ct Fsquare Fadd Fsub Fmul Fopp.
-  Definition fiat_point_opp := (fiat_point_opp Fopp).
+  Definition point_opp := (point_opp Fopp).
 
   Theorem conditional_subtract_if_even_ct_jac_eq_ite : forall n p1 p2,
-    jac_eq (seqToProd (EC_fiat_P384_7.conditional_subtract_if_even_ct Fsquare Fmul Fsub Fadd
-        Fopp p1 n p2)) (seqToProd (if (Nat.even (bvToNat _ n)) then (fiat_point_add false p1 (fiat_point_opp p2)) else p1)).
+    jac_eq (seqToProd (EC_P384_5.conditional_subtract_if_even_ct Fsquare Fmul Fsub Fadd
+        Fopp p1 n p2)) (seqToProd (if (Nat.even (bvToNat _ n)) then (point_add false p1 (point_opp p2)) else p1)).
   
     intros.
     rewrite conditional_subtract_if_even_ct_equiv.
@@ -2406,13 +2406,13 @@ Feq
   Abort.
 *)
 
-  Theorem fiat_point_opp_equiv : forall p,
+  Theorem point_opp_equiv : forall p,
     jac_eq 
     (fromPoint (Jacobian.opp p))
-    (seqToProd (fiat_point_opp (prodToSeq (fromPoint p)))).
+    (seqToProd (point_opp (prodToSeq (fromPoint p)))).
 
     intros.
-    unfold fiat_point_opp. simpl.
+    unfold point_opp. simpl.
     unfold seqToProd, prodToSeq, nth_order. simpl.
     destruct p. simpl.
     destruct x. simpl.
@@ -2453,8 +2453,8 @@ Feq
   Defined.
    
 
-  Theorem fiat_field_cmovznz_equiv : forall x y z,
-    fiat_field_cmovznz x y z = if (bvEq _ x (intToBv 64 0)) then y else z.
+  Theorem felem_cmovznz_equiv : forall x y z,
+    felem_cmovznz x y z = if (bvEq _ x (intToBv 64 0)) then y else z.
 
     intros.
     reflexivity.
@@ -2488,16 +2488,16 @@ Feq
 
   Qed.
 
-  Theorem fiat_select_point_loop_body_equiv : forall w x y z,
-    fiat_select_point_loop_body w x y z = 
+  Theorem select_point_loop_body_equiv : forall w x y z,
+    select_point_loop_body w x y z = 
        if (bvEq _ y w) then z else x.
 
     intros. 
-    unfold fiat_select_point_loop_body.
+    unfold select_point_loop_body.
     simpl.
     unfold ecXor.
     simpl.
-    repeat rewrite fiat_field_cmovznz_equiv.
+    repeat rewrite felem_cmovznz_equiv.
     case_eq (bvEq 64 (bvXor 64 y w) (intToBv 64 0)); intros;
     rewrite sawAt_3_equiv;
     case_eq (bvEq _ y w); intros; 
@@ -2507,13 +2507,13 @@ Feq
 
   Qed.
 
-  Theorem fiat_select_point_ct_gen_nth_equiv_h : forall ls n a,
+  Theorem select_point_ct_gen_nth_equiv_h : forall ls n a,
     (Z.of_nat (List.length ls) < 2^64 )%Z ->
      (Z.of_nat n < 2^64 )%Z ->
     List.fold_left
       (fun (acc : seq 3 (seq 6 (seq 64 Bool)))
          (p : seq 64 Bool * seq 3 (seq 6 (seq 64 Bool))) =>
-       fiat_select_point_loop_body (bvNat 64 (a + n)%nat) acc (fst p) (snd p))
+       select_point_loop_body (bvNat 64 (a + n)%nat) acc (fst p) (snd p))
       (combine (List.map (bvAdd _ (bvNat _ a)) (toN_excl_bv 64 (Datatypes.length ls))) ls)
       (of_list [zero_felem; zero_felem; zero_felem]) =
     List.nth n ls (cons F 0 2 (cons F 0 1 (cons F 0 0 (nil F)))).
@@ -2529,7 +2529,7 @@ Feq
     rewrite fold_left_app.
     rewrite IHls.
     simpl.
-    rewrite fiat_select_point_loop_body_equiv.
+    rewrite select_point_loop_body_equiv.
     case_eq (bvEq 64 (bvAdd 64 (intToBv 64 (Z.of_nat a0)) (intToBv 64 (Z.of_nat (Datatypes.length ls))))
     (intToBv 64 (Z.of_nat (a0 + n)))); intros.
     assert (List.length ls = n). (* because list length and n are small*)
@@ -2580,15 +2580,15 @@ Feq
 
   Qed.
 
-  Theorem fiat_select_point_ct_gen_nth_equiv : forall x ls,
+  Theorem select_point_ct_gen_nth_equiv : forall x ls,
     (Z.of_nat (Datatypes.length ls) < 2 ^ 64)%Z ->
     (Z.of_nat (bvToNat 64%nat x) < 2 ^ 64)%Z ->
-    fiat_select_point_ct_gen x ls = List.nth (bvToNat _ x) ls (cons _ Fzero _ (cons _ Fzero _ (cons _ Fzero _ (nil _)))).
+    select_point_ct_gen x ls = List.nth (bvToNat _ x) ls (cons _ Fzero _ (cons _ Fzero _ (cons _ Fzero _ (nil _)))).
 
     intros.
     rewrite <- (bvNat_bvToNat_id _ x) at 1.
-    unfold fiat_select_point_ct_gen.
-    specialize (fiat_select_point_ct_gen_nth_equiv_h ls (bvToNat 64 x) 0); intros.
+    unfold select_point_ct_gen.
+    specialize (select_point_ct_gen_nth_equiv_h ls (bvToNat 64 x) 0); intros.
     rewrite map_bvAdd_0 in H1.
     apply H1.
     trivial.
@@ -2620,7 +2620,7 @@ Feq
     reflexivity.
   Qed.
 
-  Definition fiat_pre_comp_table_gen := fiat_pre_comp_table_gen Fsquare Fmul Fsub Fadd.
+  Definition pre_comp_table_gen := pre_comp_table_gen Fsquare Fmul Fsub Fadd.
 
   Theorem preCompTable_equiv_h : forall ls1 ls2 p1 p2,
     List.length ls1 = List.length ls2 ->
@@ -2635,10 +2635,10 @@ Feq
   (CryptolToCoq_equiv.scanl
      (fun (z : seq 3 (seq 6 (seq 64 Bool)))
         (_ : Integer) =>
-      EC_fiat_P384_7.fiat_point_add Fsquare Fmul
+      EC_P384_5.point_add Fsquare Fmul
         Fsub Fadd
         (ecNumber 0%nat Bool PLiteralBit)
-        (EC_fiat_P384_7.fiat_point_double Fsquare
+        (EC_P384_5.point_double Fsquare
            Fmul Fsub Fadd
            p2) z)
      ls2 p2).
@@ -2675,10 +2675,10 @@ Feq
     (tableSize w) > 1 ->
     List.Forall2 (fun a b => jac_eq (fromPoint a) (seqToProd b))
       (preCompTable Jacobian.add zero_point Jacobian.double w p)
-      (fiat_pre_comp_table_gen (Nat.pred (Nat.pred (tableSize w))) (prodToSeq (fromPoint p))).
+      (pre_comp_table_gen (Nat.pred (Nat.pred (tableSize w))) (prodToSeq (fromPoint p))).
 
     intros.
-    unfold preCompTable, preCompTable_h, fiat_pre_comp_table_gen, EC_fiat_P384_gen.fiat_pre_comp_table_gen.
+    unfold preCompTable, preCompTable_h, pre_comp_table_gen, EC_P384_gen.pre_comp_table_gen.
     rewrite (@fold_left_scanl_equiv _ _ _ (fun a b => (Jacobian.add (Jacobian.double p) a))).
     eapply preCompTable_equiv_h.
     rewrite forNats_length.
@@ -2689,7 +2689,8 @@ Feq
     eapply jac_eq_refl.
   Qed.
 
-  Theorem ct_abs_equiv : forall wsize b1 b2,
+(*
+  Theorem ct_abs_equiv_old : forall wsize b1 b2,
     (-2^(Z.of_nat wsize) <= b1 < 2^(Z.of_nat wsize))%Z ->
     b1 = sbvToInt 16 b2 ->
     sbvToInt 16 (bvAdd 16
@@ -2746,6 +2747,55 @@ Feq
     lia.
 
   Qed.
+*)
+
+Local Opaque shiftR.
+
+Theorem ct_abs_equiv : forall  b1 b2,
+    b1 = sbvToInt 16 b2 ->
+    sbvToInt 16 (bvAdd 16 (shiftR 16 bool false b2 15) (bvXor 16 b2 (bvSShr 15 b2 15))) 
+    =
+    Z.abs b1.
+
+    intros.
+    subst.
+    remember (shiftR 16 bool false b2 15) as is_neg.
+    case_eq (sbvToInt 16 b2); intros; simpl in *.
+
+    (* zero *)
+    apply sbvToInt_0_replicate in H.
+    subst.
+    rewrite bvXor_comm.
+    rewrite bvXor_zero.
+    rewrite shiftR_false_0.
+    rewrite bvAdd_replicate_0.
+    apply sbvToInt_replicate_0.
+
+    (* positive *)
+    simpl.
+    rewrite shiftR_all_nonneg in Heqis_neg.
+    rewrite Heqis_neg.
+    rewrite bvAdd_replicate_0.
+    rewrite bvSShr_all_nonneg.
+    rewrite bvXor_zero. 
+    trivial.
+    lia.
+    lia.
+
+    (* negative *)
+    rewrite shiftR_all_neg in Heqis_neg.
+    rewrite Heqis_neg.
+    rewrite bvSShr_all_neg.
+    rewrite bvAdd_comm.
+    rewrite twos_complement_equiv.
+    rewrite H.
+    apply Pos2Z.opp_neg.
+    lia.
+    lia.
+    lia.
+
+  Qed.
+
 
   Theorem groupDouble_n_double_comm : forall n (a1 : point),
     Jacobian.eq
@@ -2769,7 +2819,7 @@ Feq
      (List.fold_left
         (fun (x : seq 3 (seq 6 (seq 64 Bool))) (_ : Integer)
          =>
-         EC_fiat_P384_7.fiat_point_double Fsquare Fmul Fsub
+         EC_P384_5.point_double Fsquare Fmul Fsub
            Fadd x) ls a2)).
 
     induction ws; destruct ls; intros; simpl in *; try lia.
@@ -2798,15 +2848,15 @@ Feq
  
   Qed.
 
-  Definition point_opp (p : F * F * F) : F * F * F :=
+  Definition point_opp_prod (p : F * F * F) : F * F * F :=
     ((fst (fst p), Fopp (snd (fst p))), snd p).
 
   Theorem jac_eq_opp : forall p1 p2,
     jac_eq p1 p2 ->
-    jac_eq (point_opp p1) (point_opp p2).
+    jac_eq (point_opp_prod p1) (point_opp_prod p2).
 
     intros.
-    unfold jac_eq, point_opp in *.
+    unfold jac_eq, point_opp_prod in *.
     destruct p1. destruct p.
     destruct p2. destruct p.
     simpl in *.
@@ -2823,8 +2873,8 @@ Feq
  
   Qed.
 
-  Theorem fiat_point_opp_prod_equiv : forall p,
-    (seqToProd (fiat_point_opp (prodToSeq p))) = point_opp p.
+  Theorem point_opp_prod_equiv : forall p,
+    (seqToProd (point_opp (prodToSeq p))) = point_opp_prod p.
 
     intros.
     reflexivity.
@@ -2841,7 +2891,7 @@ Feq
 
     intros.
     unfold conditional_point_opp.
-    rewrite fiat_field_cmovznz_equiv.
+    rewrite felem_cmovznz_equiv.
     destruct (dec (sbvToInt 64 x = 0%Z)); intros.
     apply sbvToInt_0_replicate in e.
     subst.
@@ -2859,8 +2909,8 @@ Feq
     intuition idtac.
     eapply jac_eq_symm.
     eapply jac_eq_trans.
-    apply fiat_point_opp_equiv.
-    rewrite fiat_point_opp_prod_equiv.
+    apply point_opp_equiv.
+    rewrite point_opp_prod_equiv.
     eapply jac_eq_trans.
     eapply jac_eq_opp; eauto.
     eapply jac_eq_symm.
@@ -2878,6 +2928,9 @@ Feq
     reflexivity.
 
     Unshelve.
+    lia.
+    lia.
+    lia.
     lia.
     lia.
     lia.
@@ -3037,15 +3090,15 @@ Feq
             (preCompTable Jacobian.add zero_point Jacobian.double
                (S pred_wsize) p) zero_point) a1 b1))
   (seqToProd
-     (fiat_double_add_body_gen Fsquare Fmul Fsub Fadd Fopp pred_wsize
-        (EC_fiat_P384_gen.fiat_pre_comp_table_gen Fsquare Fmul Fsub
+     (double_add_body_gen Fsquare Fmul Fsub Fadd Fopp pred_wsize
+        (EC_P384_gen.pre_comp_table_gen Fsquare Fmul Fsub
            Fadd (Nat.pred (Nat.pred (tableSize (S pred_wsize))))
            (prodToSeq (fromPoint p))) a2 b2)).
 
     intros.
-    unfold fiat_double_add_body_gen.
+    unfold double_add_body_gen.
 
-    rewrite fiat_select_point_ct_gen_nth_equiv.
+    rewrite select_point_ct_gen_nth_equiv.
     unfold groupMul_signedWindows_fold_body.
     unfold groupAdd_signedWindow.
     match goal with
@@ -3070,20 +3123,13 @@ Feq
     
     assert (63 < 64)%nat by lia.
     eapply (sbvToInt_nz_nth _ H1).
-    Search nth_order append.
     assert (15 < 16) by lia.
     erewrite (@nth_order_append_eq Bool _ 16 _ 48 (intToBv 48 0) 15 H1 H4).
-    rewrite nth_order_bvAnd_eq.
-    (* shifting a negative window right by wsize leaves a 1 in lsb *)
-    rewrite shiftR1_eq.
-    rewrite shiftR_shiftR_eq.
-    assert (15 - (pred_wsize + 1)  < 16)%nat.
-    lia.
-    rewrite (@nth_order_shiftR_eq bool (pred_wsize + 1) 15 16 _ _ H5); intros.
-    apply (@sbvToInt_neg_bits_set _  (pred_wsize + 1)%nat).
-    lia.
-    rewrite PeanoNat.Nat.add_1_r.
-    lia.
+    repeat rewrite shiftR1_eq.
+    repeat rewrite shiftR_shiftR_eq.
+    assert (0 < 16) by lia.
+    rewrite (@nth_order_shiftR_all_eq bool 15 16 _ H4 H5); intros.
+    apply sbvToInt_neg_sign_bit_set.
     lia.
 
     match goal with
@@ -3124,9 +3170,6 @@ Feq
     erewrite bvSShr_Z_shiftr_equiv; [idtac | idtac | erewrite ct_abs_equiv]; eauto.
     rewrite Z.div2_spec.
     reflexivity.
-    intuition idtac.
-    apply Z.lt_le_incl.
-    trivial.
 
     rewrite (@bvToNat_Z_to_nat_equiv _ _ (Z.div2 (Z.abs (sbvToInt _ b2)))).
     rewrite Z.div2_spec.
@@ -3138,9 +3181,6 @@ Feq
     erewrite bvSShr_Z_shiftr_equiv; [idtac | idtac | erewrite ct_abs_equiv]; eauto.
     rewrite Z.div2_spec.
     reflexivity.
-    intuition idtac.
-    apply Z.lt_le_incl.
-    trivial.
 
     eapply jac_eq_trans.
     apply jacobian_eq_jac_eq.
@@ -3159,26 +3199,7 @@ Feq
     simpl.
     
     (* shiftR produces all 0 *)
-    apply sbvToInt_z_nth. intros.
-    rewrite shiftR1_eq.
-    rewrite shiftR_shiftR_eq.
-    destruct (Compare_dec.dec_lt n' 48).
-    erewrite (@nth_order_append_l_eq _ _ 16 _ 48).
-    apply nth_order_0.
-    erewrite (@nth_order_append_r_eq _ _ 16 _ 48).
-    destruct (Compare_dec.dec_lt n' 63).
-    apply nth_order_bvAnd_l_eq.
-    lia.
-    assert (n' = 63).
-    lia.
-    subst.
-    rewrite nth_order_bvAnd_eq.
-    erewrite nth_order_shiftR_eq.
-    eapply (@sbvToInt_nonneg_bits_clear _ (pred_wsize + 1)).
-    lia.
-    lia.
-    lia.
-    lia.
+    rewrite shiftR_all_nonneg; trivial.
 
     match goal with
     | [|- jac_eq (fromPoint (List.nth ?a _ _)) (seqToProd (List.nth ?b _ _))] =>
@@ -3207,9 +3228,6 @@ Feq
     erewrite bvSShr_Z_shiftr_equiv; [idtac | idtac | erewrite ct_abs_equiv]; eauto.
     rewrite Z.div2_spec.
     reflexivity.
-    intuition idtac.
-    apply Z.lt_le_incl.
-    trivial.
 
     eapply bvToNat_Z_to_nat_equiv.
     apply Z.shiftr_nonneg.
@@ -3218,9 +3236,7 @@ Feq
     apply bvSShr_Z_shiftr_equiv.
     trivial.
     apply ct_abs_equiv.
-    intuition idtac.
-    apply Z.lt_le_incl; eauto.
-    trivial.
+    reflexivity.
 
     erewrite <- Forall2_length_eq; [idtac | eapply preCompTable_equiv].
     rewrite tableSize_correct.
@@ -3240,11 +3256,6 @@ Feq
 
     apply bvToNat_lt_word.
 
-    Unshelve.
-    lia.
-    lia.
-    lia.
-
   Qed.
 
 
@@ -3257,19 +3268,19 @@ Feq
   Qed.
 
 
-  Theorem fiat_pre_comp_table_gen_nth_0  : forall wsize p def,
-    List.nth 0 (EC_fiat_P384_gen.fiat_pre_comp_table_gen Fsquare Fmul
+  Theorem pre_comp_table_gen_nth_0  : forall wsize p def,
+    List.nth 0 (EC_P384_gen.pre_comp_table_gen Fsquare Fmul
               Fsub Fadd (Nat.pred (Nat.pred (tableSize wsize)))
               p) def = p.
   
     intros.
-    unfold EC_fiat_P384_gen.fiat_pre_comp_table_gen.
+    unfold EC_P384_gen.pre_comp_table_gen.
     rewrite nth_0_hd_equiv.
     apply scanl_head.
 
   Qed.
 
-  Definition fiat_point_mul_gen := fiat_point_mul_gen Fsquare Fmul Fsub Fadd Fopp.
+  Definition point_mul_gen := point_mul_gen Fsquare Fmul Fsub Fadd Fopp.
 
   Theorem recode_rwnaf_bound_In : forall wsize numWindows x z,
     (wsize <> 0)%nat ->
@@ -3321,7 +3332,7 @@ Feq
 
   Qed.
 
-  Theorem fiat_point_mul_gen_signedRegular_cases : forall wsize numWindows n p,
+  Theorem point_mul_gen_signedRegular_cases : forall wsize numWindows n p,
     1 < wsize < 16 ->
     (* sbvToInt _ n = bvToInt _ n -> *)
     (BinInt.Z.of_nat (bvToNat 384%nat n) <
@@ -3329,19 +3340,19 @@ Feq
     jac_eq
   (seqToProd
      (List.fold_left
-        (fiat_double_add_body_gen Fsquare Fmul Fsub Fadd Fopp (Nat.pred wsize)
-           (EC_fiat_P384_gen.fiat_pre_comp_table_gen Fsquare Fmul
+        (double_add_body_gen Fsquare Fmul Fsub Fadd Fopp (Nat.pred wsize)
+           (EC_P384_gen.pre_comp_table_gen Fsquare Fmul
               Fsub Fadd (Nat.pred (Nat.pred (tableSize wsize)))
               (prodToSeq (fromPoint p))))
         (skipn 1
-           (List.rev (fiat_mul_scalar_rwnaf_gen wsize numWindows n)))
-        (fiat_select_point_ct_gen
+           (List.rev (mul_scalar_rwnaf_gen wsize numWindows n)))
+        (select_point_ct_gen
            (sign_extend_16_64
               (bvSShr 15
                  (List.nth (S (S numWindows))
-                    (fiat_mul_scalar_rwnaf_gen wsize numWindows n)
+                    (mul_scalar_rwnaf_gen wsize numWindows n)
                     (bvNat 16 0%nat)) 1))
-           (EC_fiat_P384_gen.fiat_pre_comp_table_gen Fsquare Fmul
+           (EC_P384_gen.pre_comp_table_gen Fsquare Fmul
               Fsub Fadd (Nat.pred (Nat.pred (tableSize wsize)))
               (prodToSeq (fromPoint p))))))
   (fromPoint
@@ -3374,7 +3385,7 @@ Feq
     erewrite (@forall2_map_eq _ _
       (intToBv 16)
       
-      (fiat_mul_scalar_rwnaf_gen
+      (mul_scalar_rwnaf_gen
                     wsize numWindows n)
       (recode_rwnaf wsize
                  (S (S (S numWindows)))
@@ -3384,7 +3395,7 @@ Feq
     replace (bvNat 16 0%nat) with (intToBv 16 0%Z).
     rewrite map_nth.
 
-    rewrite fiat_select_point_ct_gen_nth_equiv.
+    rewrite select_point_ct_gen_nth_equiv.
     unfold groupMul_signedWindows_fold_body.
     unfold groupAdd_signedWindow.
     match goal with
@@ -3568,7 +3579,7 @@ Feq
     rewrite bvToNat_toZ_equiv.
     apply forall2_symm.
     eapply forall2_trans.
-    apply fiat_mul_scalar_rwnaf_gen_equiv.
+    apply mul_scalar_rwnaf_gen_equiv.
     lia.
     rewrite <- bvToNat_toZ_equiv.
     rewrite <- Z.shiftl_1_l.
@@ -3588,7 +3599,7 @@ Feq
     eapply Forall2_tl.
     eapply Forall2_rev.
     rewrite bvToNat_toZ_equiv.
-    eapply fiat_mul_scalar_rwnaf_gen_equiv.
+    eapply mul_scalar_rwnaf_gen_equiv.
     lia.
     rewrite <- Z.shiftl_1_l.
     rewrite <- bvToNat_toZ_equiv.
@@ -3614,7 +3625,7 @@ Feq
   Qed.
 
 
-  Theorem fiat_point_mul_gen_signedRegular_equiv : forall wsize numWindows n p,
+  Theorem point_mul_gen_signedRegular_equiv : forall wsize numWindows n p,
     1 < wsize < 16 ->
     (* sbvToInt _ n = bvToInt _ n -> *)
     (BinInt.Z.of_nat (bvToNat 384%nat n) <
@@ -3625,11 +3636,11 @@ Feq
           Jacobian.double Jacobian.opp wsize (S (S (S numWindows))) p
           (bvToNat _ n)))
     (seqToProd
-       (fiat_point_mul_gen wsize numWindows (Nat.pred (Nat.pred (tableSize wsize))) (prodToSeq (fromPoint p))
+       (point_mul_gen wsize numWindows (Nat.pred (Nat.pred (tableSize wsize))) (prodToSeq (fromPoint p))
           n)).
 
     intros.
-    unfold fiat_point_mul_gen.
+    unfold point_mul_gen.
     unfold groupMul_signedRegular_table, groupMul_signed_table.
 
     unfold groupMul_signedRegular, groupMul_signedRegularWindows.
@@ -3643,19 +3654,19 @@ Feq
     eapply jac_eq_symm.
     eapply point_add_jac_eq.
     eapply jac_eq_symm.
-    eapply fiat_point_mul_gen_signedRegular_cases.
+    eapply point_mul_gen_signedRegular_cases.
     trivial.
     trivial.
 
-    rewrite fiat_pre_comp_table_gen_nth_0.
+    rewrite pre_comp_table_gen_nth_0.
     apply jac_eq_refl_gen.
-    unfold fiat_point_opp, prodToSeq, seqToProd.
+    unfold point_opp, prodToSeq, seqToProd.
     simpl.
     destruct p. simpl. destruct x. destruct p. simpl.
     unfold nth_order. simpl.
     reflexivity.
 
-    apply fiat_point_mul_gen_signedRegular_cases; trivial.
+    apply point_mul_gen_signedRegular_cases; trivial.
 
   Qed.
     
@@ -3663,12 +3674,12 @@ Feq
       (BinInt.Z.of_nat (bvToNat _ n) <
  BinInt.Z.shiftl 1 (BinInt.Z.of_nat (55 * 7)))%Z ->
       jac_eq (fromPoint (groupMul (bvToNat _ n) p))
-      (seqToProd (fiat_point_mul (prodToSeq (fromPoint p)) n)).
+      (seqToProd (point_mul (prodToSeq (fromPoint p)) n)).
 
     intros.
-    unfold fiat_point_mul.
-    rewrite fiat_point_mul_gen_equiv.
-    eapply jac_eq_trans; [idtac | eapply fiat_point_mul_gen_signedRegular_equiv].
+    unfold point_mul.
+    rewrite point_mul_gen_equiv.
+    eapply jac_eq_trans; [idtac | eapply point_mul_gen_signedRegular_equiv].
     unfold groupMul.
     eapply jacobian_eq_jac_eq.
 
@@ -3705,13 +3716,13 @@ Feq
 
 (*
 
-  Definition fiat_point_mul_generic := fiat_point_mul_generic Fsquare Fmul Fadd Fsub Fopp min_l fiat_from_bytes fiat_to_bytes.
+  Definition point_mul_generic := point_mul_generic Fsquare Fmul Fadd Fsub Fopp min_l fiat_from_bytes fiat_to_bytes.
 
   Definition GenericPoint := (seq 384 Bool * (seq 384 Bool * seq 384 Bool))%type.
 
   Theorem point_mul_generic_correct : forall (p : GenericPoint) (n : seq 384 Bool),
       jac_eq (fromPoint (groupMul (unsignedToNat n) p))
-      (seqToProd (fiat_point_mul_generic (prodToSeq (fromPoint p)) n)).
+      (seqToProd (point_mul_generic (prodToSeq (fromPoint p)) n)).
   Qed.
 
   *)
