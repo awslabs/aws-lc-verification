@@ -331,6 +331,22 @@ gcm_ghash_array_internal_unfolding_lemma2 <-
            gcm_ghash_array_internal_unfold H Xi inp i blocks
      }}));
 
+gcm_ghash_array_internal_unfolding_lemma3 <-
+  prove_print
+    do {
+      unfolding ["ecEq","gcm_ghash_array_internal"];
+      simplify (addsimp_shallow (core_thm "fix_unfold") empty_ss);
+      simplify (cryptol_ss ());
+      unfolding ["gcm_ghash_array_internal_unfold","gcm_ghash_array_internal"];
+      simplify (addsimp (core_thm "bvEq_refl") (cryptol_ss ()));
+      trivial;
+    }
+    (rewrite (cryptol_ss ()) (unfold_term ["ecEq"]
+     {{ \i H Xi inp blocks ->
+           gcm_ghash_array_internal H Xi inp i blocks ==
+           gcm_ghash_array_internal_unfold H Xi inp i blocks
+     }}));
+
 gcm_enc_blocks_unfolding_lemma2 <-
   prove_print
     do {
