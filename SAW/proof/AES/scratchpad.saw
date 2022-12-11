@@ -1,0 +1,404 @@
+
+// let update_dec_array_fixed_tactic = do {
+//   key <- goal_intro "key";
+//   iv <- goal_intro "iv";
+//   Xi <- goal_intro "Xi";
+//   inp <- goal_intro "inp";
+// 
+//   // simpify the left-hand side of the equality
+//   unfolding ["cipher_update_array"];
+//   unfolding ["cipher_update_Xi_array"];
+//   simpl;
+// 
+//   for (eval_list {{ [1..17] : [17][8] }}) (\i -> do {
+//     simplify (addsimp_shallow (core_thm "fix_unfold") empty_ss);
+//     simpl;
+//   });
+// 
+//   
+//   rw ite_const_true_lemma;
+//   rw ite_const_false_lemma;
+//   // expose aes_hw_encrypt, which is used by both sides of the equality
+//   unfolding ["EKij"];
+//   unfolding ["EKi"];
+// 
+//   // simplify the right-hand side of the equality
+//   unfolding ["update_dec_array"];
+//   unfolding ["update_bulk_decrypt"];
+//   unfolding ["max"];
+//   simpl;
+//   rw ite_const_true_vec32_lemma;
+//   unfolding ["zext"];
+//   simpl;
+//   unfolding ["update_postbulk_decrypt"];
+//   simpl;
+//   rw ecEq_elim_lemma;
+//   simpl;
+//   rw ite_const_false_tuple_lemma;
+//   unfolding ["gcm_ghash_array"];
+//   simplify (addsimp_shallow (core_thm "fix_unfold") empty_ss);
+//   simpl;
+//   rw ite_const_true_lemma;
+//   simplify (addsimp_shallow (core_thm "fix_unfold") empty_ss);
+//   simpl;
+//   rw ite_const_false_lemma;
+//   unfolding ["gcm_ghash_block", "gcm_ghash_array_6x"];
+//   simpl;
+//   simplify (addsimp_shallow (core_thm "fix_unfold") empty_ss);
+//   simpl;
+//   rw ite_const_false_vec128_lemma;
+//   simpl;
+//   rw intLe_refl_lemma;
+//   simpl;
+//   rw ite_const_true_bool_lemma;
+//   unfolding ["ecEq"];
+//   simpl;
+//   rw ite_const_false_lemma;
+//   simpl;
+//   rw intToNat_natToInt_lemma;
+//   simpl;
+//   rw ite_const_false_vec8_lemma;
+//   simpl;
+//   rw ite_const_true_lemma;
+//   simpl;
+//   rw upd_collapse_lemma;
+//   unfolding ["arrayRangeLookup"];
+//   simpl;
+//   unfolding ["generate"];
+//   simpl;
+//   unfolding ["zeroByteArray"];
+//   simpl;
+//   rw arrayRangeLookup_arrayLookup_lemma;
+//   rw split_join_lemma;
+//   rw join_split_lemma;
+//   w4_unint_yices ["gcm_polyval", "gcm_init_H", "get_H", "arrayLookup"];
+// };
+
+  // goal_eval_unint ["cipher_update_array", "update_postbulk_decrypt", "gcm_ghash_array_6x", "gcm_enc_blocks_6x", "aes_hw_encrypt", "arrayCopy"];
+
+// prove_print update_dec_array_fixed_tactic {{ \(key : [32][8]) (iv : [12][8]) (Xi : [16][8]) (inp : Array [64] [8]) -> (
+//   cipher_update_array 0 st inp 0 16 == (update_dec_array inp st zeroByteArray 0 16).1
+//     where
+//       st = {key = key, iv = iv, Xi = Xi, len = 16}
+// )}};
+
+// gcm_polyval_lemma <-
+//   prove_print
+//   do {
+//     proof_subshell ();
+//   }
+//   {{ \H x ->
+//     gcm_polyval (gcm_init_H H) x ==
+//     gcm_polyval H x
+//   }};
+
+  // w4_unint_z3 ["gcm_ghash_array_6x", "gcm_enc_blocks_6x", "aes_hw_encrypt", "gcm_ghash_array", "aes_hw_ctr32_encrypt_blocks_array", "arrayCopy", "fix"]
+  // goal_normalize [];
+  // rw bvEq_byte_refl_lemma;
+  // delete_hyps [0, 1, 2];
+  // w4;
+
+  // focus_hyp 0;
+  // unfolding ["update_dec_array"];
+  // unfolding ["update_bulk_decrypt"];
+  // unfolding ["update_postbulk_decrypt"];
+  // rw ite_tuple_lemma;
+  // rw gcm_ghash_6x_to_1x_lemma;
+  // simpl;
+
+  // focus_concl 0;
+  // unfolding ["update_dec_array"];
+  // unfolding ["update_bulk_decrypt"];
+  // unfolding ["update_postbulk_decrypt"];
+  // rw ite_tuple_lemma;
+  // rw gcm_ghash_6x_to_1x_lemma;
+  // simpl;
+  // rw gcm_ghash_array_unfolding_lemma2;
+  // unfolding ["gcm_ghash_array_internal_unfold"];
+
+
+  // // inductive case
+  // focus_hyp 1;
+  // unfolding ["EqTrue"];
+  // simpl;
+  // focus_hyp 0;
+  // rwh 1;
+  // delete_hyps [1, 2];
+  // goal_specialize_hyp
+  //   [ {{ split`{16, 8} (join Xi ^ (join (arrayRangeLookup inp 1))) }}
+  //   , parse_core "Refl Bool True"
+  //   ];
+  // delete_hyps [0];
+  // focus_hyp 0;
+  // rw join_split_lemma;
+  // unfocus;
+  // unfolding ["ecEq"];
+  // simpl;
+  // unfolding ["pairEq"];
+  // simpl;
+
+let update_dec_array_tactic = do {
+  i <- goal_intro "i";
+  n <- goal_intro "n";
+  key <- goal_intro "key";
+  iv <- goal_intro "iv";
+  inp <- goal_intro "inp";
+  Xi <- goal_intro "Xi";
+  goal_intro_hyp;
+
+  focus_hyp 0;
+  goal_specialize_hyp [ {{ i + 16 }}, n, key, iv, inp];
+  delete_hyps [0];
+
+  // split the goal into the two convenient cases
+  unfocus;
+  goal_insert_and_specialize lt_lemma [i, n];
+  simpl;
+  focus_hyp 1;
+  split_goal;
+  unfocus;
+
+  // base case
+  focus_concl 0;
+  rwh 2;
+  delete_hyps [0, 1, 2];
+
+  // eliminate cipher_update_array ite
+  unfolding ["cipher_update_array"];
+  simpl;
+  unfolding ["cipher_update_array_helper"];
+  simpl;
+  simplify (addsimp_shallow (core_thm "fix_unfold") empty_ss);
+  simpl;
+  rw bvult_64_refl_false_lemma;
+  rw ite_const_false_lemma;
+  simpl;
+  unfolding ["update_dec_array"];
+  simpl;
+  unfolding ["update_bulk_decrypt", "update_postbulk_decrypt"];
+  simpl;
+  rw aes_hw_ctr32_encrypt_blocks_array_unfold_lemma2;
+  unfolding ["aes_hw_ctr32_encrypt_blocks_array_unfold"];
+  rw ite_tuple_lemma;
+  unfolding ["==>", "/\\"];
+  rw ite_bool_implies_lemma;
+  rw ite_bool_and_lemma;
+  normalize_sequent;
+
+  // eliminate update_postbulk_decrypt ite
+  goal_insert_and_specialize n_sub_lemma [n];
+  focus_hyp 3;
+  recover_eqtrue;
+  simpl;
+  focus_hyp 0;
+  unfolding ["EqTrue"];
+  simpl;
+  focus_hyp 1;
+  unfolding ["EqTrue"];
+  simpl;
+  focus_hyp 3;
+  rwh 0;
+  rwh 1;
+  simpl;
+  unfolding ["/\\"];
+  simpl;
+  rw ite_const_true_bool_lemma;
+  unfocus;
+  rw bvSub_identity_zero_lemma;
+  rw bvAdd_identity_zero_lemma;
+  focus_hyp 3;
+  unfolding ["EqTrue"];
+  simpl;
+  focus_concl 0;
+  rwh 3;
+  rw ite_const_true_ctx_lemma;
+
+  // eliminate update_bulk_decrypt ite and solve
+  rw ghash_6x_unfolding_lemma2;
+  unfolding ["gcm_ghash_array_6x_unfold"];
+  simpl;
+  w4_unint_z3 ["arrayLookup", "gcm_ghash_array_6x", "aesni_gcm_cipher_block6", "gcm_init_Htable", "gcm_init_H", "aes_hw_encrypt"];
+
+  // inductive case
+
+  // simplify precondition of inductive hypothesis
+  unfolding ["EqTrue"];
+  simpl;
+  focus_hyp 0;
+  rwh 1;
+
+  // pull preconditions out of conclusion
+  focus_concl 0;
+  unfolding ["==>"];
+  simpl;
+  rw ite_bool_implies_lemma;
+  normalize_sequent;
+  delete_concl [0];
+  focus_hyp 2;
+  unfolding ["EqTrue"];
+  simpl;
+
+  // assert the precondition with i + 1 < n
+  goal_cut {{ (n <= 2^^32) /\ (n % 96 == 0) /\ ((i + 1) <= n) }};
+  focus_hyp 3;
+  unfolding ["EqTrue"];
+  simpl;
+
+  // eliminate the ite in the inductive hypothesis
+  focus_hyp 0;
+  rwh 3;
+  rw ite_const_true_bool_lemma;
+  delete_hyps [3];
+
+  // work the conclusion until the inductive hypothesis matches
+  unfocus;
+  unfolding ["cipher_update_array"];
+  simpl;
+  focus_concl 0;
+  rw cipher_update_array_helper_unfolding_lemma;
+  unfolding ["cipher_update_array_helper_unfold"];
+  simpl;
+
+  focus_hyp 0;
+  goal_specialize_hyp
+    [ {{ (cipher_update_array_ctx 0 {key = key, iv = iv, Xi = Xi, len = 0} i (arrayLookup inp i)).Xi }}
+    , parse_core "Refl Bool True"
+    ];
+  unfocus;
+  simpl;
+  unfolding ["cipher_update_array_ctx"];
+  simpl;
+  goal_cut {{ (i < n) == True }};
+  focus_hyp 4;
+  simpl;
+  focus_concl 0;
+  rwh 4;
+  delete_hyps [4];
+  rw ite_const_true_Xi_lemma;
+  normalize_sequent;
+  focus_concl 0;
+  rwh 3;
+  delete_hyps [0, 3];
+
+  unfolding ["update_dec_array"];
+  simpl;
+  unfolding ["update_bulk_decrypt", "update_postbulk_decrypt"];
+  simpl;
+  rw ite_tuple_lemma;
+  rw gcm_ghash_6x_to_1x_lemma;
+
+  // apply gcm_ghash_array_internal_lemma to eliminate gcm_ghash_array calls
+  goal_insert_and_specialize gcm_ghash_array_internal_lemma [ {{ 0 : [64] }} ];
+  focus_hyp 5;
+  simpl;
+  rw bvule_zero_lemma;
+  rw ite_const_true_bool_lemma;
+  recover_eqtrue;
+  focus_concl 0;
+  rwh 5;
+  delete_hyps [2, 3, 4, 5];
+
+  unfocus;
+  rw split_join_lemma;
+  rw join_split_lemma;
+  simpl;
+  rw intLe_refl_lemma;
+  rw ite_const_true_bool_lemma;
+  rw bvAdd_identity_zero_lemma;
+  rw bvAdd_right_identity_zero_lemma;
+  rw bvSub_identity_zero_lemma;
+  unfolding ["ecEq"];
+  simpl;
+
+  focus_hyp 1;
+  unfolding ["/\\"];
+  simpl;
+  rw ite_bool_and_lemma;
+  normalize_sequent;
+  focus_hyp 1;
+  unfolding ["EqTrue"];
+  simpl;
+  focus_hyp 2;
+  unfolding ["EqTrue"];
+  simpl;
+  goal_insert_and_specialize n_sub_lemma [n];
+  focus_hyp 4;
+  recover_eqtrue;
+  unfolding ["ecEq"];
+  simpl;
+  rwh 1;
+  rwh 2;
+  unfolding ["/\\"];
+  simpl;
+  rw ite_const_true_bool_lemma;
+  unfolding ["EqTrue"];
+  simpl;
+
+  focus_concl 0;
+  rwh 4;
+  rw ite_const_true_ctx_lemma;
+  delete_hyps [4];
+
+  rw at_zero_false_lemma;
+  rw ite_const_false_vec8_lemma;
+
+  goal_insert_and_specialize gcm_ghash_array_internal_unfolding_lemma3 [ {{ i / 16 }} ] ;
+  focus_hyp 4;
+  rw recover_vecEq2_lemma;
+  recover_eqtrue;
+  simpl;
+  focus_concl 0;
+  rwh 4;
+  delete_hyps [4];
+  unfolding ["gcm_ghash_array_internal_unfold"];
+  simpl;
+
+  pg;
+  proof_subshell ();
+};
+
+prove_by_bv_induction update_dec_array_tactic {{ \(i : [64]) (n : [64]) (key : [32][8]) (iv : [12][8]) (inp : Array [64] [8]) (Xi : [16][8]) ->
+  ( n - i
+  , ((n <= 2^^32) /\ (n % 96 == 0) /\ (i <= n)) ==>
+     cipher_update_array 0 st inp i n == (update_dec_array inp st zeroByteArray i n).1
+    where
+      st = {key = key, iv = iv, Xi = Xi, len = 0}
+  )
+}};
+
+  // eliminate update_postbulk_decrypt ite
+  focus_concl 0;
+  rwh 0;
+  rw ite_const_false_lemma;
+  unfolding ["update_dec_array"];
+  simpl;
+  unfolding ["update_postbulk_decrypt"];
+  simpl;
+  unfolding ["update_bulk_decrypt"];
+  simpl;
+  rw ite_tuple_lemma;
+  goal_insert_and_specialize n_sub_lemma [n];
+  focus_hyp 4;
+  recover_eqtrue;
+  simpl;
+  unfocus;
+  rw bvAdd_identity_zero_lemma;
+  rw bvSub_identity_zero_lemma;
+  unfolding ["/\\"];
+  simpl;
+  focus_hyp 1;
+  unfolding ["EqTrue"];
+  simpl;
+  focus_hyp 2;
+  unfolding ["EqTrue"];
+  simpl;
+  focus_hyp 4;
+  rwh 1;
+  rwh 2;
+  rw ite_const_true_bool_lemma;
+  unfolding ["EqTrue"];
+  simpl;
+  focus_concl 0;
+  rwh 4;
+  rw ite_const_true_ctx_lemma;
+  simpl;

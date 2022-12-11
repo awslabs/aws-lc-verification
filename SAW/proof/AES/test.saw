@@ -58,6 +58,10 @@ let simpl = do {
 let rw lemma = simplify (addsimp lemma empty_ss);
 let rwh hyp = simplify_local [hyp] empty_ss;
 
+recover_EqTrue_lemma <- prove_extcore (admit "recover_EqTrue")
+  (parse_core "(x : Bool) -> Eq Prop (Eq Bool x True) (EqTrue x)");
+let recover_eqtrue = rw recover_EqTrue_lemma;
+
 ite_const_true_lemma <- prove_print w4
   {{ \(x : [16][8]) (y : [16][8]) -> (if True then x else y) == x }};
 ite_const_false_lemma <- prove_print w4
@@ -92,6 +96,8 @@ split_join_lemma <- prove_extcore w4
   (parse_core "(a : Vec 16 (Vec 8 Bool)) -> EqTrue (vecEq 16 (Vec 8 Bool) (bvEq 8) (split 16 8 Bool (join 16 8 Bool a)) a)");
 join_split_lemma <- prove_extcore w4
   (parse_core "(a : Vec 128 Bool) -> EqTrue (bvEq 128 (join 16 8 Bool (split 16 8 Bool a)) a)");
+join_split_vec2_lemma <- prove_extcore w4
+  (parse_core "(a : Vec 128 Bool) -> EqTrue (bvEq 128 (join 2 64 Bool (split 2 64 Bool a)) a)");
 bvEq_byte_refl_lemma <- prove_extcore w4
   (parse_core "(x : Vec 8 Bool) -> EqTrue (boolEq (bvEq 8 x x) True)");
 bvult_64_refl_false_lemma <- prove_extcore w4
@@ -351,19 +357,57 @@ cipher_update_array_helper_unfold_16_lemma <-
       Xi <- goal_intro "Xi";
       inp <- goal_intro "inp";
 
+      unfolding ["==>", "/\\"];
+      simpl;
+      rw ite_bool_and_lemma;
+      rw ite_bool_implies_lemma;
+      normalize_sequent;
+      goal_cut {{ i + 16 <= len }};
+      unfocus;
+      simpl;
+
+      goal_insert_and_specialize cipher_update_array_ctx_16_ctx_lemma
+        [ {{ i + 16 }}
+        , len
+        , key
+        , iv
+        , {{ cipher_update_array_ctx_16 0 {key = key, iv = iv, Xi = Xi, len = 0} i inp Xi }}
+        , Xi
+        , {{ cipher_update_array_ctx_16 0 {key = key, iv = iv, Xi = Xi, len = 0} i inp Xi }}
+        , inp
+        ];
+      unfocus;
+      simpl;
+      focus_hyp 0;
+      unfolding ["EqTrue"];
+      simpl;
+      focus_hyp 3;
+      unfolding ["EqTrue"];
+      simpl;
+      focus_hyp 4;
+      rwh 0;
+      rwh 3;
+      unfolding ["/\\"];
+      simpl;
+      rw ite_const_true_bool_lemma;
+      recover_eqtrue;
+      focus_concl 0;
+      rwh 4;
+      delete_hyps [4];
+
       let unfold_where_i i_tm = do {
         goal_insert_and_specialize cipher_update_array_helper_unfolding_lemma [i_tm];
-        focus_hyp 0;
+        focus_hyp 4;
         rw recover_vecEq_lemma;
         recover_eqtrue;
         simpl;
         focus_concl 0;
         rw bvAdd_assoc_right_lemma;
         simpl;
-        rwh 0;
+        rwh 4;
         unfolding ["cipher_update_array_helper_unfold"];
         simpl;
-        delete_hyps [0];
+        delete_hyps [4];
       };
 
       unfold_where_i i;
@@ -386,9 +430,10 @@ cipher_update_array_helper_unfold_16_lemma <-
       unfolding ["cipher_update_array_ctx_16"];
       simpl;
       rw bvAdd_assoc_right_lemma;
-      // trying to: goal_insert cipher_update_array_ctx_16_ctx_lemma
-      proof_subshell ();
       w4_unint_z3 ["cipher_update_array_helper", "cipher_update_array_ctx"];
+
+      delete_concl [0];
+      w4;
     }
     (rewrite (cryptol_ss ()) (unfold_term ["ecEq"]
       {{ \i len key iv Xi inp -> (
@@ -664,6 +709,53 @@ let update_dec_array_tactic = do {
   recover_eqtrue;
   focus_concl 0;
   rwh 8;
+  rwh 6;
+  delete_hyps [6, 8];
+
+  unfolding ["update_dec_array"];
+  simpl;
+  unfolding ["update_bulk_decrypt", "update_postbulk_decrypt"];
+  simpl;
+  rw ite_tuple_lemma;
+
+  proof_subshell ();
+
+  rw gcm_ghash_6x_to_1x_lemma;
+  goal_insert_and_specialize gcm_ghash_array_internal_lemma [ {{ 0 : [64] }} ];
+  focus_hyp 8;
+  simpl;
+  rw bvule_zero_lemma;
+  rw ite_const_true_bool_lemma;
+  recover_eqtrue;
+  focus_concl 0;
+  rwh 8;
+  delete_hyps [8];
+  rw join_split_lemma;
+  unfolding ["get_H"];
+  simpl;
+
+  goal_insert_and_specialize cipher_update_ctx_lemma [key, iv, Xi, inp, i];
+  focus_hyp 8;
+  rwh 4;
+  rw ite_const_true_bool_lemma;
+  recover_eqtrue;
+  focus_concl 0;
+  rwh 8;
+  delete_hyps [8];
+  rw join_split_lemma;
+
+  unfocus;
+  rw bvAdd_right_identity_zero_lemma;
+  goal_cut {{ (i / 16 + 1) == ((i + 16) / 16) }};
+  simpl;
+  focus_concl 0;
+  rwh 8;
+
+  unfolding ["get_H"];
+  simpl;
+  goal_insert_and_specialize gcm_ghash_array_compose_lemma
+    [
+    ];
 
   pg;
   proof_subshell ();
