@@ -476,7 +476,7 @@ update_dec_array in ctx buf i len =
     (bulk_len, ctx1, buf1) = update_bulk_decrypt in ctx0 buf0 (i + prephase_len) (len - prephase_len)
 
     (len_blocks, ctx2, buf2) =
-      update_postbulk_decrypt in ctx1 buf1 (i + (prephase_len + bulk_len)) (len - (prephase_len + bulk_len))
+      update_postbulk_decrypt in ctx1 buf1 ((prephase_len + bulk_len)) (len - (prephase_len + bulk_len))
 
     // TODO! postphase
 

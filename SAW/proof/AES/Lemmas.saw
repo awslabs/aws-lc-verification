@@ -536,12 +536,12 @@ gcm_enc_blocks_copyArray_lemma <-
 gcm_ghash_array_compose_lemma <-
   prove_induction
   do {
-    H   <- goal_intro "H";
-    Xi  <- goal_intro "Xi";
-    inp <- goal_intro "inp";
     x   <- goal_intro "x";
     y   <- goal_intro "y";
     z   <- goal_intro "z";
+    H   <- goal_intro "H";
+    Xi  <- goal_intro "Xi";
+    inp <- goal_intro "inp";
     goal_intro_hyp;
 
     goal_cut
@@ -567,13 +567,13 @@ gcm_ghash_array_compose_lemma <-
     simplify (cryptol_ss ());
     goal_apply gcm_ghash_array_internal_unfolding_lemma2;
   }
-  {{ \H Xi inp x y z ->
+  {{ \x y z H Xi inp ->
        ( y - x
        , x <= y /\ y <= z ==>
-         gcm_ghash_array_internal H Xi inp x z ==
-           gcm_ghash_array_internal H
-             (gcm_ghash_array_internal H Xi inp x y)
-             inp y z
+         gcm_ghash_array_internal H
+           (gcm_ghash_array_internal H Xi inp x y)
+           inp y z
+         == gcm_ghash_array_internal H Xi inp x z
        )
   }};
 

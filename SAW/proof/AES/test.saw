@@ -354,6 +354,7 @@ cipher_update_array_helper_unfold_16_lemma <-
       len <- goal_intro "len";
       key <- goal_intro "key";
       iv <- goal_intro "iv";
+      ctxXi <- goal_intro "ctxXi";
       Xi <- goal_intro "Xi";
       inp <- goal_intro "inp";
 
@@ -371,9 +372,9 @@ cipher_update_array_helper_unfold_16_lemma <-
         , len
         , key
         , iv
-        , {{ cipher_update_array_ctx_16 0 {key = key, iv = iv, Xi = Xi, len = 0} i inp Xi }}
-        , Xi
-        , {{ cipher_update_array_ctx_16 0 {key = key, iv = iv, Xi = Xi, len = 0} i inp Xi }}
+        , ctxXi
+        , ctxXi
+        , {{ cipher_update_array_ctx_16 0 {key = key, iv = iv, Xi = ctxXi, len = 0} i inp Xi }}
         , inp
         ];
       unfocus;
@@ -436,13 +437,143 @@ cipher_update_array_helper_unfold_16_lemma <-
       w4;
     }
     (rewrite (cryptol_ss ()) (unfold_term ["ecEq"]
-      {{ \i len key iv Xi inp -> (
+      {{ \i len key iv ctxXi Xi inp -> (
         ((len <= (2^^32)) /\ (i <= len) /\ (i + 15 < len)) ==>
           cipher_update_array_helper 0 ctx inp i len Xi
-          == cipher_update_array_helper 0 ctx' inp (i + 16) len Xi'
+          == cipher_update_array_helper 0 ctx inp (i + 16) len Xi'
+          where
+            ctx = {key = key, iv = iv, Xi = ctxXi, len = 0}
+            Xi' = cipher_update_array_ctx_16 0 ctx i inp Xi
+      )}}
+    ));
+
+cipher_update_array_helper_unfold_16x6_lemma <-
+  prove_print
+    do {
+      i <- goal_intro "i";
+      len <- goal_intro "len";
+      key <- goal_intro "key";
+      iv <- goal_intro "iv";
+      Xi <- goal_intro "Xi";
+      inp <- goal_intro "inp";
+
+      unfolding ["==>", "/\\"];
+      simpl;
+      rw ite_bool_and_lemma;
+      rw ite_bool_implies_lemma;
+      normalize_sequent;
+
+      focus_hyp 0;
+      unfolding ["EqTrue"];
+      simpl;
+      focus_hyp 1;
+      unfolding ["EqTrue"];
+      simpl;
+      unfocus;
+
+      let unfold_block off_tm = do {
+        goal_insert_and_specialize cipher_update_array_helper_unfold_16_lemma [{{ i + off_tm }}, len];
+        goal_cut {{ i + (off_tm + 15) < len }};
+        focus_hyp 4;
+        unfolding ["EqTrue"];
+        simpl;
+        goal_cut {{ i + off_tm <= len }};
+        focus_hyp 5;
+        unfolding ["EqTrue"];
+        simpl;
+        focus_hyp 3;
+        simpl;
+        recover_eqtrue;
+        rw bvAdd_assoc_right_lemma;
+        rw bvAdd_right_identity_zero_lemma;
+        rwh 0;
+        rwh 1;
+        rwh 4;
+        rwh 5;
+        unfolding ["/\\"];
+        rw ite_const_true_bool_lemma;
+        simpl;
+        focus_concl 0;
+        rwh 3;
+        delete_hyps [3, 4, 5];
+      };
+
+      unfold_block {{ 0 }};
+      unfold_block {{ 16 }};
+      unfold_block {{ 32 }};
+      unfold_block {{ 48 }};
+      unfold_block {{ 64 }};
+      unfold_block {{ 80 }};
+
+      unfocus;
+      goal_insert_and_specialize cipher_update_array_ctx_16_ctx_lemma
+        [ {{ i + 96 }}
+        , len
+        , key
+        , iv
+        , {{ cipher_update_array_ctx_16 0 ctx (i + 80) inp
+             (cipher_update_array_ctx_16 0 ctx (i + 64) inp
+             (cipher_update_array_ctx_16 0 ctx (i + 48) inp
+             (cipher_update_array_ctx_16 0 ctx (i + 32) inp
+             (cipher_update_array_ctx_16 0 ctx (i + 16) inp
+             (cipher_update_array_ctx_16 0 ctx i inp
+             Xi)))))
           where
             ctx = {key = key, iv = iv, Xi = Xi, len = 0}
-            Xi' = cipher_update_array_ctx_16 0 ctx i inp Xi
+          }}
+        , Xi
+        ];
+      goal_cut {{ i + 96 <= len }};
+      focus_hyp 4;
+      unfolding ["EqTrue"];
+      simpl;
+      focus_hyp 3;
+      simpl;
+      rwh 0;
+      rwh 4;
+      unfolding ["/\\"];
+      simpl;
+      rw ite_const_true_bool_lemma;
+      recover_eqtrue;
+      focus_concl 0;
+      rwh 3;
+      rw vecEq_refl_lemma;
+      trivial;
+
+      let solve_easy = do {
+        delete_hyps [3];
+        delete_concl [0];
+        w4;
+      };
+
+      solve_easy;
+      solve_easy;
+      solve_easy;
+      solve_easy;
+      solve_easy;
+      solve_easy;
+      solve_easy;
+      solve_easy;
+      solve_easy;
+      solve_easy;
+      solve_easy;
+      solve_easy;
+      solve_easy;
+    }
+    (rewrite (cryptol_ss ()) (unfold_term ["ecEq"]
+      {{ \i len key iv Xi inp -> (
+        ((len <= (2^^32)) /\ (i <= len) /\ (i + 95 < len)) ==>
+          cipher_update_array_helper 0 ctx inp i len Xi
+          == cipher_update_array_helper 0 ctx' inp (i + 96) len Xi'
+          where
+            ctx = {key = key, iv = iv, Xi = Xi, len = 0}
+            Xi' = cipher_update_array_ctx_16 0 ctx (i + 80) inp
+                 (cipher_update_array_ctx_16 0 ctx (i + 64) inp
+                 (cipher_update_array_ctx_16 0 ctx (i + 48) inp
+                 (cipher_update_array_ctx_16 0 ctx (i + 32) inp
+                 (cipher_update_array_ctx_16 0 ctx (i + 16) inp
+                 (cipher_update_array_ctx_16 0 ctx i inp
+                 Xi)))))
             ctx' = {key = key, iv = iv, Xi = Xi', len = 0}
       )}}
     ));
@@ -450,11 +581,12 @@ cipher_update_array_helper_unfold_16_lemma <-
 cipher_update_ctx_lemma <-
   prove_print
     do {
+      i <- goal_intro "i";
       key <- goal_intro "key";
       iv <- goal_intro "iv";
+      ctxXi <- goal_intro "ctxXi";
       Xi <- goal_intro "Xi";
       inp <- goal_intro "inp";
-      i <- goal_intro "i";
       unfolding ["cipher_update_array_ctx_16"];
       simpl;
       unfolding ["cipher_update_array_ctx"];
@@ -475,12 +607,12 @@ cipher_update_ctx_lemma <-
       w4_unint_yices ["gcm_polyval", "gcm_init_H", "aes_hw_encrypt"];
     }
     (rewrite (cryptol_ss ()) (unfold_term ["ecEq"]
-      {{ \key iv Xi inp i -> (
+      {{ \i key iv ctxXi Xi inp -> (
         (i % 16 == 0) ==>
           cipher_update_array_ctx_16 0 ctx i inp Xi
           == split (gcm_ghash_array_internal (join (get_H ctx)) (join Xi) inp (i / 16) ((i / 16) + 1))
           where
-            ctx = {key = key, iv = iv, Xi = Xi, len = 0}
+            ctx = {key = key, iv = iv, Xi = ctxXi, len = 0}
       )}}
     ));
 
@@ -576,7 +708,7 @@ let update_dec_array_tactic = do {
   goal_intro_hyp;
 
   focus_hyp 0;
-  goal_specialize_hyp [ {{ i + 16 }}, n, key, iv, inp];
+  goal_specialize_hyp [ {{ i + 96 }}, n, key, iv, inp];
   delete_hyps [0];
 
   // split the goal into the two convenient cases
@@ -664,7 +796,7 @@ let update_dec_array_tactic = do {
   focus_hyp 0;
   rwh 2;
   rwh 3;
-  goal_cut {{ (n - (i + 16)) < (n - i) }};
+  goal_cut {{ (n - (i + 96)) < (n - i) }};
   focus_hyp 6;
   simpl;
   unfolding ["EqTrue"];
@@ -672,10 +804,19 @@ let update_dec_array_tactic = do {
   focus_hyp 0;
   rwh 6;
   goal_specialize_hyp
-    [ {{ cipher_update_array_ctx_16 0 {key = key, iv = iv, Xi = Xi, len = 0} i inp Xi }}
+    [ {{ cipher_update_array_ctx_16 0 ctx (i + 80) inp
+         (cipher_update_array_ctx_16 0 ctx (i + 64) inp
+         (cipher_update_array_ctx_16 0 ctx (i + 48) inp
+         (cipher_update_array_ctx_16 0 ctx (i + 32) inp
+         (cipher_update_array_ctx_16 0 ctx (i + 16) inp
+         (cipher_update_array_ctx_16 0 ctx i inp
+         Xi)))))
+      where
+        ctx = {key = key, iv = iv, Xi = Xi, len = 0}
+      }}
     , parse_core "Refl Bool True"
     ];
-  goal_cut {{ (i + 16 <= n) /\ ((i + 16) % 16 == 0) }};
+  goal_cut {{ (i + 96 <= n) /\ ((i + 96) % 96 == 0) }};
   delete_hyps [0];
   focus_hyp 7;
   simpl;
@@ -692,13 +833,13 @@ let update_dec_array_tactic = do {
   recover_eqtrue;
   unfocus;
 
-  // work the conclusion until the inductive hypothesis matches
+  // work the conclusion until the induction hypothesis matches
   unfocus;
   unfolding ["cipher_update_array"];
   simpl;
   focus_concl 0;
-  goal_insert_and_specialize cipher_update_array_helper_unfold_16_lemma [i, n];
-  goal_cut {{ ((n <= (2^^32)) /\ (i <= n) /\ (i + 15 < n)) }};
+  goal_insert_and_specialize cipher_update_array_helper_unfold_16x6_lemma [i, n];
+  goal_cut {{ ((n <= (2^^32)) /\ (i <= n) /\ (i + 95 < n)) }};
   focus_hyp 9;
   simpl;
   unfolding ["EqTrue"];
@@ -718,8 +859,6 @@ let update_dec_array_tactic = do {
   simpl;
   rw ite_tuple_lemma;
 
-  proof_subshell ();
-
   rw gcm_ghash_6x_to_1x_lemma;
   goal_insert_and_specialize gcm_ghash_array_internal_lemma [ {{ 0 : [64] }} ];
   focus_hyp 8;
@@ -734,36 +873,120 @@ let update_dec_array_tactic = do {
   unfolding ["get_H"];
   simpl;
 
-  goal_insert_and_specialize cipher_update_ctx_lemma [key, iv, Xi, inp, i];
-  focus_hyp 8;
-  rwh 4;
-  rw ite_const_true_bool_lemma;
-  recover_eqtrue;
+  let eliminate_ctx_16 i_tm = do {
+    goal_insert_and_specialize cipher_update_ctx_lemma [i_tm];
+    goal_cut {{ (i_tm % 16 == 0) == True }};
+    focus_hyp 9;
+    unfolding ["ecEq"];
+    simpl;
+    focus_hyp 8;
+    simpl;
+    rwh 9;
+    rw ite_const_true_bool_lemma;
+    recover_eqtrue;
+    focus_concl 0;
+    rwh 8;
+    rw join_split_lemma;
+    unfolding ["get_H"];
+    rw join_split_vec2_lemma;
+    unfocus;
+    rw bvAdd_right_identity_zero_lemma;
+    goal_cut {{ (i_tm / 16 + 1) == ((i_tm + 16) / 16) }};
+    simpl;
+    focus_concl 0;
+    rwh 10;
+    delete_hyps [8, 9, 10];
+    rw bvAdd_assoc_right_lemma;
+    rw join_split_vec2_lemma;
+    simpl;
+  };
+
+  let compose_ghash low mid high = do {
+    goal_insert_and_specialize gcm_ghash_array_compose_lemma
+      [ {{ low / 16 }}
+      , {{ mid / 16 }}
+      , {{ high / 16 }}
+      ];
+    goal_cut {{ ((low / 16) <= (mid / 16) /\ (mid / 16) <= (high / 16)) == True }};
+    focus_hyp 8;
+    rwh 9;
+    rw ite_const_true_bool_lemma;
+    simpl;
+    recover_eqtrue;
+    focus_concl 0;
+    rwh 8;
+    delete_hyps [8, 9];
+  };
+
+  eliminate_ctx_16 i;
+  eliminate_ctx_16 {{ i + 16 }};
+  compose_ghash i {{ i + 16 }} {{ i + 32 }};
+  eliminate_ctx_16 {{ i + 32 }};
+  compose_ghash i {{ i + 32 }} {{ i + 48 }};
+  eliminate_ctx_16 {{ i + 48 }};
+  compose_ghash i {{ i + 48 }} {{ i + 64 }};
+  eliminate_ctx_16 {{ i + 64 }};
+  compose_ghash i {{ i + 64 }} {{ i + 80 }};
+  eliminate_ctx_16 {{ i + 80 }};
+  compose_ghash i {{ i + 80 }} {{ i + 96 }};
+
+  goal_cut {{
+    ((x2 / 16) - (((x2 / 16) - ((i + 96) / 16)) % 6)) == (n / 16)
+      where
+        x2 = zext (((drop`{32} n) / x3) * x3)
+        x3 = max x4 (((drop`{32} n) / x4) * x4)
+        x4 = 96
+  }};
+  unfocus;
+  rw bvSub_identity_zero_lemma;
+  simpl;
   focus_concl 0;
   rwh 8;
   delete_hyps [8];
-  rw join_split_lemma;
+  compose_ghash i {{ i + 96 }} n;
 
+  goal_cut {{
+    ((x2 / 16) - (((x2 / 16) - (i / 16)) % 6)) == (n / 16)
+      where
+        x2 = zext (((drop`{32} n) / x3) * x3)
+        x3 = max x4 (((drop`{32} n) / x4) * x4)
+        x4 = 96
+  }};
   unfocus;
-  rw bvAdd_right_identity_zero_lemma;
-  goal_cut {{ (i / 16 + 1) == ((i + 16) / 16) }};
   simpl;
   focus_concl 0;
   rwh 8;
+  delete_hyps [8];
 
-  unfolding ["get_H"];
-  simpl;
-  goal_insert_and_specialize gcm_ghash_array_compose_lemma
-    [
-    ];
-
-  pg;
-  proof_subshell ();
+  w4_unint_z3 ["gcm_ghash_array_internal", "aes_hw_encrypt"];
+  delete_concl [0]; w4;
+  delete_hyps [8]; delete_concl [0]; w4;
+  delete_concl [0]; w4;
+  delete_hyps [8]; delete_concl [0]; w4;
+  delete_hyps [8, 9]; delete_concl [0]; w4;
+  delete_hyps [8]; delete_concl [0]; w4;
+  delete_hyps [8, 9]; delete_concl [0]; w4;
+  delete_hyps [8]; delete_concl [0]; w4;
+  delete_hyps [8]; delete_concl [0]; w4;
+  delete_hyps [8, 9]; delete_concl [0]; w4;
+  delete_hyps [8]; delete_concl [0]; w4;
+  delete_hyps [8]; delete_concl [0]; w4;
+  delete_hyps [8, 9]; delete_concl [0]; w4;
+  delete_hyps [8]; delete_concl [0]; w4;
+  delete_hyps [8]; delete_concl [0]; w4;
+  delete_hyps [8, 9]; delete_concl [0]; w4;
+  delete_hyps [8]; delete_concl [0]; w4;
+  delete_hyps [8]; delete_concl [0]; w4;
+  delete_hyps [8, 9]; delete_concl [0]; w4;
+  delete_hyps [8]; delete_concl [0]; w4;
+  delete_hyps [6, 8]; delete_concl [0]; w4;
+  delete_hyps [0, 7]; delete_concl [0]; w4;
+  delete_hyps [0]; delete_concl [0]; w4;
 };
 
 prove_by_bv_induction update_dec_array_tactic {{ \(i : [64]) (n : [64]) (key : [32][8]) (iv : [12][8]) (inp : Array [64] [8]) (Xi : [16][8]) ->
   ( n - i
-  , ((n <= 2^^32) /\ (n % 96 == 0) /\ (i <= n) /\ (i % 16 == 0)) ==>
+  , ((n <= 2^^32) /\ (n % 96 == 0) /\ (i <= n) /\ (i % 96 == 0)) ==>
      cipher_update_array 0 st inp i n == (update_dec_array inp st zeroByteArray i n).1
     where
       st = {key = key, iv = iv, Xi = Xi, len = 0}
