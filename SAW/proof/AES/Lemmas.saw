@@ -552,9 +552,11 @@ gcm_ghash_array_compose_lemma <-
          gcm_ghash_array_internal_unfold H Xi inp x z }};
 
     focus_hyp 0;
-    goal_specialize_hyp [ H, {{ gcm_polyval (gcm_init_H H) (Xi ^ (join (arrayRangeLookup inp (x*16)))) }}
-                        , inp, {{x+1}}, y, z
-			];
+    goal_specialize_hyp
+      [ {{x+1}}, y, z
+      , H, {{ gcm_polyval (gcm_init_H H) (Xi ^ (join (arrayRangeLookup inp (x*16)))) }}
+      , inp
+      ];
     delete_hyps [0];
 
     w4_unint_z3 ["gcm_ghash_array_internal","gcm_polyval","gcm_init_H"];

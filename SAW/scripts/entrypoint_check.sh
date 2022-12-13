@@ -29,13 +29,13 @@ apply_patch "noinline-ec_get_x_coordinate_as_bytes"
 apply_patch "noinline-ec_get_x_coordinate_as_scalar"
 apply_patch "noinline-value_barrier_w"
 apply_patch "noinline-GetInPlaceMethods"
+apply_patch "stash_gcm_key"
 
 # ...next, check the proofs using CMake's Release settings...
 
 ./scripts/build_x86.sh  "Release"
 ./scripts/build_llvm.sh "Release"
 ./scripts/post_build.sh
-exit 1;
 ./scripts/run_checks_release.sh
 
 # ...finally, check the proofs using CMake's Debug settings.

@@ -1,19 +1,4 @@
-enable_experimental;
-
-import "../../spec/AES/AES-GCM.cry";
-import "../../spec/AES/X86.cry";
-import "../../spec/AES/AES-GCM-implementation.cry";
-import "../../../cryptol-specs/Primitive/Symmetric/Cipher/Block/AES.cry";
-import "../../../cryptol-specs/Primitive/Symmetric/Cipher/Authenticated/AES_256_GCM.cry";
-
-include "../common/helpers.saw";
-
-let do_prove = false;
-include "goal-rewrites.saw";
-include "Lemmas.saw";
-let do_prove = true;
-
-load_sawcore_from_file "test.sawcore";
+load_sawcore_from_file "implementation-to-spec.sawcore";
 
 let {{
   to_array : {n} (fin n) => [n][8] -> Array [64] [8]
@@ -992,3 +977,5 @@ prove_by_bv_induction update_dec_array_tactic {{ \(i : [64]) (n : [64]) (key : [
       st = {key = key, iv = iv, Xi = Xi, len = 0}
   )
 }};
+
+print "implementation-to-spec complete";
