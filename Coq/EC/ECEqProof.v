@@ -137,6 +137,44 @@ Section ECEqProof.
     nsatz.
   Qed.
 
+  Fixpoint recode_rwnaf_odd_bv (wsize : nat)(nw : nat)(n : bitvector 384) :=
+    match nw with
+    | 0%nat => (drop _ 368 16 n) :: List.nil
+    | S nw' =>
+      let k_i := (bvSub _ (bvURem _ n (bvMul _ (bvNat _ 2) (shiftL _ _ false (bvNat _ 1%nat) wsize))) (shiftL _ _ false (bvNat _ 1%nat) wsize)) in
+      let n' := (shiftR _ _ false (bvSub _ n k_i) wsize) in
+      (drop _ 368 16 k_i) :: (recode_rwnaf_odd_bv wsize nw' n')
+    end.
+
+  Definition recode_rwnaf_odd_bv_scanl_fix_body wsize n :=
+      let k_i := (bvSub _ (bvURem _ n (bvMul _ (bvNat _ 2) (shiftL _ _ false (bvNat _ 1%nat) wsize))) (shiftL _ _ false (bvNat _ 1%nat) wsize)) in
+      let n' := (shiftR _ _ false (bvSub _ n k_i) wsize) in
+      ((drop _ 368 16 k_i), n').
+
+  Theorem recode_rwnaf_odd_bv_scanl_equiv : forall wsize nw n,
+    nw > 0 ->
+    recode_rwnaf_odd_bv wsize nw n = 
+    scanl_fix 
+      (fun p => recode_rwnaf_odd_bv_scanl_fix_body wsize (snd p))
+      (fun p => fst p)
+      (fun p => (drop _ 368 16 (snd p)))
+      nw (recode_rwnaf_odd_bv_scanl_fix_body wsize n).
+
+    induction nw; intros.
+    lia.
+    unfold recode_rwnaf_odd_bv.
+    fold recode_rwnaf_odd_bv.
+    unfold scanl_fix.
+    fold scanl_fix.
+    destruct nw.
+    reflexivity.
+
+    f_equal.
+    eapply IHnw.
+    lia.
+
+  Qed.
+
   (* Here, we posit abstract EC curve parameters.  We could probably
      take the actual values for P-384 instead.
    *)
@@ -1638,15 +1676,6 @@ Feq
 
   Qed.
 
-  Fixpoint recode_rwnaf_odd_bv (wsize : nat)(nw : nat)(n : bitvector 384) :=
-    match nw with
-    | 0%nat => (drop _ 368 16 n) :: List.nil
-    | S nw' =>
-      let k_i := (bvSub _ (bvURem _ n (bvMul _ (bvNat _ 2) (shiftL _ _ false (bvNat _ 1%nat) wsize))) (shiftL _ _ false (bvNat _ 1%nat) wsize)) in
-      let n' := (shiftR _ _ false (bvSub _ n k_i) wsize) in
-      (drop _ 368 16 k_i) :: (recode_rwnaf_odd_bv wsize nw' n')
-    end.
-
   Local Opaque sbvToInt.
 
   Theorem pow_add_lt : forall k x a b : Z,
@@ -2214,36 +2243,6 @@ Feq
     lia.
   Qed.
 
-
-  Definition recode_rwnaf_odd_bv_scanl_fix_body wsize n :=
-      let k_i := (bvSub _ (bvURem _ n (bvMul _ (bvNat _ 2) (shiftL _ _ false (bvNat _ 1%nat) wsize))) (shiftL _ _ false (bvNat _ 1%nat) wsize)) in
-      let n' := (shiftR _ _ false (bvSub _ n k_i) wsize) in
-      ((drop _ 368 16 k_i), n').
-
-  Theorem recode_rwnaf_odd_bv_scanl_equiv : forall wsize nw n,
-    nw > 0 ->
-    recode_rwnaf_odd_bv wsize nw n = 
-    scanl_fix 
-      (fun p => recode_rwnaf_odd_bv_scanl_fix_body wsize (snd p))
-      (fun p => fst p)
-      (fun p => (drop _ 368 16 (snd p)))
-      nw (recode_rwnaf_odd_bv_scanl_fix_body wsize n).
-
-    induction nw; intros.
-    lia.
-    unfold recode_rwnaf_odd_bv.
-    fold recode_rwnaf_odd_bv.
-    unfold scanl_fix.
-    fold scanl_fix.
-    destruct nw.
-    reflexivity.
-
-    f_equal.
-    eapply IHnw.
-    lia.
-
-  Qed.
-
   Theorem recode_rwnaf_odd_bv_scanl_fix_body_fiat_equiv : forall wsize z, 
     recode_rwnaf_odd_bv_scanl_fix_body wsize z = 
     mul_scalar_rwnaf_odd_loop_body_gen wsize z.
@@ -2535,6 +2534,7 @@ Feq
     assert (List.length ls = n). (* because list length and n are small*)
     apply bvEq_eq in H1.
     rewrite Znat.Nat2Z.inj_add in H1.
+
     rewrite intToBv_add_equiv in H1.
     apply bvAdd_same_l_if in H1.
     apply intToBv_eq_pos in H1.
@@ -2781,6 +2781,7 @@ Theorem ct_abs_equiv : forall  b1 b2,
     trivial.
     lia.
     lia.
+    lia.
 
     (* negative *)
     rewrite shiftR_all_neg in Heqis_neg.
@@ -2790,6 +2791,7 @@ Theorem ct_abs_equiv : forall  b1 b2,
     rewrite twos_complement_equiv.
     rewrite H.
     apply Pos2Z.opp_neg.
+    lia.
     lia.
     lia.
     lia.
@@ -3200,6 +3202,7 @@ Theorem ct_abs_equiv : forall  b1 b2,
     
     (* shiftR produces all 0 *)
     rewrite shiftR_all_nonneg; trivial.
+    lia.
 
     match goal with
     | [|- jac_eq (fromPoint (List.nth ?a _ _)) (seqToProd (List.nth ?b _ _))] =>
@@ -3506,6 +3509,7 @@ Theorem ct_abs_equiv : forall  b1 b2,
     apply Z.div2_spec.
     lia.
     apply sbvToInt_intToBv_id.
+    lia.
     (* windows are within range of word *)
     intuition idtac.
     eapply Z.lt_le_incl.
@@ -3541,6 +3545,7 @@ Theorem ct_abs_equiv : forall  b1 b2,
     trivial.
     
     apply sbvToInt_intToBv_id.
+    lia.
      intuition idtac.
     eapply Z.lt_le_incl.
     eapply Z.le_lt_trans; [idtac | apply recode_rwnaf_bound_nth].
@@ -3592,6 +3597,7 @@ Theorem ct_abs_equiv : forall  b1 b2,
     rewrite H1.
     rewrite sbvToInt_bvToInt_id.
     reflexivity.
+    lia.
     eapply forall2_eq.
     reflexivity.
 
@@ -3705,8 +3711,6 @@ Theorem ct_abs_equiv : forall  b1 b2,
   Qed.
 
   Print Assumptions point_mul_correct.
-
-  Locate bvToInt.
 
 
 
