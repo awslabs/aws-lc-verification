@@ -35,7 +35,15 @@ Require Import CryptolToCoq.SAWCoreBitvectorsZifyU64.
 *)
 
 (*
-Axioms on which the main proof depend. If you prove something in this file, remove it from the list. 
+Axioms on which the main proof depend. 
+We can't do anything about these:
+
+holds_up_to_3 : forall P : nat -> Prop, P 0%nat -> P 1%nat -> P 2 -> P 3 -> forall n : nat, P n
+error : forall a : Type, Inhabited a -> string -> a
+Eqdep.Eq_rect_eq.eq_rect_eq : forall (U : Type) (p : U) (Q : U -> Type) (x : Q p) (h : p = p), x = eq_rect p Q x p h
+JMeq.JMeq_eq : forall (A : Type) (x y : A), JMeq.JMeq x y -> x = y
+
+If you prove something in this file, remove it from the list. 
 
 Axioms:
 sbvToInt_sign_extend_equiv
@@ -52,35 +60,20 @@ sbvToInt_bvSub_equiv
     (- 2 ^ BinInt.Z.of_nat (Nat.pred (Nat.pred n)) <= sbvToInt n v2 < 2 ^ BinInt.Z.of_nat (Nat.pred (Nat.pred n)))%Z ->
     sbvToInt n (bvSub n v1 v2) = (sbvToInt n v1 - sbvToInt n v2)%Z
 sbvToInt_bvNeg_equiv : forall (n : Nat) (v : bitvector n), sbvToInt n (bvNeg n v) = (- sbvToInt n v)%Z
-sbvToInt_0_replicate : forall (n : Nat) (b2 : bitvector n), sbvToInt n b2 = 0%Z -> b2 = replicate n bool 0%bool
-sawAt_nth_order_equiv : forall (A : Type) (inh : Inhabited A) (n1 n2 : nat) (v : Vec n1 A) (ltpf : n2 < n1), sawAt n1 A v n2 = nth_order v ltpf
-sawAt_3_equiv
-  : forall (A : Type) (inh : Inhabited A) (v : t A 3), cons A (sawAt 3 A v 0%nat) 2 (cons A (sawAt 3 A v 1%nat) 1 (cons A (sawAt 3 A v 2) 0 (nil A))) = v
-rep_false_eq_int_bv : forall n : Nat, replicate n bool 0%bool = intToBv n 0
-nth_order_shiftR_all_eq
-  : forall (A : Type) (n2 len : nat) (v : Vec len A) (nlt : n2 < len) (zlt : 0 < len) (a : A), nth_order (shiftR len A a v n2) nlt = nth_order v zlt
-nth_order_drop_eq
-  : forall (A : Type) (inh : Inhabited A) (n1 n2 : Nat) (v : Vec (addNat n1 n2) A) (n' : Nat) (lt1 : addNat n1 n' < addNat n1 n2) (lt2 : n' < n2),
-    nth_order (drop A n1 n2 v) lt2 = nth_order v lt1
-nth_order_bvAnd_l_eq : forall (n : nat) (v : bitvector n) (n' : nat) (plt : n' < n), n' < Nat.pred n -> nth_order (bvAnd n v (intToBv n 1)) plt = 0%bool
-nth_order_bvAnd_eq : forall (n : nat) (v : bitvector n) (plt : Nat.pred n < n), nth_order (bvAnd n v (intToBv n 1)) plt = nth_order v plt
-nth_order_append_l_eq
-  : forall (A : Type) (inh : Inhabited A) (n1 : nat) (v1 : Vec n1 A) (n2 : nat) (v2 : Vec n2 A) (n' : nat) (nlt2 : n' < addNat n2 n1) (nlt1 : n' < n2),
-    nth_order (append n2 n1 A v2 v1) nlt2 = nth_order v2 nlt1
-nth_order_append_eq
-  : forall (A : Type) (inh : Inhabited A) (n1 : nat) (v1 : Vec n1 A) (n2 : nat) (v2 : Vec n2 A) (n' : Nat) (nlt2 : addNat n' n2 < addNat n2 n1)
-      (nlt1 : n' < n1), nth_order (append n2 n1 A v2 v1) nlt2 = nth_order v1 nlt1
-nth_order_0 : forall (n1 n2 : nat) (nlt : n2 < n1), nth_order (intToBv n1 0) nlt = 0%bool
-neg_sign_bit_set : forall (n : nat) (v : VectorDef.t Bool n) (h : Bool), (sbvToInt (S n) (VectorDef.cons Bool h n v) < 0)%Z -> h = 1%bool
-intToBv_eq_pos : forall (n : nat) (x y : Z), (0 <= x < 2 ^ BinInt.Z.of_nat n)%Z -> (0 <= y < 2 ^ BinInt.Z.of_nat n)%Z -> intToBv n x = intToBv n y -> x = y
+
+
 intToBv_add_equiv : forall (n : Nat) (x y : Z), intToBv n (x + y) = bvAdd n (intToBv n x) (intToBv n y)
-intToBv_0_S : forall n : nat, intToBv (S n) 0 = cons bool 0%bool n (intToBv n 0)
-holds_up_to_3 : forall P : nat -> Prop, P 0%nat -> P 1%nat -> P 2 -> P 3 -> forall n : nat, P n
-error : forall a : Type, Inhabited a -> string -> a
-Eqdep.Eq_rect_eq.eq_rect_eq : forall (U : Type) (p : U) (Q : U -> Type) (x : Q p) (h : p = p), x = eq_rect p Q x p h
+adcB_0_1_equiv : forall (n : nat) (a : spec.BITS n), adcB 1 (spec.fromZ 0) a = adcB 0 (spec.fromZ 1) a
+bvToInt_bvAdd_small_equiv
+  : forall (n : nat) (v1 v2 : bitvector n),
+    (0 <= bvToInt n v1 + sbvToInt n v2 < 2 ^ BinInt.Z.of_nat n)%Z -> bvToInt n (bvAdd n v1 v2) = (bvToInt n v1 + sbvToInt n v2)%Z
+
+
+
 ecOr_0_if
   : forall (n : nat) (x y : bitvector n),
     ecOr (bitvector n) (PLogicWord n) x y = replicate n bool 0%bool -> x = replicate n bool 0%bool /\ y = replicate n bool 0%bool
+
 ecNotEq_vec_bv_true
   : forall (n1 n2 : nat) (v1 v2 : Vec n1 (bitvector n2)), v1 <> v2 -> ecNotEq (Vec n1 (bitvector n2)) (PEqVec n1 (bitvector n2) (PEqWord n2)) v1 v2 = 1%bool
 ecNotEq_vec_bv_false : forall (n1 n2 : nat) (v : Vec n1 (bitvector n2)), ecNotEq (Vec n1 (bitvector n2)) (PEqVec n1 (bitvector n2) (PEqWord n2)) v v = 0%bool
@@ -103,9 +96,6 @@ bvToInt_sbvToInt_range : forall (n : Nat) (v : bitvector n) (x : Z), (bvToInt n 
 bvToInt_sbvToInt_equiv : forall (n : nat) (v : bitvector n), n > 0 -> (bvToInt n v < 2 ^ BinInt.Z.of_nat (Nat.pred n))%Z -> sbvToInt n v = bvToInt n v
 bvToInt_nonneg : forall (n : Nat) (v : bitvector n), (0 <= bvToInt n v)%Z
 bvToInt_intToBv_id : forall (n : Nat) (v : Z), bvToInt n (intToBv n v) = v
-bvToInt_bvAdd_small_equiv
-  : forall (n : nat) (v1 v2 : bitvector n),
-    (0 <= bvToInt n v1 + sbvToInt n v2 < 2 ^ BinInt.Z.of_nat n)%Z -> bvToInt n (bvAdd n v1 v2) = (bvToInt n v1 + sbvToInt n v2)%Z
 bvToInt_bound : forall (n : Nat) (v : bitvector n), (0 <= bvToInt n v < 2 ^ BinInt.Z.of_nat n)%Z
 bvToBits_eq_inv : forall (n : nat) (b1 b2 : bitvector n), bvToBITS b1 = bvToBITS b2 -> b1 = b2
 bvToBITS_z_equiv : forall (n : Nat) (z : Z), bvToBITS (intToBv n z) = spec.fromZ z
@@ -125,8 +115,8 @@ bvEq_false_ne : forall (n : nat) (v1 v2 : bitvector n), bvEq n v1 v2 = 0%bool ->
 bits_cons_decomp : forall (n : nat) (v : spec.BITS (S n)), exists (b : bool) (v' : spec.BITS n), v = spec.consB b v'
 bitsToBv_cons_eq : forall (n : nat) (x : spec.BITS n) (h : Bool), VectorDef.cons Bool h n (bitsToBv x) = bitsToBv (spec.consB h x)
 append_nil_eq : forall (A : Type) (inh : Inhabited A) (n : nat) (v : Vec n A), append 0%nat n A (nil A) v = v
-adcB_0_1_equiv : forall (n : nat) (a : spec.BITS n), adcB 1 (spec.fromZ 0) a = adcB 0 (spec.fromZ 1) a
-JMeq.JMeq_eq : forall (A : Type) (x y : A), JMeq.JMeq x y -> x = y
+
+
 
 *)
 
@@ -190,6 +180,34 @@ Theorem Vec_S_cons : forall (A : Type) n (v : Vec (S n) A),
 Qed.
 
 
+Theorem vec_0_eq : forall (A : Type)(v1 v2 : Vector.t A 0%nat),
+  v1 = v2.
+
+  intros.
+  specialize (Vec_0_nil v1); intros.
+  specialize (Vec_0_nil v2); intros.
+  subst.
+  reflexivity.
+
+Qed.
+
+
+Theorem eq_if_to_list_eq : forall (A : Type) n (v1 v2 : Vector.t A n),
+  to_list v1 = to_list v2 ->
+  v1 = v2.
+
+  induction n; intros; simpl in *.
+  eapply vec_0_eq.
+  destruct (Vec_S_cons v1). destruct H0. subst.
+  destruct (Vec_S_cons v2). destruct H0. subst.
+  repeat rewrite to_list_cons in H.
+  inversion H; clear H; subst.
+  f_equal.
+  eapply IHn.
+  eauto.
+
+Qed.
+
 Theorem empty_Vec_eq : forall (A : Type)(v1 v2 : Vec O A),
   v1 = v2.
 
@@ -223,15 +241,6 @@ Fixpoint toN_excl_int n :=
 Definition toN_int n :=
   (toN_excl_int n) ++ ((Z.of_nat n) :: List.nil).
 
-Theorem ecFromTo_0_n_equiv : forall n,
-  to_list (ecFromTo 0 (TCNum n) Integer PLiteralInteger) = 
-  (toN_int n).
-
-  intros.
-  unfold ecFromTo, toN_int.
-  simpl.
-
-Admitted.
 
 Fixpoint toN_excl_bv s n :=
   match n with 
@@ -242,13 +251,6 @@ Fixpoint toN_excl_bv s n :=
 Definition toN_bv s n :=
   (toN_excl_bv s n) ++ ((bvNat s n) :: List.nil).
 
-Theorem ecFromTo_0_n_bv_excl_equiv : forall (s : nat) n,
-  to_list (ecFromTo 0 (TCNum n) (CryptolPrimitivesForSAWCore.seq (TCNum s) Bool)
-           (PLiteralSeqBool (TCNum s))) = 
-  (toN_excl_bv s (S n)).
-
-Admitted.
-
 Theorem ecFromTo_0_n_bv_equiv : forall (s : nat) n,
   to_list (ecFromTo 0 (TCNum n) (CryptolPrimitivesForSAWCore.seq (TCNum s) Bool)
            (PLiteralSeqBool (TCNum s))) = 
@@ -256,11 +258,6 @@ Theorem ecFromTo_0_n_bv_equiv : forall (s : nat) n,
 
 Admitted.
 
-Theorem ecFromTo_m_n_equiv : forall m n,
-  to_list (ecFromTo (TCNum m) (TCNum n) Integer PLiteralInteger) = 
-  (List.map (Z.add (Z.of_nat m)) (toN_int (n-m))).
-
-Admitted.
 
 Theorem toList_ecDrop_equiv : forall A (inh : Inhabited A) n m (v : Vec (addNat n m) A),
   to_list (ecDrop n m _ v) = skipn n (to_list v).
@@ -637,30 +634,6 @@ Theorem scanl_ext : forall (A B : Type)(f1 f2 : A -> B -> A) ls a,
 
 Qed.
 
-Theorem sawAt_3_equiv : forall A (inh : Inhabited A) (v : Vector.t A 3),
-  Vector.cons _ (sawAt 3%nat A v 0%nat) _
-    (Vector.cons _ (sawAt 3%nat A v 1%nat) _
-      (Vector.cons _ (sawAt 3%nat A v 2%nat) _ (Vector.nil A)))
-  = v.
-Admitted.
-
-Theorem sawAt_3_equiv_gen : forall A (inh : Inhabited A) (v1 v2 : Vector.t A 3),
-  v1 = v2 ->
-  Vector.cons _ (sawAt 3%nat A v1 0%nat) _
-    (Vector.cons _ (sawAt 3%nat A v1 1%nat) _
-      (Vector.cons _ (sawAt 3%nat A v1 2%nat) _ (Vector.nil A)))
-  = v2.
-  
-  intros.
-  subst.
-  apply sawAt_3_equiv.
-
-Qed.
-
-Theorem ecFoldl_foldl_equiv : forall (A B : Type)(inhB : Inhabited B)(f : A -> B -> A) n ls a,
-    ecFoldl (TCNum n) _ _ f a ls = fold_left f (to_list ls) a.
-
-Admitted.
 
 Theorem toList_ecReverse_equiv : forall (A : Type)(inh : Inhabited A) n (ls : Vec n A),
   to_list (ecReverse (TCNum n) _ ls) = rev (to_list ls).
@@ -1094,42 +1067,12 @@ Theorem append_0_320_56 : forall n3 (v : Vec n3 _),
 
 Admitted.
 
-Theorem bvEq_nth_order : forall n (v1 v2 : Vec n _),
-  bvEq _ v1 v2 = true ->
-  forall n' (pf : (n' < n)%nat),
-  nth_order v1 pf = nth_order v2 pf.
-Admitted.
-
-Theorem nth_order_append_eq : forall (A : Type)(inh : Inhabited A) n1 (v1 : Vec n1 A) 
-  n2 (v2 : Vec n2 A)  n' (nlt2 : (addNat n' n2 < addNat n2 n1)%nat) (nlt1 : (n' < n1)%nat),
-  nth_order (append v2 v1) nlt2 = nth_order v1 nlt1.
-Admitted.
-
-Theorem nth_order_append_l_eq : forall (A : Type)(inh : Inhabited A) n1 (v1 : Vec n1 A) 
-  n2 (v2 : Vec n2 A)  n' (nlt2 : (n' < addNat n2 n1)%nat) (nlt1 : (n' < n2)%nat),
-  nth_order (append v2 v1) nlt2 = nth_order v2 nlt1.
-Admitted.
-
 Theorem nth_order_append_r_eq : forall (A : Type)(inh : Inhabited A) n1 (v1 : Vec n1 A) 
   n2 (v2 : Vec n2 A)  n' (nlt2 : (n' < addNat n2 n1)%nat) (nlt1 : (n'-n2 < n1)%nat),
   (n' >= n2)%nat ->
   nth_order (append v2 v1) nlt2 = nth_order v1 nlt1.
 Admitted.
 
-Theorem nth_order_drop_eq : forall (A : Type)(inh : Inhabited A) n1 n2 (v : Vec (addNat n1 n2) A)
-  n' (lt1 : (addNat n1 n' < addNat n1 n2)%nat)(lt2 : (n' < n2)%nat),
-  nth_order (drop _ n1 n2 v) lt2 = nth_order v lt1.
-
-Admitted.
-
-Theorem nth_order_bvAnd_eq : forall n (v : Vec n _)(plt : (pred n < n)%nat),
-  nth_order (bvAnd v (intToBv n 1)) plt = nth_order v plt.
-Admitted.
-
-Theorem nth_order_bvAnd_l_eq : forall n (v : Vec n _) n' (plt : (n' < n)%nat),
-  (n' < pred n)%nat ->
-  nth_order (bvAnd v (intToBv n 1)) plt = false.
-Admitted.
 
 Theorem nth_order_ext : forall (A : Type) n1 n2 (v : Vec n1 A)(lt1 lt2 : (n2 < n1)%nat),
   nth_order v lt1 = nth_order v lt2.
@@ -1140,16 +1083,6 @@ Theorem nth_order_ext : forall (A : Type) n1 n2 (v : Vec n1 A)(lt1 lt2 : (n2 < n
   apply Fin.of_nat_ext.
 Qed.
 
-Theorem nth_order_0 : forall n1 n2 (nlt : (n2 < n1)%nat),
-  nth_order (intToBv n1 0) nlt = false.
-Admitted.
-
-Theorem bvEq_false_ne : forall n (v1 v2 : Vec n _ ),
-  bvEq _ v1 v2 = false -> 
-  exists n' (nlt : (n' < n)%nat),
-  nth_order v1 nlt <> nth_order v2 nlt.
-
-Admitted.
 
 Theorem ne_false_impl_true : forall a,
   a <> false ->   
@@ -1160,11 +1093,6 @@ Theorem ne_false_impl_true : forall a,
   intuition idtac.
 
 Qed.
-
-Theorem bvToNat_toZ_equiv : forall n x,
-  (BinInt.Z.of_nat (bvToNat n x)) = bvToInt n x.
-Admitted.
-
 
 
 Theorem ecEq_bv_true : forall n v,  
@@ -1187,70 +1115,6 @@ Theorem ecEq_bv_false : forall n v1 v2,
   intuition.
 Qed.
 
-Theorem ecEq_vec_bv_true : forall n1 n2 v,
-  (ecEq (Vec n1 (bitvector n2)) (PEqVec n1 (bitvector n2) (PEqWord n2)) v v) = true.
-
-  intros.
-  unfold ecEq.
-  simpl.
-  unfold vecEq.
-
-Admitted.
-
-Theorem ecEq_vec_bv_false : forall n1 n2 v1 v2,
-  v1 <> v2 ->
-  (ecEq (Vec n1 (bitvector n2)) (PEqVec n1 (bitvector n2) (PEqWord n2)) v1 v2) = false.
-
-Admitted.
-
-Theorem ecNotEq_vec_bv_false : forall n1 n2 v,
-  (ecNotEq (Vec n1 (bitvector n2)) (PEqVec n1 (bitvector n2) (PEqWord n2)) v v) = false.
-
-    intros.
-  unfold ecNotEq.
-  
-
-Admitted.
-
-Theorem ecNotEq_vec_bv_true : forall n1 n2 v1 v2,
-  v1 <> v2 ->
-  (ecNotEq (Vec n1 (bitvector n2)) (PEqVec n1 (bitvector n2) (PEqWord n2)) v1 v2) = true.
-Admitted.
-
-Theorem rep_false_eq_int_bv : forall n, (replicate n _ false) = (intToBv n 0).
-
-Admitted.
-
-Theorem ecOr_0_if : forall n x y, 
-    ecOr (bitvector n) (PLogicWord n) x y = (replicate n _ false) ->
-    (x = (replicate n _ false) /\ y = (replicate n _ false)).
-Admitted.
-
-Theorem fold_or_impl_0 : forall (n1 n2 : nat) x y,
-  ecFoldl n1 (CryptolPrimitivesForSAWCore.seq n2 Bool) (CryptolPrimitivesForSAWCore.seq n2 Bool) (ecOr (CryptolPrimitivesForSAWCore.seq n2 Bool) (PLogicSeqBool n2))
-     y x = intToBv n2 0 ->
-  (x = (replicate n1 _ (replicate n2 _ false)) /\ y = (replicate n2 _ false)).
-
-  induction n1; intros; simpl in *.
-  unfold replicate. simpl in *.
-  generalize H.
-  eapply (case0 (fun x => foldl (bitvector n2) (bitvector n2) 0%nat (ecOr (bitvector n2) (PLogicWord n2)) y x = intToBv n2 0 ->
-x = @Vector.nil (Vec n2 bool) /\ y = gen n2 bool (fun _ : Nat => false))); eauto; intuition.
-  simpl in *; subst.
-  rewrite <- rep_false_eq_int_bv.
-  trivial.
-
-  unfold replicate in *. simpl.
-  generalize H.
-  eapply (caseS' x); intuition;
-  simpl in *;
-  edestruct IHn1; eauto;
-  subst.
-  f_equal.
-  edestruct ecOr_0_if; eauto.
-  edestruct ecOr_0_if; eauto.
-
-Qed.
 
 Theorem scanl_gen_equiv : forall A n f1 f2 z1 x,
   (SAWCoreVectorsAsCoqVectors.scanl Integer A n
@@ -1381,19 +1245,6 @@ Theorem mod_drop_equiv : forall s1 m a,
 Admitted.
 
 
-Theorem bvToInt_sbvToInt_equiv : forall n v,
-  (n > 0)%nat ->
-  (bvToInt n v < Z.pow 2 (Z.of_nat (pred n)))%Z ->
-  (sbvToInt n v = bvToInt n v).
-
-  intros.
-  unfold sbvToInt, bvToInt, spec.toZ, spec.toPosZ.
-  destruct n. lia.
-  case_eq (spec.splitmsb (bvToBITS v)); intros.
-  destruct b0.
-
-Admitted.
-
 Theorem shiftR_bvToInt_nonneg : 
   forall n s x,
   (s > 0)%nat ->
@@ -1418,39 +1269,12 @@ Theorem sbvToInt_bvSub_equiv : forall n (v1 v2 : Vec n _),
 
 Admitted.
 
-Theorem bvToInt_intToBv_id : forall n v,
-  bvToInt n (intToBv n v) = v.
-
-Admitted.
-
-Theorem sbvToInt_bvURem_equiv : forall n v1 v2,
-  (n > 0)%nat ->
-  (0 < bvToInt _ v2)%Z ->
-  (bvToInt _ v2 <= Z.pow 2 (Z.of_nat (pred n)))%Z ->
-  sbvToInt n (bvURem _ v1 v2) = Z.modulo (bvToInt _ v1) (bvToInt _ v2).
-
-  intros.
-  Local Transparent bvURem.
-  unfold bvURem.
-  destruct n. lia.
-  rewrite bvToInt_sbvToInt_equiv.
-  apply bvToInt_intToBv_id.
-  trivial.
-  rewrite bvToInt_intToBv_id.
-  eapply Z.lt_le_trans.
-  eapply Z.mod_pos_bound.
-  trivial.
-  trivial.
-Qed.
 
 Theorem bvToInt_drop_le : forall n1 n2 v,
   (bvToInt _ (drop _ n1 n2 v) <= bvToInt _ v)%Z.
 
 Admitted.
 
-Theorem bvMul_2_shiftl_equiv : forall n v,
-  bvMul n (intToBv _ 2) v = shiftL _ _ false v 1.
-Admitted.
 
 Theorem shiftL1_shiftL : forall (A : Type) n (b : A) v n1,
   (shiftL1 n _ b (shiftL n _ b v n1)) = shiftL n _ b v (S n1).
@@ -1483,21 +1307,12 @@ Theorem shiftL_shiftL : forall (A : Type) n (b : A) v n1 n2,
 
 Qed.
 
-Theorem bvToInt_shiftL_1_equiv : forall n s,
-  (s < n)%nat ->
-  bvToInt n (shiftL _ _ false (intToBv _ 1) s) = 
-  Z.shiftl 1 (Z.of_nat s).
-Admitted.
-
 Theorem bvToInt_bvSub_nonneg_equiv : forall n v1 v2,
   (bvToInt _ v2 <= bvToInt _ v1)%Z ->
   (bvToInt n (bvSub v1 v2)) =
   ((bvToInt _ v1) - (bvToInt _ v2))%Z.
 Admitted.
 
-Theorem bvToBITS_bitsToBv_id : forall n v,
-  bvToBITS (@bitsToBv n v) = v.
-Admitted.
 
 Theorem toZ_toPosZ_equiv : forall n (v : spec.BITS (S n)),
   (spec.toZ v mod 2 ^ Z.of_nat (S n) = spec.toPosZ v mod 2 ^ Z.of_nat (S n))%Z.
@@ -1534,11 +1349,6 @@ Theorem bvToInt_bvAdd_small_equiv : forall n (v1 v2 : bitvector n),
   (* empty bit vectors *)
   admit.
 
-  Local Transparent bvAdd operations.adcB.
-  unfold bvAdd.
-  rewrite bvToBITS_bitsToBv_id.
-  apply toPosZ_addB_equiv.
-  apply H.
 
 Admitted.
 
@@ -1561,16 +1371,6 @@ Theorem bvToInt_bvSub_small_equiv : forall n v1 v2,
   trivial.
 Qed.
 
-
-Theorem bvToInt_shiftR_lt : forall n v s b,
-  ((bvToInt n v) < (Z.pow 2 (Z.of_nat s + b)))%Z ->
-  ((bvToInt n (shiftR _ _ false v s)) < Z.pow 2 b)%Z.
-
-Admitted.
-
-Theorem bvToInt_nonneg : forall n v,
-  (0 <= bvToInt n v)%Z.
-Admitted.
 
 Theorem forall2_symm : forall (A B : Type)(P : B -> A -> Prop) lsa lsb,
   List.Forall2 (fun a b => P b a) lsa lsb ->
@@ -1622,10 +1422,6 @@ Theorem forall2_map_eq : forall (A B : Type)(f : B -> A) lsa lsb,
 
 Qed.
 
-Theorem bvOr_bvToInt_equiv : forall n x y,
-  bvToInt n (bvOr x y) =
-  BinInt.Z.lor (bvToInt n x) (bvToInt n y).
-Admitted.
 
 Theorem bvSShr_intToBv_equiv : forall n z v,
   bvSShr _ (intToBv (S n) z) v = intToBv (S n) (Z.shiftr z (Z.of_nat v)).
@@ -1792,18 +1588,6 @@ Theorem Forall2_rev : forall (A B : Type)(P : A -> B -> Prop) ls1 ls2,
 
 Qed.
 
-Theorem bvToNat_Z_to_nat_equiv : forall n x z,
-  (0 <= z)%Z ->
-  sbvToInt n x = z ->
-  bvToNat n x = Z.to_nat z.
-
-Admitted.
-
-Theorem bvSShr_Z_shiftr_equiv : forall n x1 x2 y1 y2,
-  Z.of_nat y1 = y2 ->
-  sbvToInt _ x1 = x2 ->
-  sbvToInt _ (bvSShr n x1 y1) = Z.shiftr x2 y2.
-Admitted.
 
 Theorem sbvToInt_shiftR_equiv:
   forall [n s : nat] x,
@@ -1813,25 +1597,6 @@ Theorem sbvToInt_shiftR_equiv:
 
 Admitted.
 
-
-Theorem bvToInt_sbvToInt_range : forall n v x,
-  (bvToInt n v < 2^(1 + x) ->
-  -2^x <= sbvToInt _ v < 2^x)%Z.
-Admitted.
-
-Theorem bvToInt_shiftR_equiv
-   : forall (n s : nat) (x : Vector.t bool n),
-     (s >= 0)%nat ->
-     bvToInt n (shiftR n bool false x s) =
-     BinInt.Z.shiftr (bvToInt n x)
-       (BinInt.Z.of_nat s).
-
-Admitted.
-
-Theorem bvToInt_bound : forall n v,
-    (0 <= bvToInt n v < 2^(Z.of_nat n))%Z.
-
-Admitted.
 
 Theorem bvXor_cons : forall n x y u v,
   bvXor (S n) (Vector.cons u x) (Vector.cons v y) = 
@@ -1850,11 +1615,6 @@ Theorem bvEq_cons : forall n x y u v,
   reflexivity.
 Qed.
 
-Theorem intToBv_0_S : forall n,
-  intToBv (S n) 0 = Vector.cons false (intToBv n 0).
-
- Admitted.
-
 (*
 Theorem intToBv_add_equiv_64 : forall x y,
   intToBv 64%nat (x + y) = bvAdd 64%nat (intToBv 64%nat x) (intToBv 64%nat y).
@@ -1864,22 +1624,6 @@ Theorem intToBv_add_equiv_64 : forall x y,
 
 Qed.
 *)
-
-Theorem intToBv_add_equiv : forall n x y,
-  intToBv n (x + y) = bvAdd n (intToBv n x) (intToBv n y).
-
-Admitted.
-
-Theorem intToBv_eq_pos : forall n x y,
-  (0 <= x < 2^(Z.of_nat n))%Z ->
-  (0<= y < 2^(Z.of_nat n))%Z ->
-  intToBv n x = intToBv n y ->
-  x = y.
-Admitted.
-
-Theorem bvToNat_lt_word : forall n x,
-    (Z.of_nat (bvToNat n x)) < 2^(Z.of_nat n).
-Admitted.
 
 (*
 Theorem sign_extend_equiv : forall n1 n2 z,
@@ -1902,11 +1646,6 @@ Theorem sbvToInt_sign_extend_equiv : forall n1 n2 x,
 sbvToInt n1 x.
 Admitted.
 
-Theorem sbvToInt_0_replicate: forall n b2,
-    sbvToInt n b2 = 0%Z ->
-    b2 = replicate _ _ false.
-Admitted.
-
 Theorem bvNeg_replicate_0 : forall n,
     bvNeg _ (replicate n bool false) = replicate n bool false.
 Admitted.
@@ -1914,13 +1653,6 @@ Admitted.
 Theorem shiftR_small_nonneg : forall n1 n2 v,
   (0 <= sbvToInt _ v < 2^(Z.of_nat n2))%Z ->
   (shiftR n1 bool false v n2) = replicate n1 bool false.
-Admitted.
-
-
-
-Theorem bvSShr_all_nonneg : forall n1 v,
-  (0 <= sbvToInt _ v)%Z ->
-  bvSShr n1 v n1 = replicate (S n1) bool false.
 Admitted.
 
 Theorem bvNeg_1_replicate : forall n,
@@ -1987,41 +1719,6 @@ Theorem adcB_1_carry_eq : forall n v,
 Admitted.
 *)
 
-(*
-  rewrite adcB_1_carry_eq_h.
-
-  destruct v.
-  destruct tval.
-  simpl in *.
-  inversion i.
-
-  
-
-
-  simpl in *.
-  unfold spec.zero. spec.copy.
-  simpl.
-  simpl.
-
-  unfold adcB.
-  simpl.
-
-  unfold intToBv.
-
-  unfold intToBv.
-  simpl.
-  repeat rewrite bvToBITS_bitsToBv_id.
-  unfold tuple.nil_tuple.
-  simpl.
-    unfold adcB.
-  simpl.
-  Search bvToBITS bitsToBv.
-
-  Print spec.zero.
-
-Qed.
-
-*)
 
 (* maybe use tuple.tcast and/or spec.getBit?*)
 (*
@@ -2088,11 +1785,6 @@ Theorem adcB_0_1_equiv : forall n (a : spec.BITS n),
   (adcB 0 (spec.fromZ 1) a).
 Admitted.
 
-Theorem bvToBITS_z_equiv : forall n z,
-  (bvToBITS (intToBv n z)) = spec.fromZ z.
-Admitted.
-
-Search tuple.tuple_of eq.
 
 Theorem ssr_addn_comm : forall n1 n2, 
   ssrnat.addn n1 n2 = (n2 + n1)%nat.
@@ -2187,15 +1879,6 @@ Qed.
 
 *)
 
-Theorem bvToBITS_xor_eq : forall n v1 v2, 
-  bvToBITS (bvXor n v1 v2) = xorB (bvToBITS v1) (bvToBITS v2).
-
-Admitted.
-
-Theorem bvToBITS_ones_eq : forall n,
-  bvToBITS (replicate n bool true) = spec.ones n.
-
-Admitted.
 
 (*
 
@@ -2215,35 +1898,6 @@ Qed.
 *)
 
 
-Theorem twos_complement_equiv : forall n v,
-    (n > 0)%nat ->
-    sbvToInt n (bvAdd n (bvXor n v (replicate n bool true)) (intToBv n 1)) = Z.opp (sbvToInt _ v).
-
-  intros.
-
-  rewrite <- sbvToInt_bvNeg_equiv.
-  unfold bvNeg.
-  f_equal.
-  Local Transparent bvAdd bvSub sbbB.
-  unfold bvAdd, bvSub, sbbB.
-  simpl.
-  f_equal.
-  repeat rewrite bvToBITS_z_equiv.  
-  rewrite adcB_0_1_equiv.
-  rewrite addBC.
-  f_equal.
-  f_equal.
-  rewrite <- xorBN.
-  rewrite bvToBITS_xor_eq.
-  f_equal.
-  apply bvToBITS_ones_eq.
-Qed.
-
-
-Theorem sawAt_nth_order_equiv : forall (A : Type)(inh : Inhabited A)(n1 n2 : nat)(v : Vec n1 A)(ltpf : (n2 < n1)%nat),
-  @sawAt n1 A inh v n2 = nth_order v ltpf.
-Admitted.
-
 Theorem shiftR_shiftR_eq : forall (A : Type)(n1 n2 len : nat)(v : Vec len A) a,
     shiftR _ _ a (shiftR _ _ a v n1) n2 = shiftR _ _ a v (n1 + n2)%nat.
 Admitted.
@@ -2260,10 +1914,6 @@ Theorem nth_order_shiftR_eq : forall (A : Type)(n1 n2 len : nat)(v : Vec len A) 
 
 Admitted.
 
-Theorem nth_order_shiftR_all_eq : forall (A : Type)(n2 len : nat)(v : Vec len A) (nlt : (n2 < len)%nat)(zlt : (0 < len)%nat) a,
-  nth_order (shiftR _ _ a v n2) nlt = nth_order v zlt.
-
-Admitted.
 
 Theorem sbvToInt_neg_bits_set : forall n wsize b2 n' (ltpf : (n' < n)%nat),
     (n' <= n - wsize)%nat ->
@@ -2282,93 +1932,7 @@ Theorem sbvToInt_z_nth:
   (forall [n' : nat] (nlt : (n' < n)%nat), nth_order v nlt = false) -> sbvToInt n v = 0%Z.
 Admitted.
 
-Theorem bitsToBv_cons_eq : forall n (x : @spec.BITS n) h,
-  VectorDef.cons h (bitsToBv x) =
-  bitsToBv (spec.consB h x).
-Admitted.
 
-Theorem bitsEx : forall (n : nat)(v : bitvector n), 
-  exists y, v = bitsToBv y.
-
-  induction v; intros; simpl in *.
-  exists (@tuple.nil_tuple Bool).
-  reflexivity.
-
-  destruct IHv.
-  subst.
-  exists (spec.consB h x).
-  apply bitsToBv_cons_eq.
-
-Qed.
-
-Theorem bitsToBv_bvToBITS_id : forall (n : nat) (v : bitvector n),
-       bitsToBv (bvToBITS v) = v.
-
-  intros.
-  assert (exists y, v = bitsToBv y).
-  apply bitsEx.
-  destruct H.
-  subst.
-  rewrite bvToBITS_bitsToBv_id.
-  reflexivity.
-  
-Qed.
-
-Theorem bvAdd_replicate_0 : forall n v,
-  bvAdd _ (replicate n bool false) v = v.
-
-  intros.
-  unfold bvAdd.
-  Search replicate.
-  Search adcB.
-  Search bvToBITS.
-  Search replicate.
-  rewrite rep_false_eq_int_bv.
-  Search bvToBITS.
-  replace (intToBv n 0) with (@bitsToBv n (spec.fromNat 0)).
-  rewrite bvToBITS_bitsToBv_id.
-  rewrite add0B.
-  apply bitsToBv_bvToBITS_id.
-  unfold intToBv.
-  f_equal.
-  rewrite fromNat0.
-  reflexivity.
- 
-Qed.
-
-
-Theorem bits_cons_decomp : forall n (v : spec.BITS (S n)),
-  exists b, exists v',
-  v = spec.consB b v'.
-
-  intros.
-
-  Search tuple.thead.
-
-  exists (tuple.thead v).
-  exists (tuple.behead_tuple v).
- 
-Admitted.
-
-Theorem bitsToBv_eq_inv : forall n (b1 b2 : spec.BITS n),
-  bitsToBv b1 = bitsToBv b2 ->
-  b1 = b2.
-
-  induction n; intros; simpl in *.
-  apply trivialBits.
-
-  destruct (bits_cons_decomp b1).
-  destruct H0.
-  destruct (bits_cons_decomp b2).
-  destruct H1.
-  subst.
-  repeat rewrite <- bitsToBv_cons_eq in H.
-  apply cons_inj in H.
-  intuition; subst.
-  f_equal.
-  eauto.
-
-Qed.
 
 (*
 Theorem bvToBits_eq_inv : forall n (b1 b2 : bitvector n),
@@ -2394,11 +1958,6 @@ Theorem bvToBits_eq_inv : forall n (b1 b2 : bitvector n),
 
 Qed.
 *)
-Theorem bvToBits_eq_inv : forall n (b1 b2 : bitvector n),
-  bvToBITS b1 = bvToBITS b2 ->
-  b1 = b2.
-
-Admitted.
 
 Theorem addb_same_l : forall n (x y1 y2 : spec.BITS n),
   y1 = y2 ->
@@ -2423,29 +1982,6 @@ Theorem addb_same_l_if : forall n (x y1 y2 : spec.BITS n),
 
 Qed.
 
-Theorem bvAdd_same_l_if : forall n x y1 y2,
-  (bvAdd n x y1) = (bvAdd n x y2) ->
-  y1 = y2.
-
-  intros.
-  unfold bvAdd in *.
-  apply bitsToBv_eq_inv in H.
-  apply addb_same_l_if in H.
-  eapply bvToBits_eq_inv; eauto.
-
-Qed.
-
-Theorem vec_0_eq : forall (A : Type)(v1 v2 : Vector.t A 0%nat),
-  v1 = v2.
-
-  intros.
-  specialize (Vec_0_nil v1); intros.
-  specialize (Vec_0_nil v2); intros.
-  subst.
-  reflexivity.
-
-Qed.
-
 Theorem zipWith_cons : forall (A B C: Type)(inha : Inhabited A)(inhb : Inhabited B) f n (v1 : Vec n A)(v2 : Vec n B) a b,
   zipWith A B C f _ (Vector.cons a v1) (Vector.cons b v2) = Vector.cons (f a b) (zipWith A B C f _ v1 v2).
 
@@ -2453,6 +1989,7 @@ Theorem zipWith_cons : forall (A B C: Type)(inha : Inhabited A)(inhb : Inhabited
   reflexivity.
 
 Qed.
+
 
 Theorem zipWith_comm : forall (A B : Type)(inha : Inhabited A) (f : A -> A -> B) n (v1 v2 : Vec n A),
   (forall a1 a2, f a1 a2 = f a2 a1) ->
@@ -2481,35 +2018,338 @@ Theorem bvAnd_comm : forall n v1 v2,
 
 Qed.
 
-Theorem bvAnd_replicate_0 : forall n v,
-    bvAnd (replicate n bool false) v = replicate n bool false.
+Theorem bits_cons_decomp : forall (n : nat) (v : spec.BITS (S n)), 
+  exists (b : bool) (v' : spec.BITS n), v = spec.consB b v'.
 
   intros.
-  repeat rewrite rep_false_eq_int_bv.
-  rewrite bvAnd_comm.
-  apply bvAnd_0.
+  exists (tuple.thead v).
+  exists (tuple.behead_tuple v).
+  unfold spec.consB.
+  apply tuple.tuple_eta.
+
+Qed.
+
+
+Definition bitsToBv_ls (ls : list bool) := rev ls.
+
+Definition bitsToBv_ls_0 size := 
+tuple_foldl_dep bool (fun n : Nat => list bool) size
+  (fun (n : Nat) ls (b : bool) => b::ls) (@nil bool).
+
+Theorem tuple_S_ex : forall (A : Type) n (t : tuple.tuple_of (S n) A),
+  exists a (t' : tuple.tuple_of n A),
+  t = tuple.cons_tuple a t'.
+
+  intros.
+  exists (tuple.thead t).
+  exists (tuple.behead_tuple t).
+  apply tuple.tuple_eta.
+
+Qed.
+
+Theorem tuple_head_cons : forall (A: Type) n x (x0 : tuple.tuple_of n A),
+  (tuple.thead (tuple.cons_tuple x x0)) = x.
+
+  intros.
+  apply tuple.theadCons.
+
+Qed.
+
+Theorem tuple_behead_cons : forall (A: Type) n x (x0 : tuple.tuple_of n A),
+  (tuple.behead_tuple (tuple.cons_tuple x x0)) = x0.
+
+  intros.
+  apply tuple.beheadCons.
+
+Qed.
+
+Theorem tuple_tval_cons : forall (A: Type) n x (x0 : tuple.tuple_of n A),
+  (tuple.tval (tuple.cons_tuple x x0)) = x :: (tuple.tval x0).
+
+  intros.
+  reflexivity.
+
+Qed.
+
+Theorem tuple_foldl_dep_conv_const_equiv : forall (A : Type) n (v : tuple.tuple_of n A)
+  (B1 : nat -> Type)(B2 : Type)
+  (conv : forall n, B1 n -> B2) b1
+  (f1 : forall (n : nat), B1 n -> A -> B1 (S n))(f2 : B2 -> A -> B2),
+  (forall n b a, conv _ (f1 n b a) = f2 (conv _ b) a) ->
+  conv _ (tuple_foldl_dep A B1 n f1 b1 v) = tuple_foldl_dep A (fun _ => B2) n (fun _ => f2) (conv _ b1) v.
+
+  induction n; intros; simpl in *; trivial.
+  destruct (tuple_S_ex v).
+  destruct H0.
+  subst.
+  
+  specialize (IHn x0).
+  specialize (IHn (fun n => B1 (S n)) B2).
+  specialize (IHn (fun n => conv (S n))).
+  specialize (IHn (f1 _ b1 x)).
+  
+  specialize (IHn (fun n0 : nat => f1 (S n0)) f2).
+  simpl in *.
+  unfold Nat in *.
+  rewrite tuple_head_cons.
+  rewrite tuple_behead_cons.
+  rewrite IHn.
+  rewrite H.
+  reflexivity.
+
+  intros.
+  eapply H.
+
+Qed.
+
+Theorem tuple_fold_dep_ls_equiv : forall (A : Type) n (v : tuple.tuple_of n A)
+  (B : Type)(f : B -> A -> B) b,
+  tuple_foldl_dep A (fun _ => B) n (fun _ => f) b v = fold_left f (tuple.tval v) b.
+
+  induction n; intros.
+  simpl in *.
+  destruct v.
+  destruct tval; simpl in *; trivial.
+  inversion i.
+
+  destruct (tuple_S_ex v).
+  destruct H.
+  subst.
+  simpl.
+  rewrite tuple_behead_cons.
+  rewrite tuple_head_cons.
+  rewrite IHn.
+  reflexivity.
+
+Qed.
+
+Theorem bitsToBv_ls_0_eq : forall n (bs : spec.BITS n),
+  bitsToBv_ls_0 bs = to_list (bitsToBv bs).
+
+  intros.
+  symmetry.
+  unfold bitsToBv_ls_0, bitsToBv.
+  specialize (tuple_foldl_dep_conv_const_equiv bs (Vector.t bool) (@to_list bool)); intros.
+  simpl in *.
+  erewrite H.
+  replace (to_list (Vector.nil Bool)) with (@nil bool).
+  reflexivity.
+  reflexivity.
+  intros. simpl.
+  rewrite to_list_cons.
+  reflexivity.
+
+Qed.
+
+Theorem bitsToBv_ls_eq : forall n (bs : spec.BITS n),
+  bitsToBv_ls (tuple.tval bs) = to_list (bitsToBv bs).
+
+  intros.
+  rewrite <- bitsToBv_ls_0_eq.
+
+  unfold bitsToBv_ls_0, bitsToBv_ls.
+  rewrite tuple_fold_dep_ls_equiv.
+  generalize (tuple.tval bs) as ls.
+  induction ls using rev_ind; intros; simpl in *; trivial.
+  rewrite rev_app_distr.
+  simpl.
+  rewrite IHls.
+  rewrite fold_left_app.
+  simpl.
+  reflexivity.
+
+Qed.
+
+(*
+Theorem bitsToBv_cons_eq : forall (n : nat) (x : spec.BITS n) (h : Bool), VectorDef.cons h (bitsToBv x) = bitsToBv (spec.consB h x).
+
+  intros.
+  eapply eq_if_to_list_eq.
+  rewrite to_list_cons.
+  repeat rewrite <- bitsToBv_ls_eq.
+  unfold spec.consB.
+  simpl.
+
+Qed.
+*)
+
+
+Fixpoint zipWith_ls (A B C : Type)(f : A -> B -> C)(lsa : list A)(lsb : list B) :=
+  match lsa with 
+    | nil => nil
+    | a :: lsa' =>
+      match lsb with
+      | nil => nil
+      | b :: lsb' =>
+      (f a b) :: (zipWith_ls f lsa' lsb')
+      end
+    end.
+
+Definition bvAnd_ls :=
+  zipWith_ls and.
+
+Theorem zipWith_nil : forall (A B C : Type)(inha : Inhabited A)(inhb : Inhabited B) (f : A -> B -> C),
+  zipWith _ _ _ f _ (@Vector.nil A) (Vector.nil B) = (@Vector.nil C).
+
+  intros.
+  reflexivity.
+
+Qed.
+
+Theorem zipWith_ls_eq : forall (A B C : Type)(inha : Inhabited A)(inhb : Inhabited B) n (lsa : Vec n A)(lsb : Vec n B)(f : A -> B -> C),
+  to_list (zipWith _ _ _ f _ lsa lsb) =zipWith_ls f (to_list lsa) (to_list lsb).
+
+  induction lsa; intros.
+  simpl in *.
+  specialize (Vec_0_nil lsb0); intros.
+  subst.
+  rewrite zipWith_nil.
+  trivial.
+
+  destruct (Vec_S_cons lsb0).
+  destruct H.
+  subst.
+ repeat  rewrite to_list_cons.
+  simpl.
+  rewrite zipWith_cons.
+  rewrite to_list_cons.
+  f_equal.
+  eauto.
+
+Qed.
+
+
+Theorem tuple_map_eq : forall (A B : Type) (f : A -> B) n (t : tuple.tuple_of n A),
+  tuple.tval (tuple.map_tuple f t) = map f (tuple.tval t).
+
+  induction n; intros; simpl in *.
+  destruct t.
+  destruct tval.
+  simpl.
+  reflexivity.
+  inversion i.
+
+  destruct (tuple_S_ex t).
+  destruct H.
+  subst.
+  simpl.
+  f_equal.
+Qed.
+
+
+
+Theorem tuple_zip_eq : forall (A B : Type) n (t1 : tuple.tuple_of n A)(t2 : tuple.tuple_of n B),
+  tuple.tval (tuple.zip_tuple t1 t2) = combine (tuple.tval t1) (tuple.tval t2).
+
+  induction n; intros; simpl in *.
+  destruct t1.
+  destruct t2.
+  destruct tval.
+  destruct tval0.
+  simpl.
+  reflexivity.
+  inversion i0.
+  inversion i.
+
+  destruct (tuple_S_ex t1).
+  destruct H.
+  destruct (tuple_S_ex t2).
+  destruct H0.
+  subst.
+  simpl.
+  f_equal.
+  eapply IHn.
+
+Qed.
+
+Theorem zipWith_ls_eq_map : forall (A B C : Type)(f : A -> B -> C) ls1 ls2,
+  (length ls1 = length ls2) ->
+  zipWith_ls f ls1 ls2 = map (fun p => f (fst p) (snd p)) (combine ls1 ls2).
+
+  induction ls1; intros; simpl in *; trivial.
+  destruct ls2; simpl in *; try lia.
+  f_equal.
+  eapply IHls1.
+  lia.
+
+Qed.
+
+Theorem combine_app_eq : forall (A B : Type)(lsa1 lsa2 : list A)(lsb1 lsb2 : list B),
+  length lsa1 = length lsb1 ->
+  combine (lsa1 ++ lsa2)  (lsb1 ++ lsb2) = (combine lsa1 lsb1) ++ (combine lsa2 lsb2).
+
+  induction lsa1; destruct lsb1; intros; simpl in *; trivial; try lia.
+  f_equal.
+  eapply IHlsa1.
+  lia.
+
+Qed.
+
+Theorem combine_rev_eq : forall (A B : Type)(ls1 : list A)(ls2 : list B),
+  length ls1 = length ls2 ->
+  rev (combine ls1 ls2) = combine (rev ls1) (rev ls2).
+
+  induction ls1; destruct ls2; intros; simpl in *; trivial; try lia.
+  rewrite IHls1.
+  rewrite combine_app_eq.
+  reflexivity.
+  repeat rewrite rev_length.
+  lia.
+  lia.
+
+Qed.
+
+Theorem seq_size_eq_length : forall (A : Type)(ls : list A),
+  seq.size ls = List.length ls.
+
+  induction ls; intros; simpl in *; trivial.
+
+Qed.
+
+Theorem tuple_tval_length : forall (A : Type) n  (t : tuple.tuple_of n A),
+  length (tuple.tval t) = n.
+
+  intros.
+  destruct t.
+  unfold is_true in *.  
+  simpl.
+  
+  rewrite eqtype.eqE in i.
+  simpl in *.
+  specialize (@ssrnat.eqnP (seq.size tval) n); intros.
+  inversion H.
+  rewrite seq_size_eq_length in H1.
+  trivial.
+  congruence.
 
 Qed.
 
 Theorem bvAnd_bitsToBv_eq : forall n v1 v2,
   bvAnd (@bitsToBv n v1) (@bitsToBv n v2) = bitsToBv (andB v1 v2).
 
-  induction n; intros; simpl in *.
-  apply vec_0_eq.
-  destruct (bits_cons_decomp v1).
-  destruct H.
-  destruct (bits_cons_decomp v2).
-  destruct H0.
-  subst.
-  repeat rewrite <- bitsToBv_cons_eq.
-  unfold bvAnd, andB, bvZipWith.
-  rewrite liftBinOpCons.
-  rewrite zipWith_cons.
-  repeat rewrite <- bitsToBv_cons_eq.
+  intros.
+  eapply eq_if_to_list_eq.
+  unfold bvAnd, bvZipWith.
+  rewrite zipWith_ls_eq.
+  repeat rewrite <- bitsToBv_ls_eq.
+  unfold andB.
+  unfold liftBinOp.
+  rewrite tuple_map_eq.
+  rewrite tuple_zip_eq.
+  unfold bitsToBv_ls.
+  rewrite <- map_rev.
+  rewrite zipWith_ls_eq_map.
   f_equal.
-  eapply IHn.
+  symmetry.
+  apply combine_rev_eq.
+  repeat rewrite tuple_tval_length.
+  reflexivity.
+  repeat rewrite rev_length.
+  repeat rewrite tuple_tval_length.
+  reflexivity.
   
 Qed.
+
 
 Theorem bvAnd_replicate_1 : forall n v,
   bvAnd (replicate n _ true) v = v.
@@ -2541,13 +2381,6 @@ Theorem nth_order_eq_impl_eq : forall (A : Type) n (v1 v2 : Vec n A),
   rewrite <- (@Fin.of_nat_to_nat_inv _ p2).
   eapply H.
 Qed.
-
-
-Theorem bvSShr_all_neg : forall n1 v,
-  (sbvToInt _ v < 0)%Z ->
-  (bvSShr n1 v n1) = replicate (S n1) bool true.
-
-Admitted.
 
 Theorem toList_append_equiv : forall A (inh : Inhabited A) n m (v1 : Vec n A)(v2 : Vec m A),
   to_list (SAWCorePrelude.append v1 v2) = 
@@ -2610,21 +2443,6 @@ Theorem shiftR_false_0 : forall n2 n1,
 
 Qed.
 
-Theorem eq_if_to_list_eq : forall (A : Type) n (v1 v2 : Vector.t A n),
-  to_list v1 = to_list v2 ->
-  v1 = v2.
-
-  induction n; intros; simpl in *.
-  eapply vec_0_eq.
-  destruct (Vec_S_cons v1). destruct H0. subst.
-  destruct (Vec_S_cons v2). destruct H0. subst.
-  repeat rewrite to_list_cons in H.
-  inversion H; clear H; subst.
-  f_equal.
-  eapply IHn.
-  eauto.
-
-Qed.
 
 Theorem toNegZ_nonneg : 
   forall n (b : spec.BITS n),
@@ -3187,12 +3005,6 @@ Theorem shiftR_all_nonneg : forall n1 v,
 
 Qed.
 
-Theorem neg_sign_bit_set :  forall n v h,
-  sbvToInt (S n) (VectorDef.cons h v) < 0 ->
-  h = true.
-
-Admitted.
-
 Definition zero_ls n := repeat false n.
 
 
@@ -3216,135 +3028,6 @@ Definition fromZ_ls n z :=
    end.
 
 
-Definition bitsToBv_ls (ls : list bool) := rev ls.
-
-Definition bitsToBv_ls_0 size := 
-tuple_foldl_dep bool (fun n : Nat => list bool) size
-  (fun (n : Nat) ls (b : bool) => b::ls) (@nil bool).
-
-Theorem tuple_S_ex : forall (A : Type) n (t : tuple.tuple_of (S n) A),
-  exists a (t' : tuple.tuple_of n A),
-  t = tuple.cons_tuple a t'.
-
-  intros.
-  exists (tuple.thead t).
-  exists (tuple.behead_tuple t).
-  apply tuple.tuple_eta.
-
-Qed.
-
-Theorem tuple_head_cons : forall (A: Type) n x (x0 : tuple.tuple_of n A),
-  (tuple.thead (tuple.cons_tuple x x0)) = x.
-
-  intros.
-  apply tuple.theadCons.
-
-Qed.
-
-Theorem tuple_behead_cons : forall (A: Type) n x (x0 : tuple.tuple_of n A),
-  (tuple.behead_tuple (tuple.cons_tuple x x0)) = x0.
-
-  intros.
-  apply tuple.beheadCons.
-
-Qed.
-
-Theorem tuple_tval_cons : forall (A: Type) n x (x0 : tuple.tuple_of n A),
-  (tuple.tval (tuple.cons_tuple x x0)) = x :: (tuple.tval x0).
-
-  intros.
-  reflexivity.
-
-Qed.
-
-Theorem tuple_foldl_dep_conv_const_equiv : forall (A : Type) n (v : tuple.tuple_of n A)
-  (B1 : nat -> Type)(B2 : Type)
-  (conv : forall n, B1 n -> B2) b1
-  (f1 : forall (n : nat), B1 n -> A -> B1 (S n))(f2 : B2 -> A -> B2),
-  (forall n b a, conv _ (f1 n b a) = f2 (conv _ b) a) ->
-  conv _ (tuple_foldl_dep A B1 n f1 b1 v) = tuple_foldl_dep A (fun _ => B2) n (fun _ => f2) (conv _ b1) v.
-
-  induction n; intros; simpl in *; trivial.
-  destruct (tuple_S_ex v).
-  destruct H0.
-  subst.
-  
-  specialize (IHn x0).
-  specialize (IHn (fun n => B1 (S n)) B2).
-  specialize (IHn (fun n => conv (S n))).
-  specialize (IHn (f1 _ b1 x)).
-  
-  specialize (IHn (fun n0 : nat => f1 (S n0)) f2).
-  simpl in *.
-  unfold Nat in *.
-  rewrite tuple_head_cons.
-  rewrite tuple_behead_cons.
-  rewrite IHn.
-  rewrite H.
-  reflexivity.
-
-  intros.
-  eapply H.
-
-Qed.
-
-Theorem tuple_fold_dep_ls_equiv : forall (A : Type) n (v : tuple.tuple_of n A)
-  (B : Type)(f : B -> A -> B) b,
-  tuple_foldl_dep A (fun _ => B) n (fun _ => f) b v = fold_left f (tuple.tval v) b.
-
-  induction n; intros.
-  simpl in *.
-  destruct v.
-  destruct tval; simpl in *; trivial.
-  inversion i.
-
-  destruct (tuple_S_ex v).
-  destruct H.
-  subst.
-  simpl.
-  rewrite tuple_behead_cons.
-  rewrite tuple_head_cons.
-  rewrite IHn.
-  reflexivity.
-
-Qed.
-
-Theorem bitsToBv_ls_0_eq : forall n (bs : spec.BITS n),
-  bitsToBv_ls_0 bs = to_list (bitsToBv bs).
-
-  intros.
-  symmetry.
-  unfold bitsToBv_ls_0, bitsToBv.
-  specialize (tuple_foldl_dep_conv_const_equiv bs (Vector.t bool) (@to_list bool)); intros.
-  simpl in *.
-  erewrite H.
-  replace (to_list (Vector.nil Bool)) with (@nil bool).
-  reflexivity.
-  reflexivity.
-  intros. simpl.
-  rewrite to_list_cons.
-  reflexivity.
-
-Qed.
-
-Theorem bitsToBv_ls_eq : forall n (bs : spec.BITS n),
-  bitsToBv_ls (tuple.tval bs) = to_list (bitsToBv bs).
-
-  intros.
-  rewrite <- bitsToBv_ls_0_eq.
-
-  unfold bitsToBv_ls_0, bitsToBv_ls.
-  rewrite tuple_fold_dep_ls_equiv.
-  generalize (tuple.tval bs) as ls.
-  induction ls using rev_ind; intros; simpl in *; trivial.
-  rewrite rev_app_distr.
-  simpl.
-  rewrite IHls.
-  rewrite fold_left_app.
-  simpl.
-  reflexivity.
-
-Qed.
 
 Definition intToBv_ls n z:=
   bitsToBv_ls (fromZ_ls n z).
@@ -3468,30 +3151,6 @@ Theorem intToBv_1_to_list_eq : forall n,
   simpl.
   rewrite rev_repeat_id.
   reflexivity.
-
-Qed.
-
-Theorem shiftR_all_neg : forall n1 v,
-  n1 <> O ->
-  (sbvToInt _ v < 0)%Z ->
-  (shiftR n1 bool false v (pred n1)) = intToBv _ 1.
-
-  intros.
-  apply eq_if_to_list_eq.
-  rewrite shiftR_ls_equiv.
-  destruct v; simpl; trivial.
-  rewrite intToBv_1_to_list_eq.  
-  rewrite shiftR_ls_eq_repeat.
-  match goal with 
-  | [|- context[ (?a - ?b)%nat]] =>
-  replace (a - b)%nat with 1%nat
-  end.
- 
-  erewrite (neg_sign_bit_set _ h); eauto.
-  rewrite to_list_length.
-  lia.
-  rewrite to_list_length.
-  lia.
 
 Qed.
 
@@ -5251,3 +4910,1431 @@ Theorem sbvToInt_drop_equiv : forall n1 n2 x,
   lia.
   trivial.
 Qed.
+
+Theorem rev_repeat_eq_impl : forall (A : Type)(a : A) ls n,
+  rev ls = repeat a n ->
+  ls = repeat a n.
+
+  induction ls using rev_ind; destruct n; intros; simpl in *; trivial.
+  rewrite rev_app_distr in *.
+  simpl in *.
+  discriminate.
+
+  rewrite rev_app_distr in *.
+  simpl in *.
+  rewrite repeat_cons.
+  inversion H; clear H; subst.
+  f_equal.
+  rewrite H2.
+  eapply IHls.
+  trivial.
+
+Qed.
+
+Theorem sbvToInt_0_replicate: forall n b2,
+    sbvToInt n b2 = 0%Z ->
+    b2 = replicate _ _ false.
+
+  intros.
+  rewrite <- sbvToInt_ls_equiv in *.
+  apply eq_if_to_list_eq.
+  unfold sbvToInt_ls in *.
+  rewrite <- replicate_repeat_eq.
+  destruct n.
+  rewrite (Vec_0_nil b2).
+  reflexivity.
+
+  destruct (Vec_S_cons b2).
+  destruct H0.
+  subst.
+  rewrite to_list_cons.
+  unfold bvToBITS_ls in *.
+  rewrite to_list_cons in *.
+  simpl in *.
+  unfold toZ_ls in *.
+  rewrite splitmsb_ls_app_eq in *.
+  destruct x.
+  match goal with 
+  | [H : (- Z.succ (toNegZ_ls ?a) = 0) |- _] =>
+    specialize (toNegZ_ls_nonneg a); intros
+  end.
+  lia.
+  f_equal.
+  eapply rev_repeat_eq_impl.
+  apply toPosZ_ls_0_impl in H.
+  rewrite rev_length in *.
+  rewrite to_list_length in *.
+  trivial.
+Qed.
+
+
+Theorem sawAt_nth_order_equiv : forall (A : Type)(inh : Inhabited A)(n1 n2 : nat)(v : Vec n1 A)(ltpf : (n2 < n1)%nat),
+  @sawAt n1 A inh v n2 = nth_order v ltpf.
+
+  intros.
+  rewrite sawAt_nth_equiv.
+  symmetry.
+  apply nth_order_to_list_eq.
+  lia.
+
+Qed.
+
+Theorem sawAt_3_equiv : forall A (inh : Inhabited A) (v : Vector.t A 3),
+  Vector.cons (sawAt 3%nat A v 0%nat)
+    (Vector.cons (sawAt 3%nat A v 1%nat)
+      (Vector.cons (sawAt 3%nat A v 2%nat) (Vector.nil A)))
+  = v.
+
+  intros.
+  destruct (Vec_S_cons v). destruct H. subst.
+  destruct (Vec_S_cons x0). destruct H. subst.
+  destruct (Vec_S_cons x2). destruct H. subst.
+  repeat rewrite sawAt_nth_equiv; try lia.
+  repeat rewrite to_list_cons.
+  simpl.
+  specialize (Vec_0_nil x3); intros; subst.
+  reflexivity.
+
+Qed.
+
+Theorem sawAt_3_equiv_gen : forall A (inh : Inhabited A) (v1 v2 : Vector.t A 3),
+  v1 = v2 ->
+  Vector.cons (sawAt 3%nat A v1 0%nat)
+    (Vector.cons (sawAt 3%nat A v1 1%nat)
+      (Vector.cons (sawAt 3%nat A v1 2%nat) (Vector.nil A)))
+  = v2.
+  
+  intros.
+  subst.
+  apply sawAt_3_equiv.
+
+Qed.
+
+Theorem rep_false_eq_int_bv : forall n : Nat, 
+  replicate n bool 0%bool = intToBv n 0.
+
+  intros.
+  rewrite intToBv_0_eq_replicate.
+  reflexivity.
+Qed.
+
+Theorem bvAnd_replicate_0 : forall n v,
+    bvAnd (replicate n bool false) v = replicate n bool false.
+
+  intros.
+  repeat rewrite rep_false_eq_int_bv.
+  rewrite bvAnd_comm.
+  apply bvAnd_0.
+
+Qed.
+
+Theorem neg_sign_bit_set : forall (n : nat) (v : VectorDef.t Bool n) (h : Bool), 
+  (sbvToInt (S n) (VectorDef.cons h v) < 0)%Z -> 
+  h = 1%bool.
+
+  intros.
+  assert (0 < S n)%nat.
+  lia.
+  apply (sbvToInt_neg_sign_bit_set _ H0) in H.
+  rewrite nth_order_hd in H.
+  simpl in *.
+  trivial.
+Qed.
+
+Theorem shiftR_all_neg : forall n1 v,
+  n1 <> O ->
+  (sbvToInt _ v < 0)%Z ->
+  (shiftR n1 bool false v (pred n1)) = intToBv _ 1.
+
+  intros.
+  apply eq_if_to_list_eq.
+  rewrite shiftR_ls_equiv.
+  destruct v; simpl; trivial.
+  rewrite intToBv_1_to_list_eq.  
+  rewrite shiftR_ls_eq_repeat.
+  match goal with 
+  | [|- context[ (?a - ?b)%nat]] =>
+  replace (a - b)%nat with 1%nat
+  end.
+ 
+  erewrite (neg_sign_bit_set _ h); eauto.
+  rewrite to_list_length.
+  lia.
+  rewrite to_list_length.
+  lia.
+
+Qed.
+
+Theorem nth_shiftR1_S : forall (A : Type) (ls : list A) n a,
+  (n < pred (length ls))%nat ->
+  nth (S n) (shiftR1_ls a ls) a = nth n ls a.
+
+  intros.
+  unfold shiftR1_ls.
+  unfold shiftout_ls.
+  simpl.
+  destruct ls using rev_ind; simpl in *.
+  lia.
+  rewrite app_length. simpl.
+  rewrite plus_comm.
+  simpl.
+  rewrite firstn_app.
+  rewrite firstn_all.
+  rewrite minus_diag.
+  simpl.
+  rewrite app_nil_r.
+  symmetry.
+  apply app_nth1.
+  rewrite app_length in *. simpl in *.
+  lia.
+Qed.
+
+Theorem shiftR1_ls_nil : forall (A : Type) a, 
+  shiftR1_ls a (@nil A) = (@nil A).
+
+  intros.
+  apply length_zero_iff_nil.
+  rewrite shiftR1_ls_length.
+  reflexivity.
+
+Qed.
+
+Theorem shiftR_ls_nil : forall (A : Type) a (n : nat),
+  shiftR_ls a (@nil A) n = (@nil A).
+
+  intros.
+  apply length_zero_iff_nil.
+  rewrite shiftR_ls_length.
+  reflexivity.
+
+Qed.
+
+Theorem nth_shiftR_ls_all_eq : forall (A : Type) n (ls : list A) a,
+  (n <  (Datatypes.length ls))%nat ->
+  nth n (shiftR_ls a ls n) a = nth 0%nat ls a.
+
+  induction n; intros; simpl in *; trivial.
+  
+  rewrite nth_shiftR1_S.
+  apply IHn.
+  simpl in *.
+  lia.
+
+  rewrite shiftR_ls_length.
+  simpl in *.
+  lia.
+
+Qed.
+
+Theorem nth_order_shiftR_all_eq
+  : forall (A : Type) (n2 len : nat) (v : Vec len A) (nlt : (n2 < len)%nat) (zlt : (0 < len)%nat) (a : A), 
+  nth_order (shiftR len A a v n2) nlt = nth_order v zlt.
+
+  intros.
+  repeat rewrite (nth_order_to_list_eq a).
+  rewrite shiftR_ls_equiv.
+  rewrite nth_shiftR_ls_all_eq; trivial.
+  rewrite to_list_length.
+  trivial.
+
+Qed.
+
+Theorem nth_skipn_eq : forall (A : Type)(a : A)  n1 n2 ls,
+  nth n2 (skipn n1 ls) a = nth (n1 + n2)%nat ls a.
+
+  induction n1; intros; simpl in *; trivial.
+  destruct ls; simpl in *.
+  destruct n2; trivial.
+
+  apply IHn1.
+
+Qed.
+
+Theorem nth_order_drop_eq
+  : forall (A : Type) (inh : Inhabited A) (n1 n2 : Nat) (v : Vec (addNat n1 n2) A) (n' : Nat) (lt1 : (addNat n1 n' < addNat n1 n2)%nat) (lt2 : (n' < n2)%nat),
+    nth_order (drop A n1 n2 v) lt2 = nth_order v lt1.
+
+  intros.
+  repeat rewrite (nth_order_to_list_eq (inhabitant inh)).
+  rewrite toList_drop_equiv.
+  generalize (to_list v); intros.
+  rewrite addNat_add.
+  apply nth_skipn_eq.
+
+Qed.
+
+
+Theorem nth_zipWith_ls : forall (A B C : Type)(f : A -> B -> C) lsa lsb0 n a b c,
+  (n < length lsa)%nat ->
+  (n < length lsb0)%nat ->
+  nth n (zipWith_ls f lsa lsb0) c = f (nth n lsa a) (nth n lsb0 b).
+
+  induction lsa; destruct lsb0; intros; simpl in *; destruct n; try lia; trivial.
+
+  eapply IHlsa; lia.
+
+Qed.
+
+Theorem nth_repeat_eq : forall (A : Type)(a : A) n n',
+  nth n' (repeat a n) a = a.
+
+  induction n; destruct n'; intros; simpl in *; trivial.
+
+Qed.
+
+Theorem nth_intToBv_1_false : forall n' n,
+  (n' < (pred n))%nat ->
+  (nth n' (intToBv_ls n 1) false = false).
+
+  intros.
+  unfold intToBv_ls.
+  destruct n.
+  simpl in *.
+  destruct n'; trivial.
+  rewrite fromZ_ls_1_eq.
+  unfold bitsToBv_ls.
+  simpl in *.
+  rewrite app_nth1.
+  rewrite rev_repeat_id.
+  apply nth_repeat_eq.
+  rewrite rev_length.
+  rewrite repeat_length.
+  trivial.
+
+Qed.
+
+Theorem fromPosZ_ls_length : forall n x,
+  List.length (fromPosZ_ls n x) = n.
+
+  induction n; intros; simpl in *; trivial.
+  rewrite IHn.
+  trivial.
+
+Qed.
+
+Theorem fromNegZ_ls_length : forall n x,
+  List.length (fromNegZ_ls n x) = n.
+
+  induction n; intros; simpl in *; trivial.
+  rewrite IHn.
+  trivial.
+Qed.
+
+
+Theorem fromZ_ls_length : forall n x,
+  List.length (fromZ_ls n x) = n.
+
+  intros.
+  unfold fromZ_ls.
+  destruct x.
+  unfold zero_ls.
+  apply repeat_length.
+  apply fromPosZ_ls_length.
+  apply fromNegZ_ls_length.
+  
+
+Qed.
+
+Theorem intToBv_ls_length : forall n x,
+  List.length (intToBv_ls n x) = n.
+
+  intros.
+  unfold intToBv_ls.
+  unfold bitsToBv_ls.
+  rewrite rev_length.
+  apply fromZ_ls_length.
+
+Qed.
+
+Theorem nth_order_bvAnd_l_eq : forall (n : nat) (v : bitvector n) (n' : nat) (plt : (n' < n)%nat), 
+  (n' < Nat.pred n)%nat -> 
+  nth_order (bvAnd v (intToBv n 1)) plt = 0%bool.
+
+  intros.
+  repeat rewrite (nth_order_to_list_eq false).
+  unfold bvAnd, bvZipWith.
+  rewrite zipWith_ls_eq.
+  rewrite <- intToBv_ls_eq.
+  rewrite (nth_zipWith_ls _ _ _ false false).
+  rewrite nth_intToBv_1_false.
+  apply and_False2.
+  lia.  
+  rewrite to_list_length.
+  lia.
+  rewrite intToBv_ls_length.
+  lia.
+
+Qed.
+
+Theorem nth_intToBv_1_true : forall n,
+  (nth (pred n) (intToBv_ls n 1) true = true).
+
+  intros.
+  unfold intToBv_ls.
+  destruct n.
+  simpl in *.
+  trivial.
+
+  rewrite fromZ_ls_1_eq.
+  unfold bitsToBv_ls.
+  simpl in *.
+  rewrite app_nth2.
+  rewrite rev_length.
+  rewrite repeat_length.
+  rewrite minus_diag.
+  simpl.
+  reflexivity.
+
+  rewrite rev_length.
+  rewrite repeat_length.
+  lia.
+
+Qed.
+
+Theorem nth_order_bvAnd_eq : forall (n : nat) (v : bitvector n) (plt : (Nat.pred n < n)%nat), 
+  nth_order (bvAnd v (intToBv n 1)) plt = nth_order v plt.
+
+  intros.
+  repeat rewrite (nth_order_to_list_eq false).
+  unfold bvAnd, bvZipWith.
+  rewrite zipWith_ls_eq.
+  rewrite <- intToBv_ls_eq.
+  rewrite (nth_zipWith_ls _ _ _ true true).
+  rewrite nth_intToBv_1_true.
+  rewrite and_True2.
+  apply nth_indep.
+  rewrite to_list_length.
+  lia.
+  rewrite to_list_length.
+  lia.
+  rewrite intToBv_ls_length.
+  trivial.
+
+Qed.
+
+Theorem nth_order_append_l_eq
+  : forall (A : Type) (inh : Inhabited A) (n1 : nat) (v1 : Vec n1 A) (n2 : nat) (v2 : Vec n2 A) (n' : nat) (nlt2 : (n' < addNat n2 n1)%nat) (nlt1 : (n' < n2)%nat),
+    nth_order (append v2 v1) nlt2 = nth_order v2 nlt1.
+
+  intros.
+  repeat rewrite (nth_order_to_list_eq (inhabitant inh)).
+  rewrite toList_append_equiv.
+  rewrite app_nth1.
+  reflexivity.
+  rewrite to_list_length.
+  lia.
+
+Qed.
+
+Theorem nth_order_append_eq
+  : forall (A : Type) (inh : Inhabited A) (n1 : nat) (v1 : Vec n1 A) (n2 : nat) (v2 : Vec n2 A) (n' : Nat) (nlt2 : (addNat n' n2 < addNat n2 n1)%nat)
+      (nlt1 : (n' < n1)%nat), nth_order (append  v2 v1) nlt2 = nth_order v1 nlt1.
+
+  intros.
+  repeat rewrite (nth_order_to_list_eq (inhabitant inh)).
+  rewrite toList_append_equiv.
+  rewrite app_nth2.
+  repeat rewrite to_list_length.
+  f_equal.
+  rewrite addNat_add.
+  lia.
+  rewrite to_list_length.
+  repeat rewrite addNat_add in *.
+  lia.
+
+Qed.
+
+Theorem nth_intToBv_0_false : forall n' n,
+  (nth n' (intToBv_ls n 0) false = false).
+
+  intros.
+  unfold intToBv_ls.
+  unfold fromZ_ls.
+  unfold bitsToBv_ls, zero_ls.
+  rewrite rev_repeat_id.
+  apply nth_repeat_eq.
+Qed.
+
+
+Theorem nth_order_0 : forall (n1 n2 : nat) (nlt : (n2 < n1)%nat), 
+  nth_order (intToBv n1 0) nlt = 0%bool.
+
+  intros.
+  repeat rewrite (nth_order_to_list_eq false).
+  rewrite <- intToBv_ls_eq.
+  apply nth_intToBv_0_false.
+
+Qed.
+
+Theorem fromZ_ls_0_eq: forall n : nat, fromZ_ls n 0 =repeat 0%bool n.
+
+  intros.
+  unfold fromZ_ls.
+  reflexivity.
+
+Qed.
+
+
+Theorem intToBv_0_S : forall n : nat, 
+  intToBv (S n) 0 =Vector.cons false (intToBv n 0).
+
+  intros.
+  apply eq_if_to_list_eq.
+  rewrite to_list_cons.
+  repeat rewrite <- intToBv_ls_eq.
+  unfold intToBv_ls.
+  rewrite fromZ_ls_0_eq.
+  unfold bitsToBv_ls.
+  rewrite repeat_S_rev.
+  rewrite rev_app_distr.
+  simpl.
+  reflexivity.
+  
+Qed.
+
+Theorem eq_impl_to_list_eq : forall (A : Type) n (v1 v2 : Vec n A),
+  v1 = v2 ->
+  to_list v1 = to_list v2.
+
+  intros.
+  subst.
+  trivial.
+
+Qed.
+
+Theorem eq_if_rev_eq : forall ( A : Type)(ls1 ls2 : list A),
+  rev ls1 = rev ls2 ->
+  ls1 = ls2 .
+
+  induction ls1 using rev_ind; intros; simpl in *; trivial.
+  destruct ls2 using rev_ind; simpl in *; trivial.
+  rewrite rev_app_distr in *; simpl in *; discriminate.
+  
+  destruct ls2 using rev_ind; simpl in *.
+  rewrite rev_app_distr in *; simpl in *; discriminate.
+  repeat rewrite rev_app_distr in *; simpl in *.
+  inversion H; clear H; subst.
+  erewrite IHls1; eauto.
+
+Qed.
+
+Theorem even_exists_factor : forall z,
+  Z.even z = true ->
+  exists z', z = z'*2.
+  
+  intros.
+  exists (z/2).
+  rewrite (@Zdiv.Z_div_mod_eq z 2) at 1.
+  rewrite Zdiv.Zeven_mod in H.
+  apply Zbool.Zeq_bool_eq in H.
+  rewrite H.
+  lia.
+  lia.
+Qed.
+
+Theorem odd_exists_factor : forall z,
+  Z.odd z = true ->
+  exists z', z = 1 + z'*2.
+
+  intros.
+  exists (z/2).
+  rewrite (@Zdiv.Z_div_mod_eq z 2) at 1.
+  rewrite Zeven.Zodd_even_bool in *.
+  rewrite Zdiv.Zeven_mod in H.
+  apply Bool.negb_true_iff in H.
+  apply Zbool.Zeq_bool_neq in H.
+  replace (z mod 2) with 1.
+  lia.
+  assert (0 <= z mod 2 < 2).
+  apply (Z.mod_pos_bound); lia.
+  lia.
+  lia.
+
+Qed.
+
+Theorem fromPosZ_ls_0_impl : forall n z,
+  fromPosZ_ls n z = repeat false n -> z mod (2^ (Z.of_nat n))= 0.
+
+  induction n; intros.
+  simpl in *; trivial.
+  specialize (Z.mod_pos_bound z 1); intros.
+  lia.
+
+  rewrite Znat.Nat2Z.inj_succ.
+  rewrite <- Z.add_1_r.
+  unfold joinlsb_ls in *.
+  simpl in *.
+  inversion H; clear H; subst.
+  rewrite Z.pow_add_r.
+  assert (exists z', z = z' * 2).
+  apply even_exists_factor.
+  destruct (Z.even z); simpl in *; trivial. discriminate. 
+  destruct H.
+  subst.
+  rewrite Zdiv.Zmult_mod_distr_r.
+  rewrite IHn.
+  lia.
+  rewrite Z.div2_div in *.
+  rewrite Zdiv.Z_div_mult in *; try lia.
+  rewrite H2.
+  rewrite Z.mul_comm.
+  specialize (@Z.even_add_mul_2 0 x); intros.
+  rewrite Z.add_0_l in *.
+  rewrite H.
+  simpl.
+  reflexivity.
+  lia.
+  lia.
+
+Qed. 
+
+Theorem fromPosZ_eq_impl : forall n z1 z2,
+  fromPosZ_ls n z1 = fromPosZ_ls n z2 ->
+  z1 mod (2 ^(Z.of_nat n)) = z2 mod (2^ (Z.of_nat n)).
+
+  induction n; intros.
+  simpl in *.
+  specialize (Z.mod_pos_bound z1 1); intros.
+  specialize (Z.mod_pos_bound z2 1); intros.
+  lia.
+
+  rewrite Znat.Nat2Z.inj_succ.
+  rewrite <- Z.add_1_r.
+  simpl in *.
+  unfold joinlsb_ls in *.
+  simpl in *.
+  inversion H; clear H; subst.
+  repeat rewrite Z.pow_add_r.
+  case_eq (Z.even z1); intros.
+  rewrite H in H1.
+  simpl in *.
+  
+  case_eq (Z.even z2); intros.
+  destruct (even_exists_factor z1); trivial; subst.
+  destruct (even_exists_factor z2); trivial; subst.
+
+  repeat rewrite Zdiv.Zmult_mod_distr_r.
+  f_equal.
+  apply IHn.
+  rewrite Z.div2_div in *.
+  rewrite Zdiv.Z_div_mult in *; try lia.
+  rewrite H2.
+  rewrite Z.div2_div.
+  rewrite Zdiv.Z_div_mult.
+  reflexivity.
+  lia.
+
+  rewrite H0 in H1. simpl in *. discriminate. 
+
+  rewrite H in H1.
+  case_eq (Z.even z2); intros.
+  rewrite H0 in H1.
+  simpl in *. discriminate.
+
+  assert (exists z1', z1 = 1 + z1'*2).
+  apply odd_exists_factor.
+  rewrite Zeven.Zodd_even_bool.
+  rewrite H.
+  trivial.
+  destruct H3.
+  subst.
+  assert (exists z2', z2 = 1 + z2'*2).
+  apply odd_exists_factor.
+  rewrite Zeven.Zodd_even_bool.
+  rewrite H0.
+  trivial.
+  destruct H3.
+  subst.
+  
+  repeat rewrite Z.pow_1_r.
+  rewrite (@Z.mul_comm (2^Z.of_nat n)).
+  rewrite Z.rem_mul_r; try lia.
+  rewrite Zdiv.Z_mod_plus; try lia.
+  rewrite Z.mod_small; try lia.
+  rewrite Z.mul_comm.
+  rewrite Zdiv.Z_div_plus; try lia.
+  rewrite Z.div_small; try lia.
+  rewrite Z.add_0_l.
+  symmetry.
+  rewrite Z.rem_mul_r; try lia.
+  rewrite Zdiv.Z_mod_plus; try lia.
+  rewrite Z.mod_small; try lia.
+  rewrite Z.mul_comm.
+  rewrite Zdiv.Z_div_plus; try lia.
+  rewrite Z.div_small; try lia.
+  rewrite Z.add_0_l.
+  symmetry.
+  f_equal; try lia.
+  f_equal; try lia.
+  eapply IHn.
+  repeat rewrite Z.div2_div in *.
+  rewrite Zdiv.Z_div_plus in *.
+  rewrite Z.div_small in *; try lia.
+  rewrite Z.add_0_l in *.
+  rewrite H2.
+  rewrite Zdiv.Z_div_plus.
+  rewrite Z.div_small; try lia.
+  rewrite Z.add_0_l.
+  reflexivity.
+  lia.  
+  lia.
+
+  apply Z.pow_pos_nonneg; lia.
+  apply Z.pow_pos_nonneg; lia.
+  lia.
+  lia.
+
+Qed.
+
+Theorem intToBv_eq_pos : forall (n : nat) (x y : Z), 
+  (0 <= x < 2 ^ BinInt.Z.of_nat n)%Z -> 
+  (0 <= y < 2 ^ BinInt.Z.of_nat n)%Z ->
+   intToBv n x = intToBv n y -> 
+    x = y.
+
+  intros.
+  apply eq_impl_to_list_eq in H1.
+  repeat rewrite <- intToBv_ls_eq in *.
+  unfold intToBv_ls in *.
+  unfold bitsToBv_ls in *.
+  apply eq_if_rev_eq in H1.
+  unfold fromZ_ls in *.
+  destruct x; destruct y; trivial; try lia.
+  symmetry in H1.
+  apply fromPosZ_ls_0_impl in H1.
+  rewrite Z.mod_small in H1.
+  lia.
+  lia.
+
+  apply fromPosZ_ls_0_impl in H1.
+  rewrite Z.mod_small in H1.
+  lia.
+  lia.
+  rewrite <- (@Z.mod_small _  (2 ^ Z.of_nat n)).
+  symmetry.
+  rewrite <- (@Z.mod_small _  (2 ^ Z.of_nat n)).
+  symmetry.
+  apply fromPosZ_eq_impl.
+  trivial.
+  lia.
+  lia.
+
+Qed.
+
+Theorem zipWith_ls_0_if : forall x y n,
+  length x = length y ->
+  zipWith_ls or x y = repeat false n ->
+  x = (repeat false n) /\ y = repeat false n.
+
+  induction x; destruct y; destruct n; intros; simpl in *; trivial; try lia; try discriminate.
+  intuition idtac; trivial.
+  inversion H0; clear H0; subst.
+  rewrite H2 in H3.
+  assert (List.length x = List.length y ) by lia.
+  specialize (IHx y n).
+  intuition idtac;
+  subst; f_equal; eauto; destruct a; destruct b; simpl in *; trivial; discriminate.
+
+Qed.
+  
+
+Theorem ecOr_0_if
+  : forall (n : nat) (x y : bitvector n),
+    ecOr (bitvector n) (PLogicWord n) x y = replicate n bool 0%bool -> x = replicate n bool 0%bool /\ y = replicate n bool 0%bool.
+
+  intros.
+  unfold ecOr in *.
+  simpl in *.
+  unfold bvOr, bvZipWith in *.
+  apply eq_impl_to_list_eq in H.
+  rewrite <- replicate_repeat_eq in *.
+  rewrite zipWith_ls_eq in *.
+  apply zipWith_ls_0_if in H.
+  intuition idtac.
+  apply eq_if_to_list_eq.
+  rewrite <- replicate_repeat_eq.
+  trivial.
+  apply eq_if_to_list_eq.
+  rewrite <- replicate_repeat_eq.
+  trivial.
+
+  repeat rewrite to_list_length.
+  reflexivity.
+
+Qed.
+
+Theorem fold_or_impl_0 : forall (n1 n2 : nat) x y,
+  ecFoldl n1 (CryptolPrimitivesForSAWCore.seq n2 Bool) (CryptolPrimitivesForSAWCore.seq n2 Bool) (ecOr (CryptolPrimitivesForSAWCore.seq n2 Bool) (PLogicSeqBool n2))
+     y x = intToBv n2 0 ->
+  (x = (replicate n1 _ (replicate n2 _ false)) /\ y = (replicate n2 _ false)).
+
+  induction n1; intros; simpl in *.
+  unfold replicate. simpl in *.
+  generalize H.
+  eapply (case0 (fun x => foldl (bitvector n2) (bitvector n2) 0%nat (ecOr (bitvector n2) (PLogicWord n2)) y x = intToBv n2 0 ->
+x = @Vector.nil (Vec n2 bool) /\ y = gen n2 bool (fun _ : Nat => false))); eauto; intuition.
+  simpl in *; subst.
+  rewrite <- rep_false_eq_int_bv.
+  trivial.
+
+  unfold replicate in *. simpl.
+  generalize H.
+  eapply (caseS' x); intuition;
+  simpl in *;
+  edestruct IHn1; eauto;
+  subst.
+  f_equal.
+  edestruct ecOr_0_if; eauto.
+  edestruct ecOr_0_if; eauto.
+
+Qed.
+
+
+Theorem sawAt_zero_eq
+     : forall (T : Type) (size : nat) (h : T) (t : Vector.t T size), sawAt (S size) T (Vector.cons h t) 0%nat = h.
+
+  intros.
+  specialize (sawAt_zero _ size h t); intros.
+  simpl in *.
+  trivial.
+
+Qed.
+
+Theorem vecEq_correct : forall (A : Type)(inh : Inhabited A) f n (v1 v2 : Vec n A),
+  (forall a1 a2, f a1 a2 = true -> a1 = a2) ->
+   vecEq n A f v1 v2 = true ->
+  v1 = v2.
+
+  induction v1; intros; simpl in *.
+  specialize (Vec_0_nil v2); intros.
+  subst.
+  reflexivity.
+
+  destruct (Vec_S_cons v2). destruct H1. subst.
+  unfold vecEq in *.
+  simpl in *.
+  replace (sawAt (S n) A (VectorDef.cons h v1) 0%nat) with h in *.
+  replace (sawAt (S n) A (Vector.cons x x0) 0%nat) with x in *.
+  apply and_bool_eq_true in H0.
+  intuition idtac.
+  f_equal.
+  apply H.
+  trivial.
+  apply IHv1.
+  trivial.
+  apply H2.
+  symmetry.
+  eapply sawAt_zero_eq.
+  symmetry.
+  eapply sawAt_zero_eq.
+  Unshelve.
+  apply n.
+  trivial.
+  apply n.
+  trivial.
+
+Qed.
+
+
+Theorem ecNotEq_vec_bv_true
+  : forall (n1 n2 : nat) (v1 v2 : Vec n1 (bitvector n2)), v1 <> v2 -> ecNotEq (Vec n1 (bitvector n2)) (PEqVec n1 (bitvector n2) (PEqWord n2)) v1 v2 = 1%bool.
+
+
+  intros.
+  unfold ecNotEq, ecEq in *;
+  intros; simpl in *.
+  unfold not.
+  apply Bool.eq_true_not_negb.
+  intuition idtac.
+  apply H.
+  eapply vecEq_correct.
+  intros.
+  apply bvEq_eq.
+  eauto.
+  trivial.
+
+Qed.
+
+Theorem vecEq_refl : forall (A : Type)(inh : Inhabited A) f n (v1 : Vec n A),
+  (forall a1, f a1 a1 = true) ->
+   vecEq n A f v1 v1 = true.
+
+  induction v1; intros; simpl in *.
+  unfold vecEq in *.
+  simpl in *.
+  reflexivity.
+
+  unfold vecEq in *.
+  simpl in *.
+  replace (sawAt (S n) A (VectorDef.cons h v1) 0%nat) with h.
+  rewrite H.
+  simpl.
+  apply IHv1.
+  trivial.
+  symmetry.
+  eapply sawAt_zero_eq.
+  Unshelve.
+  apply n.
+  trivial.
+Qed.
+
+Theorem ecNotEq_vec_bv_false : forall (n1 n2 : nat) (v : Vec n1 (bitvector n2)), ecNotEq (Vec n1 (bitvector n2)) (PEqVec n1 (bitvector n2) (PEqWord n2)) v v = 0%bool.
+
+  intros.
+  unfold ecNotEq, ecEq in *.
+  simpl in *.
+  unfold not.
+  apply Bool.negb_false_iff.
+  
+  intuition idtac.
+  apply vecEq_refl.
+  apply bvEq_refl.
+
+Qed.
+
+Theorem bitsToBv_bvToBITS_id : forall (n : nat) (v : bitvector n),
+       bitsToBv (bvToBITS v) = v.
+
+  intros.
+  apply eq_if_to_list_eq.
+  rewrite <- bitsToBv_ls_eq.
+  rewrite bvToBITS_ls_equiv.
+  unfold bvToBITS_ls, bitsToBv_ls.
+  rewrite rev_involutive.
+  reflexivity.
+  
+Qed.
+
+
+Theorem gen_ls_eq:
+  forall [A : Type] [n: nat] (f : nat -> A),
+  to_list (gen n A f) =
+  gen_ls n f.
+
+  induction n; intros; simpl in *.
+  reflexivity.
+
+  rewrite to_list_cons.
+  f_equal.
+  eapply IHn.
+
+Qed.
+
+Theorem toN_excl_int_rev_h : forall n,
+  toN_excl_int (n + 1)%nat = 0 :: (map (Z.add 1) (toN_excl_int n)).
+
+  induction n; intros; simpl in *; trivial.
+  rewrite map_app.
+  rewrite app_comm_cons.
+  rewrite <- IHn.
+  f_equal.
+  unfold map.
+  rewrite Znat.Nat2Z.inj_add.
+  rewrite Z.add_comm.
+  reflexivity.
+
+Qed.
+
+Theorem toN_excl_int_rev : forall n,
+  (n > 0)%nat ->
+  toN_excl_int n = 0 :: (map (Z.add 1) (toN_excl_int (pred n))).
+
+  intros.
+  destruct n.
+  lia.
+  specialize (toN_excl_int_rev_h n); intros.
+  rewrite plus_comm in *.
+  apply H0.
+
+Qed.
+
+Theorem gen_ls_rev : forall (A : Type) n (f : nat -> A),
+  (n > 0)%nat ->
+  gen_ls n f = gen_ls (pred n) f ++ [f (pred n)].
+
+  induction n; intros; simpl in *.
+  lia.
+  destruct n.
+  simpl.
+  reflexivity.
+  rewrite IHn.
+  simpl.
+  reflexivity.
+  lia.
+
+Qed.
+
+Theorem ecFromTo_m_n_equiv_h : forall n m : nat,
+  gen_ls n (fun n0 : nat => Z.of_nat (n0 + m)) =
+  map (Z.add (Z.of_nat m)) (toN_excl_int n).
+
+  induction n;
+  intros. simpl in *. trivial.
+  
+  rewrite gen_ls_rev.
+  simpl.
+  rewrite IHn.
+  rewrite map_app.
+  simpl.
+  f_equal.
+  rewrite Znat.Nat2Z.inj_add.
+  rewrite Z.add_comm.
+  reflexivity.
+  lia.
+
+Qed.
+
+Theorem ecFromTo_m_n_equiv : forall m n : Nat, 
+  to_list (ecFromTo m n Integer PLiteralInteger) = List.map (Z.add (Z.of_nat m)) (toN_int (n - m)).
+
+  intros.
+  unfold ecFromTo.
+  simpl.
+  rewrite to_list_cons.
+  rewrite gen_ls_eq.
+  rewrite subNat_sub.
+  rewrite (@gen_ls_ext _ _ _ (fun n => Z.of_nat (n + m)%nat + 1)).
+  unfold toN_int.
+  rewrite map_app.
+  simpl.
+  rewrite <- ecFromTo_m_n_equiv_h.
+    
+  destruct (eq_nat_dec (n-m)%nat O).
+  rewrite e.
+  simpl.
+  rewrite Z.add_0_r.
+  reflexivity.
+  rewrite gen_ls_rev.
+  remember (n - m)%nat as z.
+  destruct z.
+  lia.
+  simpl.
+  f_equal.
+  f_equal.
+  eapply gen_ls_ext.
+  intros.
+  lia.
+  rewrite Znat.Nat2Z.inj_add.
+  rewrite Znat.Zpos_P_of_succ_nat.
+  rewrite <- Z.add_1_r.
+  rewrite (Z.add_comm (Z.of_nat z)).
+  rewrite Z.add_assoc.
+  reflexivity.
+  lia.
+  intros.
+  rewrite Znat.Nat2Z.inj_add.
+  rewrite Znat.Zpos_P_of_succ_nat.
+  rewrite <- Z.add_1_r.
+  rewrite addNat_add.
+   rewrite Znat.Nat2Z.inj_add.
+  reflexivity.
+Qed.
+
+Theorem ecFromTo_0_n_equiv : forall n : Nat, to_list (ecFromTo 0%nat n Integer PLiteralInteger) = toN_int n.
+
+  intros.
+  specialize (ecFromTo_m_n_equiv 0%nat); intros.
+  rewrite H.
+  rewrite Nat.sub_0_r.
+  rewrite (map_ext _ (fun x => x)).
+  apply map_id.
+  intros.
+  apply Z.add_0_l.
+Qed.  
+
+Theorem ecFromTo_0_n_bv_excl_equiv : forall (s : nat) (n : Nat), to_list (ecFromTo 0%nat n (CryptolPrimitivesForSAWCore.seq s Bool) (PLiteralSeqBool s)) = toN_excl_bv s (S n).
+
+  intros.
+  rewrite ecFromTo_0_n_bv_equiv.
+  unfold toN_bv.
+  simpl.
+  reflexivity.
+
+
+Qed.
+
+Theorem foldl_ls_eq : forall (A B : Type) f n ls a,
+  foldl B A n f a ls = fold_left f (to_list ls) a.
+
+  induction ls; intros; simpl in *.
+  trivial.
+  rewrite IHls.
+  reflexivity.
+
+Qed.
+
+
+Theorem ecFoldl_foldl_equiv
+  : forall (A B : Type) (inhB : Inhabited B) (f : A -> B -> A) (n : Nat) (ls : CryptolPrimitivesForSAWCore.seq n B) (a : A), ecFoldl n A B f a ls = List.fold_left f (to_list ls) a.
+
+  intros.
+  unfold ecFoldl.
+  simpl.
+  apply foldl_ls_eq.
+
+Qed.
+
+Theorem ecEq_vec_bv_true : forall (n1 n2 : nat) (v : Vec n1 (bitvector n2)), ecEq (Vec n1 (bitvector n2)) (PEqVec n1 (bitvector n2) (PEqWord n2)) v v = 1%bool.
+  intros.
+  unfold ecEq.
+  simpl.
+  apply vecEq_refl.
+  apply bvEq_refl.
+
+Qed.
+
+Theorem ecEq_vec_bv_false
+  : forall (n1 n2 : nat) (v1 v2 : Vec n1 (bitvector n2)), v1 <> v2 -> ecEq (Vec n1 (bitvector n2)) (PEqVec n1 (bitvector n2) (PEqWord n2)) v1 v2 = 0%bool.
+
+  intros.
+  unfold ecEq.
+  simpl.
+  case_eq (vecEq n1 (bitvector n2) (bvEq n2) v1 v2); intros; trivial.
+  exfalso.
+  apply H.
+  eapply vecEq_correct; eauto.
+  intros.
+  apply bvEq_eq.
+  eauto.
+
+Qed.
+
+Definition toNat_ls bs := 
+  seq.foldr (fun (b : bool) (n : nat) => if b then (S (2 * n)%nat) else (2*n)%nat) 0%nat bs.
+
+Definition bvToNat_ls n (v : Vec n bool) :=
+  toNat_ls (bvToBITS_ls v).
+
+Definition bvToNat_ls_0 n (v : Vec n bool) :=
+  seq.foldl bvToNatFolder 0%nat (to_list v).
+
+Theorem foldr_eq : forall [T R : Type] (f : T -> R-> R) (z : R) (s : list T), seq.foldr f z s = fold_right f z s .
+  intros.
+  reflexivity.
+
+Qed.
+
+
+Theorem foldl_eq : forall [T R : Type] (f : R -> T-> R) (s : list T) z, seq.foldl f z s = fold_left f s z .
+ 
+  induction s; intros; simpl in *; trivial.
+ 
+Qed.
+
+Theorem Vector_fold_left_eq : forall [T R : Type] (f : R -> T-> R) n (v : Vec n T) z, 
+  Vector.fold_left f z v = foldl _ _ n f z v.
+
+  induction v; intros; simpl in *; trivial.
+
+Qed.
+
+Theorem bvToNat_ls_0_eq : forall n (v : Vec n bool),
+  bvToNat n v = bvToNat_ls_0 v.
+
+  intros.
+  unfold bvToNat, bvToNat_ls_0.
+  rewrite Vector_fold_left_eq.
+  rewrite foldl_eq.
+  apply foldl_ls_eq.
+
+Qed.
+
+
+Theorem foldr_rev:
+  forall [T R : Type] (f : T -> R-> R) (s : list T) z, seq.foldr f z (rev s) = seq.foldl (fun (x : R) (z0 : T) => f z0 x) z s.
+
+  induction s; intros; simpl in *; trivial.
+  simpl in *. 
+  rewrite foldr_eq.
+  rewrite fold_right_app.
+  rewrite <- foldr_eq.
+  rewrite IHs.
+  reflexivity.
+
+Qed.
+
+Theorem bvToNat_ls_eq : forall n (v : Vec n bool),
+  bvToNat n v = bvToNat_ls v.
+
+  intros.
+  rewrite bvToNat_ls_0_eq.
+  unfold bvToNat_ls, bvToNat_ls_0.
+  unfold bvToBITS_ls, toNat_ls.
+  rewrite foldr_rev.
+  repeat rewrite foldl_eq.
+  apply fold_left_ext.
+  intros.
+  
+  unfold bvToNatFolder.
+  rewrite <- ssrnat.addnn.
+  repeat rewrite <- ssrnat.plusE.
+  simpl.
+  destruct b; simpl in *.
+  lia.
+  lia.
+Qed.
+
+Theorem toNat_ls_of_nat_eq : forall ls, 
+  Z.of_nat (toNat_ls ls) = toPosZ_ls ls.
+
+  induction ls; intros; simpl in *; trivial.
+  rewrite <- IHls.
+  destruct a.
+  lia.
+  lia.
+
+Qed.
+
+Theorem bvToNat_toZ_equiv : forall (n : Nat) (x : bitvector n), BinInt.Z.of_nat (bvToNat n x) = bvToInt n x.
+
+  intros.
+  rewrite <- bvToInt_ls_equiv.
+  rewrite bvToNat_ls_eq.
+  unfold bvToNat_ls, bvToInt_ls.
+  apply toNat_ls_of_nat_eq.
+
+Qed.
+
+Theorem bvToNat_lt_word : forall (n : Nat) (x : bitvector n), (BinInt.Z.of_nat (bvToNat n x) < 2 ^ BinInt.Z.of_nat n)%Z.
+
+Admitted.
+
+Theorem bvToNat_Z_to_nat_equiv : forall (n : Nat) (x : bitvector n) (z : Z), (0 <= z)%Z -> sbvToInt n x = z -> bvToNat n x = BinInt.Z.to_nat z.
+
+Admitted.
+
+Theorem bvToInt_shiftR_lt
+  : forall (n : Nat) (v : bitvector n) (s : nat) (b : Z), (bvToInt n v < 2 ^ (BinInt.Z.of_nat s + b))%Z -> (bvToInt n (shiftR n bool 0%bool v s) < 2 ^ b)%Z.
+
+Admitted.
+
+Theorem bvToInt_shiftR_equiv : forall (n s : nat) (x : Vector.t bool n), (s >= 0)%nat -> bvToInt n (shiftR n bool 0%bool x s) = BinInt.Z.shiftr (bvToInt n x) (BinInt.Z.of_nat s).
+
+Admitted.
+
+Theorem bvToInt_shiftL_1_equiv : forall n s : nat, (s < n)%nat -> bvToInt n (shiftL n bool 0%bool (intToBv n 1) s) = BinInt.Z.shiftl 1 (BinInt.Z.of_nat s).
+
+Admitted.
+
+Theorem bvToInt_sbvToInt_range : forall (n : Nat) (v : bitvector n) (x : Z), (bvToInt n v < 2 ^ (1 + x))%Z -> (- 2 ^ x <= sbvToInt n v < 2 ^ x)%Z.
+
+Admitted.
+
+Theorem bvToInt_sbvToInt_equiv : forall (n : nat) (v : bitvector n), (n > 0)%nat -> (bvToInt n v < 2 ^ BinInt.Z.of_nat (Nat.pred n))%Z -> sbvToInt n v = bvToInt n v.
+
+Admitted.
+
+
+
+Theorem bvToInt_nonneg : forall (n : Nat) (v : bitvector n), (0 <= bvToInt n v)%Z.
+
+Admitted.
+
+Theorem bvToInt_intToBv_id : forall (n : Nat) (v : Z), bvToInt n (intToBv n v) = v.
+
+Admitted.
+
+
+Theorem bvToInt_bound : forall (n : Nat) (v : bitvector n), (0 <= bvToInt n v < 2 ^ BinInt.Z.of_nat n)%Z.
+
+Admitted.
+
+Theorem bvToBits_eq_inv : forall (n : nat) (b1 b2 : bitvector n), bvToBITS b1 = bvToBITS b2 -> b1 = b2.
+
+Admitted.
+
+Theorem bvAdd_same_l_if : forall n x y1 y2,
+  (bvAdd n x y1) = (bvAdd n x y2) ->
+  y1 = y2.
+
+Admitted.
+
+Theorem bvToBITS_z_equiv : forall (n : Nat) (z : Z), bvToBITS (intToBv n z) = spec.fromZ z.
+
+Admitted.
+
+Theorem bvToBITS_xor_eq : forall (n : Nat) (v1 v2 : bitvector n), bvToBITS (bvXor n v1 v2) = xorB (bvToBITS v1) (bvToBITS v2).
+
+Admitted.
+
+Theorem bvToBITS_ones_eq : forall n : Nat, bvToBITS (replicate n bool 1%bool) = spec.ones n.
+
+Admitted.
+
+Theorem twos_complement_equiv : forall n v,
+    (n > 0)%nat ->
+    sbvToInt n (bvAdd n (bvXor n v (replicate n bool true)) (intToBv n 1)) = Z.opp (sbvToInt _ v).
+
+  intros.
+
+  rewrite <- sbvToInt_bvNeg_equiv.
+  unfold bvNeg.
+  f_equal.
+  Local Transparent bvAdd bvSub sbbB.
+  unfold bvAdd, bvSub, sbbB.
+  simpl.
+  f_equal.
+  repeat rewrite bvToBITS_z_equiv.  
+  rewrite adcB_0_1_equiv.
+  rewrite addBC.
+  f_equal.
+  f_equal.
+  rewrite <- xorBN.
+  rewrite bvToBITS_xor_eq.
+  f_equal.
+  apply bvToBITS_ones_eq.
+Qed.
+
+
+Theorem bvAdd_replicate_0 : forall n v,
+  bvAdd _ (replicate n bool false) v = v.
+
+(*
+  intros.
+  unfold bvAdd.
+  Search replicate.
+  Search adcB.
+  Search bvToBITS.
+  Search replicate.
+  rewrite rep_false_eq_int_bv.
+  replace (intToBv n 0) with (@bitsToBv n (spec.fromNat 0)).
+  rewrite bvToBITS_bitsToBv_id.
+  rewrite add0B.
+  apply bitsToBv_bvToBITS_id.
+  unfold intToBv.
+  f_equal.
+  rewrite fromNat0.
+  reflexivity.
+*)
+ 
+Admitted.
+
+Theorem bvSShr_all_nonneg : forall (n1 : nat) (v : bitvector (S n1)), (0 <= sbvToInt (S n1) v)%Z -> bvSShr n1 v n1 = replicate (S n1) bool 0%bool.
+
+Admitted.
+
+Theorem bvSShr_all_neg : forall (n1 : nat) (v : bitvector (S n1)), (sbvToInt (S n1) v < 0)%Z -> bvSShr n1 v n1 = replicate (S n1) bool 1%bool.
+
+Admitted.
+
+Theorem bvSShr_Z_shiftr_equiv
+  : forall (n : nat) (x1 : bitvector (S n)) (x2 : Z) (y1 : nat) (y2 : Z),
+    BinInt.Z.of_nat y1 = y2 -> sbvToInt (S n) x1 = x2 -> sbvToInt (S n) (bvSShr n x1 y1) = BinInt.Z.shiftr x2 y2.
+
+Admitted.
+
+Theorem bvOr_bvToInt_equiv : forall (n : Nat) (x y : bitvector n), bvToInt n (bvOr x y) = BinInt.Z.lor (bvToInt n x) (bvToInt n y).
+
+Admitted.
+
+(*
+Theorem bvNat_bvToNat_id : forall (n : Nat) (x : bitvector n), Eq (bitvector n) (bvNat n (bvToNat n x)) x.
+
+Qed.
+*)
+
+
+Theorem bvEq_nth_order : forall (n : nat) (v1 v2 : bitvector n), bvEq n v1 v2 = 1%bool -> forall (n' : nat) (pf : (n' < n)%nat), nth_order v1 pf = nth_order v2 pf.
+
+Admitted.
+
+Theorem bvEq_false_ne : forall (n : nat) (v1 v2 : bitvector n), bvEq n v1 v2 = 0%bool -> exists (n' : nat) (nlt : (n' < n)%nat), nth_order v1 nlt <> nth_order v2 nlt.
+
+Admitted.
+
+(*
+Theorem bitsToBv_eq_inv : forall n (b1 b2 : spec.BITS n),
+  bitsToBv b1 = bitsToBv b2 ->
+  b1 = b2.
+
+  intros.
+  apply eq_impl_to_list_eq in H.
+  repeat rewrite <-bitsToBv_ls_eq in *.
+  unfold bitsToBv_ls in *.
+  Search tuple.tval.
+  Search spec.BITS eq.
+  simpl in *.
+
+  induction n; intros; simpl in *.
+  apply trivialBits.
+
+  destruct (bits_cons_decomp b1).
+  destruct H0.
+  destruct (bits_cons_decomp b2).
+  destruct H1.
+  subst.
+  apply eq_impl_to_list_eq in H.
+  repeat rewrite <-bitsToBv_ls_eq in *.
+  unfold bitsToBv_ls in *.
+  simpl in *.
+  apply app_inj_tail in H.
+  intuition idtac; subst.
+  f_equal.
+  apply IHn.
+  unfold bitsToBv.
+  reflexivity.
+  Search app.
+  Search bitsToBv to_list.
+  Search bitsToBv.
+  repeat rewrite <- bitsToBv_cons_eq in H.
+  apply cons_inj in H.
+  intuition; subst.
+  f_equal.
+  eauto.
+
+Qed.
+*)
+
+
+(*
+Theorem append_nil_eq : forall (A : Type) (inh : Inhabited A) (n : nat) (v : Vec n A), SAWCorePrelude.append (@Vector.nil A) v = v.
+
+Qed.
+*)
+
+Theorem bvMul_2_shiftl_equiv : forall (n : nat) (v : bitvector n), bvMul n (intToBv n 2) v = shiftL n bool 0%bool v 1.
+
+Admitted.
+
+(* see how lis does this for 64 bits*)
+Theorem intToBv_add_equiv : forall (n : Nat) (x y : Z), 
+  intToBv n (x + y) = bvAdd n (intToBv n x) (intToBv n y).
+
+  intros.
+  destruct n.
+  apply vec_0_eq.
+  unfold intToBv, bvAdd.
+  f_equal.
+
+Admitted.
+
+
+Theorem sbvToInt_bvURem_equiv : forall n v1 v2,
+  (n > 0)%nat ->
+  (0 < bvToInt _ v2)%Z ->
+  (bvToInt _ v2 <= Z.pow 2 (Z.of_nat (pred n)))%Z ->
+  sbvToInt n (bvURem _ v1 v2) = Z.modulo (bvToInt _ v1) (bvToInt _ v2).
+
+  intros.
+  Local Transparent bvURem.
+  unfold bvURem.
+  destruct n. lia.
+  rewrite bvToInt_sbvToInt_equiv.
+  apply bvToInt_intToBv_id.
+  trivial.
+  rewrite bvToInt_intToBv_id.
+  eapply Z.lt_le_trans.
+  eapply Z.mod_pos_bound.
+  trivial.
+  trivial.
+Qed.
+
+
+
+
+
+
+
+
+
+
