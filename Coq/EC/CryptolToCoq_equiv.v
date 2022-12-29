@@ -6095,44 +6095,466 @@ Theorem bvToNat_toZ_equiv : forall (n : Nat) (x : bitvector n), BinInt.Z.of_nat 
 
 Qed.
 
+Theorem toNat_ls_lt_word : forall (ls : list bool), (BinInt.Z.of_nat (toNat_ls ls) < 2 ^ BinInt.Z.of_nat (length ls))%Z.
+
+  induction ls; intros.
+  simpl in *; try lia.
+  
+  simpl toNat_ls.
+  simpl List.length.
+  rewrite Znat.Nat2Z.inj_succ.
+  rewrite <- Z.add_1_r.
+  destruct a.
+  rewrite Znat.Nat2Z.inj_succ.
+  rewrite <- Z.add_1_r.
+  rewrite plus_0_r.
+  rewrite Znat.Nat2Z.inj_add.
+  rewrite Z.pow_add_r.
+  lia.
+  lia.
+  lia.
+
+  rewrite plus_0_r.
+  rewrite Znat.Nat2Z.inj_add.
+  rewrite Z.pow_add_r.
+  lia.
+  lia.
+  lia.
+
+Qed.
+
+
 Theorem bvToNat_lt_word : forall (n : Nat) (x : bitvector n), (BinInt.Z.of_nat (bvToNat n x) < 2 ^ BinInt.Z.of_nat n)%Z.
 
-Admitted.
+  intros.
+  rewrite bvToNat_ls_eq.
+  eapply Z.lt_le_trans.
+  apply toNat_ls_lt_word.
+  eapply Z.pow_le_mono.
+  lia.
+  unfold bvToBITS_ls.
+  rewrite rev_length.
+  rewrite to_list_length.
+  lia.
+
+Qed.
+
+Theorem toNat_ls_0_tl_eq : forall x,
+  toNat_ls (x ++ [0%bool]) = toNat_ls x.
+
+  induction x; intros; simpl in *; trivial.
+  destruct a.
+  rewrite IHx.
+  lia.
+  rewrite IHx.
+  lia.
+
+Qed.
+
+Theorem toNat_ls_toPosZ_ls_eq : forall x,
+  toNat_ls x = Z.to_nat (toPosZ_ls x).
+
+  induction x; intros; simpl in *; trivial.
+  destruct a.
+  rewrite IHx.
+  rewrite Z.double_spec.
+  rewrite <- Z.add_1_r.
+  rewrite Znat.Z2Nat.inj_add.
+  rewrite Znat.Z2Nat.inj_mul.
+  lia.
+  lia.
+  apply toPosZ_ls_nonneg.
+  specialize (toPosZ_ls_nonneg x); intros.
+  lia.
+  lia.
+
+  rewrite IHx.
+  rewrite Z.double_spec.
+  rewrite Znat.Z2Nat.inj_mul.
+  lia.
+  lia.
+  apply toPosZ_ls_nonneg.
+Qed.
+
+Theorem toNat_ls_toZ_ls_eq : forall x,
+  0 <= toZ_ls x ->
+  toNat_ls x = Z.to_nat (toZ_ls x).
+
+  intros.
+  destruct x using rev_ind.
+  reflexivity.
+  clear IHx.
+  unfold toZ_ls in *.
+  rewrite splitmsb_ls_app_eq in *.
+  destruct x.
+  specialize (toNegZ_ls_nonneg x0); intros.
+  lia.
+  rewrite toNat_ls_0_tl_eq.
+  apply toNat_ls_toPosZ_ls_eq.
+
+Qed.
 
 Theorem bvToNat_Z_to_nat_equiv : forall (n : Nat) (x : bitvector n) (z : Z), (0 <= z)%Z -> sbvToInt n x = z -> bvToNat n x = BinInt.Z.to_nat z.
 
-Admitted.
+  intros.
+  subst.
+  rewrite bvToNat_ls_eq.
+  rewrite <- sbvToInt_ls_equiv in *.
+  unfold bvToNat_ls, sbvToInt_ls.
+  destruct n.
+  specialize (Vec_0_nil x); intros; subst.
+  reflexivity.
+
+  unfold bvToBITS_ls.
+  apply toNat_ls_toZ_ls_eq.
+  eauto.
+
+Qed.
+
+Theorem shiftR1_ls_rev_eq : forall (A : Type)(ls : list A) (a : A),
+  rev (shiftR1_ls a ls)  = shiftL1_ls a (rev ls).
+
+  intros.
+  unfold shiftR1_ls, shiftL1_ls, shiftout_ls, shiftin_ls.
+  simpl.
+  specialize (@skipn_rev A 1%nat (a::ls)); intros.
+  rewrite skipn_1_eq_tl in *.
+  simpl in *.
+  rewrite  H.
+  rewrite Nat.sub_0_r.
+  reflexivity.
+Qed.
+
+Theorem shiftR_ls_rev_eq : forall (A : Type)(ls : list A) n (a : A),
+  rev (shiftR_ls a ls n)  = shiftL_ls a (rev ls) n.
+
+  induction n; intros; simpl in *; trivial.
+  rewrite shiftR1_ls_rev_eq.
+  f_equal.
+  eauto.
+
+Qed.
+
+Theorem shiftL1_ls_rev_eq : forall (A : Type)(ls : list A) (a : A),
+  rev (shiftL1_ls a ls)  = shiftR1_ls a (rev ls).
+
+  intros.
+  unfold shiftR1_ls, shiftL1_ls, shiftout_ls, shiftin_ls.
+  simpl.
+  specialize (@skipn_rev A 1%nat (a::rev ls)); intros.
+  rewrite skipn_1_eq_tl in *.
+  simpl in *.
+  rewrite Nat.sub_0_r in *.
+  rewrite rev_involutive in *.
+  rewrite H. 
+  rewrite rev_involutive.
+  reflexivity.
+Qed.
+
+Theorem shiftL_ls_rev_eq : forall (A : Type)(ls : list A) n (a : A),
+  rev (shiftL_ls a ls n)  = shiftR_ls a (rev ls) n.
+
+  induction n; intros; simpl in *; trivial.
+  rewrite shiftL1_ls_rev_eq.
+  f_equal.
+  eauto.
+
+Qed.
+
+Theorem toPosZ_ls_shiftL1_ls_eq: forall ls,
+  toPosZ_ls (shiftL1_ls 0%bool ls) = (toPosZ_ls ls) / 2.
+
+  intros.
+  unfold shiftL1_ls.
+  unfold shiftin_ls.
+  destruct ls; simpl.
+  reflexivity.
+
+  rewrite toPosZ_app_0_eq.
+  rewrite Z.double_spec.
+  rewrite <- Z.add_1_l.
+  destruct b.
+  rewrite Z.mul_comm.
+  rewrite Zdiv.Z_div_plus; try lia.
+  rewrite Z.div_small; lia.
+  rewrite Z.mul_comm.
+  rewrite Zdiv.Z_div_mult; lia.
+
+Qed.
+
+Theorem toPosZ_ls_shiftL_ls_eq : forall n ls,
+  toPosZ_ls (shiftL_ls 0%bool ls n) = (toPosZ_ls ls) / (2 ^ (Z.of_nat n)).
+
+  induction n; intros.
+  simpl in *.
+  rewrite Z.div_1_r.
+  reflexivity.
+  simpl shiftL_ls.
+  rewrite toPosZ_ls_shiftL1_ls_eq.
+  rewrite IHn.
+  rewrite Zdiv.Zdiv_Zdiv; try lia.
+  rewrite Znat.Nat2Z.inj_succ.
+  rewrite <- Z.add_1_r.
+  rewrite Z.pow_add_r; try lia.
+  rewrite Z.pow_1_r.
+  reflexivity.
+  apply Z.pow_nonneg.
+  lia.
+
+Qed.
 
 Theorem bvToInt_shiftR_lt
-  : forall (n : Nat) (v : bitvector n) (s : nat) (b : Z), (bvToInt n v < 2 ^ (BinInt.Z.of_nat s + b))%Z -> (bvToInt n (shiftR n bool 0%bool v s) < 2 ^ b)%Z.
+  : forall (n : Nat) (v : bitvector n) (s : nat) (b : Z), 
+  0 <= b ->
+  (bvToInt n v < 2 ^ (BinInt.Z.of_nat s + b))%Z -> (bvToInt n (shiftR n bool 0%bool v s) < 2 ^ b)%Z.
 
-Admitted.
+  intros.
+  rewrite <-  bvToInt_ls_equiv in *.
+  unfold bvToInt_ls in *.
+  unfold bvToBITS_ls in *.
+  rewrite shiftR_ls_equiv.
+  rewrite shiftR_ls_rev_eq.
+  rewrite toPosZ_ls_shiftL_ls_eq.
+  rewrite  Z.pow_add_r in *; try lia.
+  apply Zdiv.Zdiv_lt_upper_bound.
+  apply Z.pow_pos_nonneg; lia.
+  lia.
+
+Qed.
 
 Theorem bvToInt_shiftR_equiv : forall (n s : nat) (x : Vector.t bool n), (s >= 0)%nat -> bvToInt n (shiftR n bool 0%bool x s) = BinInt.Z.shiftr (bvToInt n x) (BinInt.Z.of_nat s).
 
-Admitted.
+  intros.
+  repeat rewrite <- bvToInt_ls_equiv.
+  unfold bvToInt_ls.
+  unfold bvToBITS_ls.
+  rewrite shiftR_ls_equiv.
+  rewrite shiftR_ls_rev_eq.
+  rewrite toPosZ_ls_shiftL_ls_eq.
+  rewrite Z.shiftr_div_pow2.
+  reflexivity.
+  lia.
+
+Qed.
+
+Theorem toPosZ_ls_app : forall x1 x2,
+  toPosZ_ls (x1 ++ x2) = (toPosZ_ls x1) + (toPosZ_ls x2)*2^(Z.of_nat (length x1)).
+
+  induction x1; intros.
+  simpl in *.
+  rewrite Z.mul_1_r.
+  reflexivity.
+  simpl List.length.
+  rewrite <- Nat.add_1_r.
+  simpl.
+  destruct a.
+  rewrite IHx1.
+  repeat rewrite <- Z.add_1_l.
+  repeat rewrite Z.double_spec.
+  rewrite Z.mul_add_distr_l.
+  rewrite Z.add_assoc.
+  f_equal.
+  rewrite Znat.Nat2Z.inj_add.
+  rewrite Z.pow_add_r; try lia.
+
+  rewrite IHx1.
+  rewrite Z.double_spec.
+  rewrite Z.mul_add_distr_l.
+  rewrite Znat.Nat2Z.inj_add.
+  rewrite Z.pow_add_r; try lia.
+
+Qed.
+
+Theorem toPosZ_ls_shiftR1_ls_eq: forall ls,
+  toPosZ_ls (shiftR1_ls 0%bool ls) = ((toPosZ_ls ls) * 2) mod (2 ^ (Z.of_nat (length ls))).
+
+  intros.
+  unfold shiftR1_ls.
+  unfold shiftout_ls.
+  simpl.
+  destruct ls using rev_ind.
+  simpl.
+  reflexivity.
+  clear IHls.
+  rewrite app_length.
+  rewrite plus_comm.
+  simpl List.length.
+  rewrite plus_comm at 2.
+  simpl.
+  rewrite firstn_app_1; try lia.
+  rewrite firstn_all.
+  rewrite toPosZ_ls_app.
+  rewrite Znat.Nat2Z.inj_add.
+  rewrite Z.pow_add_r; try lia.
+  rewrite Z.mul_add_distr_r.
+  rewrite Z.pow_1_r.
+  rewrite <- Z.mul_assoc.
+  rewrite Zdiv.Z_mod_plus_full.
+  rewrite Z.mod_small.
+  rewrite Z.double_spec.
+  lia.
+  specialize (toPosZ_ls_nonneg ls); intros.
+  specialize (toPosZ_ls_upper_bound ls); intros.
+  lia.
+
+Qed.
+
+Theorem toPosZ_ls_shiftR_ls_eq : forall n ls,
+  toPosZ_ls (shiftR_ls 0%bool ls n) = (toPosZ_ls ls) * (2 ^ (Z.of_nat n)) mod (2 ^ (Z.of_nat (length ls))).
+
+  induction n; intros.
+  simpl in *.
+  rewrite Z.mul_1_r.
+  rewrite Z.mod_small.
+  reflexivity.
+  specialize (toPosZ_ls_nonneg ls); intros.
+  specialize (toPosZ_ls_upper_bound ls); intros.
+  lia.
+
+  simpl shiftR_ls.
+  rewrite toPosZ_ls_shiftR1_ls_eq.
+  rewrite IHn.
+  rewrite shiftR_ls_length.
+  rewrite Znat.Nat2Z.inj_succ.
+  rewrite <- Z.add_1_r.
+  rewrite Z.pow_add_r; try lia.
+  rewrite Z.pow_1_r.
+  rewrite Zdiv.Zmult_mod_idemp_l.
+  rewrite Z.mul_assoc.
+  reflexivity.
+
+Qed.
 
 Theorem bvToInt_shiftL_1_equiv : forall n s : nat, (s < n)%nat -> bvToInt n (shiftL n bool 0%bool (intToBv n 1) s) = BinInt.Z.shiftl 1 (BinInt.Z.of_nat s).
 
-Admitted.
+  intros.
+  repeat rewrite <- bvToInt_ls_equiv.
+  unfold bvToInt_ls.
+  unfold bvToBITS_ls.
+  rewrite shiftL_to_list_eq.
+  rewrite <- intToBv_ls_eq.
+  unfold intToBv_ls, bitsToBv_ls.
+  rewrite shiftL_ls_rev_eq.
+  rewrite rev_involutive.
+  rewrite toPosZ_ls_shiftR_ls_eq.
+  rewrite fromZ_ls_length.
+  unfold fromZ_ls.
+  rewrite toPosZ_ls_fromPosZ_ls_eq.
+  rewrite Z.mul_1_l.
+  rewrite Z.mod_small.
+  rewrite Z.shiftl_1_l.
+  reflexivity.
+  intuition idtac.
+  eapply Z.pow_nonneg.
+  lia.
+  eapply Z.pow_lt_mono_r; lia.
+  intuition idtac; try lia.
+  eapply (Z.le_lt_trans _ (2^(Z.of_nat 0%nat))).
+  reflexivity.
+  eapply Z.pow_lt_mono_r; lia.
 
-Theorem bvToInt_sbvToInt_range : forall (n : Nat) (v : bitvector n) (x : Z), (bvToInt n v < 2 ^ (1 + x))%Z -> (- 2 ^ x <= sbvToInt n v < 2 ^ x)%Z.
+Qed.
 
-Admitted.
+Theorem toPosZ_ls_toZ_ls_range : forall ls (x : Z), 
+  0 <= x ->
+  (toPosZ_ls ls < 2 ^ (1 + x))%Z -> 
+  (- 2 ^ x <= toZ_ls ls < 2 ^ x)%Z.
+
+  intros.
+  unfold toZ_ls.
+  destruct ls using rev_ind.
+  simpl.
+  intuition idtac.
+  apply Z.opp_nonpos_nonneg.
+  apply Z.pow_nonneg; lia.
+  apply Z.pow_pos_nonneg; lia.
+  clear IHls.
+
+  rewrite splitmsb_ls_app_eq.
+  rewrite Z.add_comm in *.
+  rewrite toPosZ_ls_app in *.
+  simpl in *.
+  destruct x0.
+  rewrite Z.mul_1_l in *.
+  specialize (@toPosZ_ls_nonneg ls); intros.
+  specialize (@toPosZ_ls_upper_bound ls); intros.
+  
+  intuition idtac.
+  apply (@Z.opp_le_mono _ (2^x)).
+  apply Zorder.Zlt_le_succ.
+  
+
+Abort.
+
+Theorem toPosZ_ls_toZ_ls_equiv : forall ls,
+  toPosZ_ls ls < 2^(Z.of_nat (pred (length ls))) ->
+  toZ_ls ls = toPosZ_ls ls.
+
+  intros.
+  unfold toZ_ls.
+  destruct ls using rev_ind.
+  simpl.
+  trivial.
+  clear IHls.
+  rewrite splitmsb_ls_app_eq.
+  rewrite toPosZ_ls_app in *.
+  rewrite app_length in *.
+  simpl in *.
+  rewrite plus_comm in H.
+  simpl in *.
+  destruct x.
+  specialize (toPosZ_ls_nonneg ls); intros.
+  lia.
+  lia.
+
+Qed.
 
 Theorem bvToInt_sbvToInt_equiv : forall (n : nat) (v : bitvector n), (n > 0)%nat -> (bvToInt n v < 2 ^ BinInt.Z.of_nat (Nat.pred n))%Z -> sbvToInt n v = bvToInt n v.
 
-Admitted.
+  intros.
+  rewrite <- sbvToInt_ls_equiv.
+  repeat rewrite <- bvToInt_ls_equiv in *.
+  unfold sbvToInt_ls, bvToInt_ls in *.
+  destruct n.
+  lia.
+  simpl in *.
+  eapply toPosZ_ls_toZ_ls_equiv.
+  unfold bvToBITS_ls.
+  rewrite rev_length.
+  rewrite to_list_length.
+  simpl.
+  eauto.
 
-
+Qed.
 
 Theorem bvToInt_nonneg : forall (n : Nat) (v : bitvector n), (0 <= bvToInt n v)%Z.
 
-Admitted.
+  intros.
+  rewrite <- bvToInt_ls_equiv.
+  unfold bvToInt_ls.
+  apply toPosZ_ls_nonneg.
 
-Theorem bvToInt_intToBv_id : forall (n : Nat) (v : Z), bvToInt n (intToBv n v) = v.
+Qed.
 
-Admitted.
+Theorem bvToInt_intToBv_id : forall (n : Nat) (v : Z),
+  0 <= v < 2 ^ (Z.of_nat n)->
+   bvToInt n (intToBv n v) = v.
+
+  intros.
+  rewrite <- bvToInt_ls_equiv.
+  unfold bvToInt_ls.
+  unfold bvToBITS_ls.
+  rewrite <- intToBv_ls_eq.
+  unfold intToBv_ls, bitsToBv_ls.
+  rewrite rev_involutive.
+  unfold fromZ_ls.
+  destruct v.
+  apply toPosZ_ls_repeat_0.
+  apply toPosZ_ls_fromPosZ_ls_eq.
+  trivial.
+  lia.
+
+Qed.
 
 
 Theorem bvToInt_bound : forall (n : Nat) (v : bitvector n), (0 <= bvToInt n v < 2 ^ BinInt.Z.of_nat n)%Z.
@@ -6321,12 +6743,34 @@ Theorem sbvToInt_bvURem_equiv : forall n v1 v2,
   destruct n. lia.
   rewrite bvToInt_sbvToInt_equiv.
   apply bvToInt_intToBv_id.
-  trivial.
+  intuition idtac.
+  apply Z.mod_pos_bound.
+  lia.
+  eapply Z.lt_le_trans.
+  apply Z.mod_pos_bound.
+  lia.
+  rewrite H1.
+  eapply Z.pow_le_mono.
+  lia.
+  lia.
+  lia.
+  
   rewrite bvToInt_intToBv_id.
   eapply Z.lt_le_trans.
   eapply Z.mod_pos_bound.
   trivial.
   trivial.
+  intuition idtac.
+  apply Z.mod_pos_bound.
+  lia.
+  eapply Z.lt_le_trans.
+  apply Z.mod_pos_bound.
+  lia.
+  rewrite H1.
+  eapply Z.pow_le_mono.
+
+  lia.
+  lia.
 Qed.
 
 

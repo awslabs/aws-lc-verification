@@ -1795,16 +1795,28 @@ Feq
     rewrite SAWCorePreludeExtra.addNat_add.
     lia.
     lia.
-    apply bvToInt_sbvToInt_range.
-    eapply Z.lt_le_trans; eauto.
+    rewrite bvToInt_sbvToInt_equiv.
+    intuition idtac.
+    eapply (Z.le_trans _ 0).
+    apply Z.opp_nonpos_nonneg.
+    eapply Z.pow_nonneg; lia.
+    apply bvToInt_nonneg. 
+    eapply Z.lt_le_trans.
+    eapply H0.
     apply Z.pow_le_mono_r.
     lia.
     lia.
+    rewrite <- addNat_equiv.
+    lia.
+    eapply Z.lt_le_trans.
+    apply H0.
+     rewrite <- addNat_equiv.
+    apply Z.pow_le_mono; lia.
     econstructor.
 
     simpl.
 
-    (* the calulcated window value actually fits in a window*)
+    (* the calculated window value actually fits in a window*)
     assert ((- 2 ^ Z.of_nat wsize <=
      sbvToInt (addNat 368%nat 16%nat)
        (bvSub 384
@@ -2069,6 +2081,7 @@ Feq
     lia.
     
     apply bvToInt_shiftR_lt.
+    lia.
 
     rewrite bvToInt_bvSub_small_equiv.
 
@@ -2335,9 +2348,11 @@ Feq
     rewrite <- Z.negb_odd.
     rewrite H1.
     trivial.
+    lia.
     rewrite bvOr_bvToInt_equiv.
     rewrite bvToInt_intToBv_id.
     reflexivity.
+    lia.
 
   Qed.
 
