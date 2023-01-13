@@ -1773,6 +1773,15 @@ Feq
 
   Qed.
 
+  Theorem Z_add_nonpos_lt : forall (a b c : Z),
+    (b <= 0 ->
+    a < c ->
+    a + b < c)%Z.
+
+    intros.
+    lia.
+  Qed.
+
   Theorem recode_rwnaf_odd_bv_equiv : 
     forall wsize nw n,
     0 < wsize < 16 -> 
@@ -1969,6 +1978,7 @@ Feq
     apply Z.pow_le_mono_r; simpl; lia.
 
     lia.
+    lia.
 
     econstructor; eauto.
 
@@ -2074,6 +2084,20 @@ Feq
     bvIntSimpl.
     bvIntSimpl.
     bvIntSimpl.
+    
+    rewrite sbvToInt_bvSub_equiv; try lia.
+    bvIntSimpl.
+    apply Z.lt_add_lt_sub_l.
+    rewrite Z.add_opp_r.
+    eapply Z.lt_le_trans.
+    apply Z.lt_sub_0.
+    eapply Z.pow_lt_mono_r; lia.
+    eapply Z.mod_pos_bound.
+    apply Z.pow_pos_nonneg; lia.
+    bvIntSimpl.
+    bvIntSimpl.
+  
+    lia.
     lia.
    
     rewrite H3.
@@ -2100,15 +2124,18 @@ Feq
     eauto.
     simpl.
     lia.
+    lia.
     (* 2 * 2 ^wsize is positive *)
     rewrite bvMul_2_shiftl_equiv.
     rewrite shiftL_shiftL.
     bvIntSimpl.
+    lia.
    
     (* 2 * 2^wsize <= 2^383 *)
     rewrite bvMul_2_shiftl_equiv.
     rewrite shiftL_shiftL.
     bvIntSimpl.
+    lia.
 
     rewrite sbvToInt_bvURem_equiv; try lia.
     split.
@@ -2120,6 +2147,7 @@ Feq
     rewrite bvMul_2_shiftl_equiv.
     rewrite shiftL_shiftL.
     bvIntSimpl.
+    lia.
 
     eapply Z.lt_le_trans.
     apply Z.mod_pos_bound.
@@ -2127,6 +2155,7 @@ Feq
     rewrite bvMul_2_shiftl_equiv.
     rewrite shiftL_shiftL.
     bvIntSimpl.
+    lia.
 
     rewrite bvMul_2_shiftl_equiv.
     rewrite shiftL_shiftL.
@@ -2134,16 +2163,19 @@ Feq
     rewrite Z.shiftl_1_l.
     eapply Z.pow_le_mono; simpl; lia.
     lia.
+    lia.
 
     (* 2 * 2 ^wsize is positive *)
     rewrite bvMul_2_shiftl_equiv.
     rewrite shiftL_shiftL.
     bvIntSimpl.
+    lia.
 
     (* 2 * 2^wsize < 2^384 *)
     rewrite bvMul_2_shiftl_equiv.
     rewrite shiftL_shiftL.
     bvIntSimpl.
+    lia.
 
     rewrite bvToInt_sbvToInt_equiv.
     split.
@@ -2190,15 +2222,18 @@ Feq
 
     (* integers from 384 bit vectors are less than 2^384 *)
     bvIntSimpl.
+    lia.
 
     (* 2 * 2 ^wsize is positive *)
     rewrite bvMul_2_shiftl_equiv.
     rewrite shiftL_shiftL.
     bvIntSimpl.
+    lia.
     (* 2 * 2^wsize <= 2^383 *)
     rewrite bvMul_2_shiftl_equiv.
     rewrite shiftL_shiftL.
     bvIntSimpl.
+    lia.
 
     rewrite sbvToInt_bvURem_equiv; try lia.
     split.
@@ -2210,6 +2245,7 @@ Feq
     rewrite bvMul_2_shiftl_equiv.
     rewrite shiftL_shiftL.
     bvIntSimpl.
+    lia.
 
     eapply Z.lt_le_trans.
     apply Z.mod_pos_bound.
@@ -2217,6 +2253,7 @@ Feq
     rewrite bvMul_2_shiftl_equiv.
     rewrite shiftL_shiftL.
     bvIntSimpl.
+    lia.
 
     rewrite bvMul_2_shiftl_equiv.
     rewrite shiftL_shiftL.
@@ -2224,16 +2261,19 @@ Feq
     rewrite Z.shiftl_1_l.
     eapply Z.pow_le_mono; simpl; lia.
     lia.
+    lia.
 
     (* 2 * 2 ^wsize is positive *)
     rewrite bvMul_2_shiftl_equiv.
     rewrite shiftL_shiftL.
     bvIntSimpl.
+    lia.
 
     (* 2 * 2^wsize < 2^384 *)
     rewrite bvMul_2_shiftl_equiv.
     rewrite shiftL_shiftL.
     bvIntSimpl.
+    lia.
 
     rewrite bvToInt_sbvToInt_equiv.
     split.
@@ -2254,6 +2294,41 @@ Feq
     rewrite Z.shiftl_1_l.
     eapply Z.pow_lt_mono_r; simpl; lia.
     lia.
+
+    rewrite sbvToInt_bvSub_equiv; try lia.
+    bvIntSimpl.
+    apply Z.lt_add_lt_sub_l.
+    rewrite Z.add_opp_r.
+    eapply Z.lt_le_trans.
+    apply Z.lt_sub_0.
+    eapply Z.pow_lt_mono_r; lia.
+    eapply Z.mod_pos_bound.
+    rewrite bvMul_2_shiftl_equiv.
+    rewrite shiftL_shiftL.
+    rewrite bvToInt_shiftL_1_equiv.
+    rewrite Z.shiftl_1_l.
+    apply Z.pow_pos_nonneg; lia.
+    lia.
+    lia.
+    rewrite bvMul_2_shiftl_equiv.
+    rewrite shiftL_shiftL.
+    rewrite bvToInt_shiftL_1_equiv.
+    rewrite Z.shiftl_1_l.
+    apply Z.pow_pos_nonneg; lia.
+    lia.
+    lia.
+    rewrite bvMul_2_shiftl_equiv.
+    rewrite shiftL_shiftL.
+    rewrite bvToInt_shiftL_1_equiv.
+    rewrite Z.shiftl_1_l.
+    apply Z.pow_le_mono_r; lia.
+    lia.
+    lia.
+    rewrite bvMul_2_shiftl_equiv.
+    rewrite shiftL_shiftL.
+    bvIntSimpl.
+    lia.
+    bvIntSimpl.
   Qed.
 
   Theorem recode_rwnaf_odd_bv_scanl_fix_body_fiat_equiv : forall wsize z, 
@@ -2767,6 +2842,7 @@ Feq
 Local Opaque shiftR.
 
 Theorem ct_abs_equiv : forall  b1 b2,
+    (Z.opp (Z.pow 2 (Z.of_nat 15)) < b1)%Z ->
     b1 = sbvToInt 16 b2 ->
     sbvToInt 16 (bvAdd 16 (shiftR 16 bool false b2 15) (bvXor 16 b2 (bvSShr 15 b2 15))) 
     =
@@ -2778,7 +2854,7 @@ Theorem ct_abs_equiv : forall  b1 b2,
     case_eq (sbvToInt 16 b2); intros; simpl in *.
 
     (* zero *)
-    apply sbvToInt_0_replicate in H.
+    apply sbvToInt_0_replicate in H0.
     subst.
     rewrite bvXor_comm.
     rewrite bvXor_zero.
@@ -2804,13 +2880,14 @@ Theorem ct_abs_equiv : forall  b1 b2,
     rewrite bvSShr_all_neg.
     rewrite bvAdd_comm.
     rewrite twos_complement_equiv.
-    rewrite H.
+    rewrite H0.
     apply Pos2Z.opp_neg.
     lia.
+    simpl in *.
     lia.
     lia.
     lia.
-
+    lia.
   Qed.
 
 
@@ -3188,6 +3265,13 @@ Theorem ct_abs_equiv : forall  b1 b2,
     rewrite Z.div2_spec.
     reflexivity.
 
+    eapply Z.le_lt_trans.
+    apply (@Z.opp_le_mono (2 ^ Z.of_nat (S pred_wsize))).
+    apply Z.pow_le_mono.
+    lia.
+    lia.
+    lia.
+
     rewrite (@bvToNat_Z_to_nat_equiv _ _ (Z.div2 (Z.abs (sbvToInt _ b2)))).
     rewrite Z.div2_spec.
     reflexivity.
@@ -3198,6 +3282,13 @@ Theorem ct_abs_equiv : forall  b1 b2,
     erewrite bvSShr_Z_shiftr_equiv; [idtac | idtac | erewrite ct_abs_equiv]; eauto.
     rewrite Z.div2_spec.
     reflexivity.
+
+    eapply Z.le_lt_trans.
+    apply (@Z.opp_le_mono (2 ^ Z.of_nat (S pred_wsize))).
+    apply Z.pow_le_mono.
+    lia.
+    lia.
+    lia.
 
     eapply jac_eq_trans.
     apply jacobian_eq_jac_eq.
@@ -3247,6 +3338,13 @@ Theorem ct_abs_equiv : forall  b1 b2,
     rewrite Z.div2_spec.
     reflexivity.
 
+    eapply Z.le_lt_trans.
+    apply (@Z.opp_le_mono (2 ^ Z.of_nat (S pred_wsize))).
+    apply Z.pow_le_mono.
+    lia.
+    lia.
+    lia.
+
     eapply bvToNat_Z_to_nat_equiv.
     apply Z.shiftr_nonneg.
     apply Z.abs_nonneg.
@@ -3254,6 +3352,12 @@ Theorem ct_abs_equiv : forall  b1 b2,
     apply bvSShr_Z_shiftr_equiv.
     trivial.
     apply ct_abs_equiv.
+    eapply Z.le_lt_trans.
+    apply (@Z.opp_le_mono (2 ^ Z.of_nat (S pred_wsize))).
+    apply Z.pow_le_mono.
+    lia.
+    lia.
+    lia.
     reflexivity.
 
     erewrite <- Forall2_length_eq; [idtac | eapply preCompTable_equiv].
