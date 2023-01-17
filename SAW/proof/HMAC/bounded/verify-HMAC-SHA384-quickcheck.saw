@@ -12,7 +12,7 @@ import "../../../../cryptol-specs/Primitive/Keyless/Hash/HMAC.cry";
 include "../../SHA512/SHA512-384-common.saw";
 
 // Include HMAC-SHA384 definitions
-include "../HMAC_SHA384.saw";
+include "../HMAC-SHA384.saw";
 
 // Include HMAC proof
 include "verify-HMAC.saw";

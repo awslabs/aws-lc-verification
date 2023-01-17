@@ -172,8 +172,14 @@ let zeroed_hmac_ctx_st ptr = do {
   crucible_points_to (crucible_field ptr "state") (crucible_term {{0:[8]}});
 };
 
-let hmac_ctx_is_initialized ptr = do {
+let points_to_hmac_ctx_state ptr = do {
   state <- crucible_fresh_var "state" (llvm_int 8);
-  crucible_precond {{state == 1 \/ state == 2}};
   crucible_points_to (crucible_field ptr "state") (crucible_term state);
+
+  return {{ state }};
+};
+
+let hmac_ctx_is_initialized ptr = do {
+  state <- points_to_hmac_ctx_state ptr;
+  crucible_precond {{state == 1 \/ state == 2}};
 };

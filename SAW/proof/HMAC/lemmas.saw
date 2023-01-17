@@ -290,19 +290,6 @@ SHAUpdate_Array_maintains_SHAState_Array_eq_thm <- prove_print
   (SHAState_Array_eq (SHAUpdate_Array state1 data data_len) (SHAUpdate_Array state2 data data_len))
 }});
 
-print "Proving HMACUpdate_Array_maintains_HMACState_Array_eq_thm";
-HMACUpdate_Array_maintains_HMACState_Array_eq_thm <- prove_print
-(do {
-  goal_eval_unint ["SHAUpdate_Array", "SHAState_Array_eq"];
-  goal_insert SHAUpdate_Array_maintains_SHAState_Array_eq_thm;
-  w4_unint_z3 ["SHAUpdate_Array", "SHAState_Array_eq"];
-})
-(rewrite (cryptol_ss ())
-{{ \state1 state2 data data_len ->
-  (HMACState_Array_eq state1 state2) ==>
-  (HMACState_Array_eq (HMACUpdate_Array state1 data data_len) (HMACUpdate_Array state2 data data_len))
-}});
-
 print "Proving SHAState_Array_eq_implies_SHAFinal_Array_equal_thm";
 SHAState_Array_eq_implies_SHAFinal_Array_equal_thm <- prove_print
 (do {
@@ -347,18 +334,19 @@ print "Proving arrayRangeEq_HMACState_Array_eq_transitivity_thm";
 arrayRangeEq_HMACState_Array_eq_transitivity_thm <- prove_print
 (w4_unint_z3 [])
 (rewrite (cryptol_ss ())
-{{ \x iblock ih in isz oblock oh on osz mdblock mdh mdn mdsz mdblock' ->
-(arrayRangeEq mdblock 0 x 0 128) /\ (arrayRangeEq x 0 mdblock' 0 128) ==>
-(HMACState_Array_eq
-  { i_ctx = {block = iblock, h = ih, n = in, sz = isz}
-  , o_ctx = {block = oblock, h = oh, n = on, sz = osz}
-  , md_ctx = {block = mdblock, h = mdh, n = mdn, sz = mdsz}
-  }
-  { i_ctx = {block = iblock, h = ih, n = in, sz = isz}
-  , o_ctx = {block = oblock, h = oh, n = on, sz = osz}
-  , md_ctx = {block = mdblock', h = mdh, n = mdn, sz = mdsz}
-  }
-)
+{{ \x iblock ih in isz iblock' oblock oh on osz mdblock mdh mdn mdsz mdblock' mdh' mdn' mdsz' ->
+  (arrayRangeEq mdblock 0 x 0 128) /\ (arrayRangeEq x 0 mdblock' 0 128) /\
+  (arrayRangeEq iblock 0 iblock' 0 128) /\ mdh == mdh' /\ mdn == mdn' /\ mdsz == mdsz' ==>
+  (HMACState_Array_eq
+    { i_ctx = {block = iblock, h = ih, n = in, sz = isz}
+    , o_ctx = {block = oblock, h = oh, n = on, sz = osz}
+    , md_ctx = {block = mdblock, h = mdh, n = mdn, sz = mdsz}
+    }
+    { i_ctx = {block = iblock', h = ih, n = in, sz = isz}
+    , o_ctx = {block = oblock, h = oh, n = on, sz = osz}
+    , md_ctx = {block = mdblock', h = mdh', n = mdn', sz = mdsz'}
+    }
+  )
 }});
 
 print "Proving HMACInit_Array_o_ctx_block_equal_zero_thm";

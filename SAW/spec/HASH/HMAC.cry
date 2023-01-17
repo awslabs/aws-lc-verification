@@ -5,7 +5,6 @@
 
 module HASH::HMAC where
 
-import Primitive::Keyless::Hash::HMAC
 import Primitive::Keyless::Hash::SHA384
 import Array
 import Common::ByteArray
@@ -35,11 +34,14 @@ key_init_Array state key key_len =
      then key_helper1 key key_len
      else key_helper2 state key key_len)
 
+ipad_byte = 0x36
+opad_byte = 0x5c
+
 ipad : [128][8] -> [128][8]
-ipad key = [ k ^ 0x36 | k <- key ]
+ipad key = [ k ^ ipad_byte | k <- key ]
 
 opad : [128][8] -> [128][8]
-opad key = [ k ^ 0x5c | k <- key ]
+opad key = [ k ^ opad_byte | k <- key ]
 
 istate : HMACState_Array -> [128][8] -> SHAState_Array
 istate state key = SHAUpdate_Array (SHAInit_Array2 state.i_ctx) (arrayRangeUpdate (arrayConstant 0) 0 (ipad key)) 128
@@ -56,53 +58,6 @@ HMACInit_Array state key key_len =
     key' = (key_init_Array state key key_len)
     i_state = istate state key'
     o_state = ostate key'
-
-istate' : HMACState_Array -> ByteArray -> [64] -> SHAState_Array
-istate' state key key_len =
-  if key_len <= 128 then i_state_1 else i_state_2
-  where key_1 = (key_helper1 key key_len)
-        key_2 = (key_helper2 state key key_len)
-        i_state_1 = SHAUpdate_Array (SHAInit_Array2 state.i_ctx)
-                                    (arrayRangeUpdate (arrayConstant 0) 0 (ipad key_1)) 128
-        i_state_2 = SHAUpdate_Array (SHAInit_Array2 state.i_ctx)
-                                    (arrayRangeUpdate (arrayConstant 0) 0 (ipad key_2)) 128
-
-ostate' : HMACState_Array -> ByteArray -> [64] -> SHAState
-ostate' state key key_len =
-  if key_len <= 128 then o_state_1 else o_state_2
-  where o_state_1 = SHAUpdate SHAInit (opad (key_helper1 key key_len))
-        o_state_2 = SHAUpdate SHAInit (opad (key_helper2 state key key_len))
-
-ipad' : [128][8] -> [128][8]
-ipad' key = (split`{128} (join ([ join (reverse (split`{8} ((join (reverse (split`{8} k))) ^ 0x3636363636363636))) | k <- (split`{16} (join key)) ])))
-
-opad' : [128][8] -> [128][8]
-opad' key = (split`{128} (join ([ join (reverse (split`{8} ((join (reverse (split`{8} k))) ^ 0x5c5c5c5c5c5c5c5c))) | k <- (split`{16} (join key)) ])))
-
-istate'' : HMACState_Array -> ByteArray -> [64] -> SHAState_Array
-istate'' state key key_len =
-  if key_len <= 128 then i_state_1 else i_state_2
-  where key_1 = (key_helper1 key key_len)
-        key_2 = (key_helper2 state key key_len)
-        i_state_1 = SHAUpdate_Array (SHAInit_Array2 state.i_ctx)
-                                    (arrayRangeUpdate (arrayConstant 0) 0 (ipad' key_1)) 128
-        i_state_2 = SHAUpdate_Array (SHAInit_Array2 state.i_ctx)
-                                    (arrayRangeUpdate (arrayConstant 0) 0 (ipad' key_2)) 128
-
-ostate'' : HMACState_Array -> ByteArray -> [64] -> SHAState
-ostate'' state key key_len =
-  if key_len <= 128 then o_state_1 else o_state_2
-  where o_state_1 = SHAUpdate SHAInit (opad' (key_helper1 key key_len))
-        o_state_2 = SHAUpdate SHAInit (opad' (key_helper2 state key key_len))
-
-HMACInit_Array3 : HMACState_Array -> ByteArray -> [64] -> HMACState_Array
-HMACInit_Array3 state key key_len =
-  { i_ctx = i_state
-  , o_ctx = o_state
-  , md_ctx = i_state }
-  where
-    i_state = istate'' state key key_len
-    o_state = ostate'' state key key_len
 
 HMACUpdate_Array : HMACState_Array -> ByteArray -> [64] -> HMACState_Array
 HMACUpdate_Array state data len = { i_ctx = state.i_ctx

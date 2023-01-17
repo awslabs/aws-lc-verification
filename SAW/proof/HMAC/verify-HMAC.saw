@@ -9,15 +9,16 @@ enable_experimental;
 import "../../../cryptol-specs/Primitive/Keyless/Hash/SHA384.cry";
 import "../../spec/HASH/SHA384.cry";
 import "../../spec/HASH/HMAC.cry";
+import "../../spec/HASH/HMAC_Helper.cry";
 // Include SHA512 helper functions
 include "../SHA512/SHA512-384-common.saw";
 // Include SHA rewrites
 include "../SHA512/goal-rewrites.saw";
 // Include additional SHA512 definitions
-include "SHA512-helper.saw";
+include "../SHA512/SHA512-function-specs.saw";
 
 // Include HMAC-SHA384 definitions
-include "HMAC_SHA384.saw";
+include "HMAC-SHA384.saw";
 // Include HMAC common definitions
 include "HMAC-common.saw";
 // Include HMAC-array definitions
@@ -117,11 +118,11 @@ let verify_HMAC_Init_ex_array_spec = do {
     false
     HMAC_Init_ex_array_spec
     (do {
-      h_goal <- goal_has_some_tag ["sha512_state_st_array.h", "sha512_state_st.h"];
-      x_goal <- goal_has_some_tag ["sha512_state_st_array.num", "sha512_state_st_array.sz"];
-      y_goal <- goal_has_some_tag ["sha512_state_st.num", "sha512_state_st.sz"];
-      ar_goal <- goal_has_some_tag ["HMAC_Init_ex.arrayRangeEq.i_ctx",
-                                    "HMAC_Init_ex.arrayRangeEq.md_ctx"];
+      h_goal <- goal_has_some_tag [sha512_state_st_array_h, sha512_state_st_h];
+      x_goal <- goal_has_some_tag [sha512_state_st_array_num, sha512_state_st_array_sz];
+      y_goal <- goal_has_some_tag [sha512_state_st_num, sha512_state_st_sz];
+      ar_goal <- goal_has_some_tag [HMAC_Init_ex_arrayRangeEq_i_ctx,
+                                    HMAC_Init_ex_arrayRangeEq_md_ctx];
       if h_goal then do {
         simplify (addsimps [HMACInit_Array_HMACInit_Array3_i_ctx_equivalence_thm] empty_ss);
         simplify (addsimps [HMACInit_Array_HMACInit_Array3_md_ctx_equivalence_thm] empty_ss);
@@ -180,7 +181,6 @@ let verify_HMAC_Final_array_with_length withLength = do {
 HMAC_Final_array_ovs <- for [false, true] verify_HMAC_Final_array_with_length;
 
 // Verify HMAC_array
-// 2 mins
 let verify_HMAC_array_spec withLength = do {
   llvm_verify m "HMAC"
     (concat
@@ -192,7 +192,7 @@ let verify_HMAC_array_spec withLength = do {
     false
     (HMAC_array_spec withLength)
     (do {
-    hmac_goal <- goal_has_some_tag ["HMAC.out"];
+    hmac_goal <- goal_has_some_tag [HMAC_md_out];
 
     if hmac_goal then do {
       unfolding ["HMAC_Array", "HMACState_zeroized", "SHAInit_zeroized", "SHAInit_Array_zeroized"];
@@ -202,11 +202,11 @@ let verify_HMAC_array_spec withLength = do {
                           HMACUpdate_Array_o_ctx_block_equal_zero_thm] empty_ss);
       simplify (addsimps [HMACInit_Array_o_ctx_n_equal_0_thm,
                           HMACUpdate_Array_o_ctx_n_equal_0_thm] empty_ss);
-      goal_eval_unint ["HMACInit_Array", "HMACUpdate_Array",  "HMACFinal_Array"];
-      goal_insert HMACUpdate_Array_maintains_HMACState_Array_eq_thm;
+      goal_eval_unint ["HMACInit_Array", "SHAUpdate_Array", "HMACFinal_Array"];
+      goal_insert SHAUpdate_Array_maintains_SHAState_Array_eq_thm;
       goal_insert arrayRangeEq_HMACState_Array_eq_transitivity_thm;
       goal_insert HMACState_Array_eq_implies_HMACFinal_Array_equal_thm;
-      w4_unint_z3 ["HMACInit_Array", "HMACUpdate_Array", "HMACFinal_Array"];
+      w4_unint_z3 ["HMACInit_Array", "SHAUpdate_Array", "HMACFinal_Array"];
     } else do {
       w4_unint_z3 ["HMACInit_Array", "HMACUpdate_Array", "HMACFinal_Array"];
     };
