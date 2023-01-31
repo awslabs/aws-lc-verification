@@ -212,4 +212,4 @@ let verify_HMAC_array_spec withLength = do {
     };
     });
 };
-for [false, true] verify_HMAC_array_spec;
+HMAC_array_ovs <- for [false, true] verify_HMAC_array_spec;
