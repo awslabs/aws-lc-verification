@@ -1,0 +1,27 @@
+/*
+* Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+* SPDX-License-Identifier: Apache-2.0
+*/
+
+enable_experimental;
+
+print "Proving SHAUpdate_2compositional_thm";
+SHAUpdate_2compositional_thm <- prove_print
+(do {
+  goal_eval_unint ["processBlocks", "processBlock_Common"];
+  simplify (addsimps [processBlocks_0_1_thm] empty_ss);
+  simplify (addsimps [arrayRangeEq_arrayRangeLookup_eq_thm, arrayCopy_zero_thm] empty_ss);
+  w4_unint_z3 ["processBlocks", "processBlock_Common"];
+})
+(rewrite (cryptol_ss ())
+{{ \block block1 block2 h n sz ctr info info_len ->
+((((arrayRangeEq block1 0 block 0 128) && (arrayRangeEq block2 0 res.block 0 128)) ==>
+  (SHAState_Array_eq (SHAUpdate_Array {block = block2, h = h1, n = n1, sz = sz1} (arrayUpdate (arrayConstant 0) 0 ctr) 1)
+                     (SHAUpdate_Array {block = block, h = h, n = n, sz = sz}
+                                      (arrayUpdate (arrayCopy (arrayConstant 0) 0 info 0 info_len) info_len ctr)
+                                      (info_len + 1))))
+where res = SHAUpdate_Array {block = block1, h = h, n = n, sz = sz} info info_len
+      h1 = res.h
+      n1 = res.n
+      sz1 = res.sz)
+}});

@@ -16,6 +16,7 @@ import Array
 import Common::ByteArray
 import HASH::SHA384
 import HASH::HMAC
+import HASH::HMAC_Seq
 
 type maxHash = 255
 
@@ -25,9 +26,8 @@ HKDF_extract salt salt_len ikm ikm_len =
 
 HKDF_expand : {l} (l <= maxHash*digestsize_bytes) => [digestsize_bytes][8] -> ByteArray -> [64] -> [l][8]
 HKDF_expand prk info info_len = take (join (tail t))
-  where prk_array = arrayRangeUpdate (arrayConstant 0) 0 prk
-        t = [zero:[digestsize_bytes][8]]
-            # [ HMAC_Array (HMACState_zeroized) prk_array `(digestsize_bytes) data data_len
+  where t = [zero:[digestsize_bytes][8]]
+            # [ HMAC_SeqKey (HMACState_zeroized) prk data data_len
                 where data = if i == 0
                              then arrayUpdate (arrayCopy (arrayConstant 0) 0 info 0 info_len) info_len 1
                              else arrayUpdate (arrayCopy (arrayRangeUpdate (arrayConstant 0) 0 prev)
