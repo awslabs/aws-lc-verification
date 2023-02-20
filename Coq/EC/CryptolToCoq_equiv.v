@@ -1382,22 +1382,6 @@ Theorem toPosZ_addB_equiv: forall n (v1 v2 : spec.BITS (S n)),
 Admitted.
 
 
-Theorem bvToInt_bvAdd_small_equiv : forall n (v1 v2 : bitvector n),
-  (* (sbvToInt _ v2 <= bvToInt _ v1)%Z -> *)
-  (0 <= (bvToInt _ v1) + (sbvToInt _ v2) < Z.pow 2 (Z.of_nat n))%Z->
-  (bvToInt n (bvAdd _ v1 v2)) =
-  ((bvToInt _ v1) + (sbvToInt _ v2))%Z.
-
-  intros.
-  unfold bvToInt, sbvToInt in *.
-  destruct n.
-  (* empty bit vectors *)
-  admit.
-
-
-Admitted.
-
-
 Theorem forall2_symm : forall (A B : Type)(P : B -> A -> Prop) lsa lsb,
   List.Forall2 (fun a b => P b a) lsa lsb ->
   List.Forall2 P lsb lsa.
@@ -7245,19 +7229,7 @@ Qed.
 *)
 
 
-(* see how lis does this for 64 bits*)
-Theorem intToBv_add_equiv : forall (n : Nat) (x y : Z), 
-  intToBv n (x + y) = bvAdd n (intToBv n x) (intToBv n y).
 
-  intros.
-  destruct n.
-  apply vec_0_eq.
-(*
-  unfold intToBv, bvAdd.
-  f_equal.
-*)
-
-Admitted.
 
 
 Theorem sbvToInt_bvURem_equiv : forall n v1 v2,
@@ -7958,6 +7930,628 @@ Theorem sbvToInt_bvNeg_equiv : forall n v,
 
 Qed.
 
+Local Transparent bvAdd.
+
+Ltac listify_1 :=
+  try match goal with
+  | [|- _ = _ ] => apply eq_if_to_list_eq
+  end; 
+  try rewrite rev_involutive;
+  try rewrite <- intToBv_ls_eq in *;
+  try rewrite <- bitsToBv_ls_eq in *;
+  try rewrite addB_ls_eq in *;
+  try rewrite bvToBITS_ls_equiv in *;
+  unfold bvToBITS_ls, intToBv_ls, bitsToBv_ls in *.
+
+Ltac listify := repeat listify_1.
+
+Theorem addB_ls_comm : forall b1 b2,
+  addB_ls b1 b2 = addB_ls b2 b1.
+Admitted.
+
+Theorem fromPosZ_mod_eq : forall n z,
+  fromPosZ_ls n z = fromPosZ_ls n (Z.modulo z (2^Z.of_nat n)).
+
+  induction n; intros.
+  simpl in *. trivial.
+  replace (S n ) with (n + 1)%nat.
+  rewrite fromPosZ_ls_app.
+  rewrite IHn.
+  rewrite Zdiv.Zmod_mod.
+  rewrite fromPosZ_ls_app.
+  f_equal.
+  f_equal.
+  rewrite <- Znumtheory.Zmod_div_mod.
+  reflexivity.
+  apply Z.pow_pos_nonneg; lia.
+  apply Z.pow_pos_nonneg; lia.
+  rewrite Znat.Nat2Z.inj_add.
+  rewrite Z.pow_add_r.
+  apply Z.divide_factor_l.
+  lia.
+  lia.
+
+  simpl.
+  f_equal.
+  f_equal.
+  f_equal.
+  repeat rewrite Zdiv.Zeven_mod.
+  f_equal.
+  rewrite Z_mod_div_eq.
+  replace ((2 ^ Z.of_nat (n + 1) / 2 ^ Z.of_nat n)) with 2.
+  rewrite Zdiv.Zmod_mod.
+  reflexivity.
+  rewrite <- Z.pow_sub_r.
+  replace (Z.of_nat (n + 1) - Z.of_nat n) with 1.
+  lia.
+  lia.
+  lia.
+  lia.
+  apply Z.lt_gt.
+  apply Z.pow_pos_nonneg; lia.
+  apply Z.lt_gt.
+  apply Z.pow_pos_nonneg; lia.
+  rewrite Znat.Nat2Z.inj_add.
+  rewrite Z.pow_add_r.
+  rewrite Z.mul_comm.
+  rewrite Z.mod_mul.
+  trivial.
+  assert (0 < 2^ (Z.of_nat n)).
+  apply Z.pow_pos_nonneg; lia.
+  lia.
+  lia.
+  lia.
+  lia.
+Qed.
+
+Theorem fromPosZ_ls_app' : forall n1 n2 z, 
+ 
+  fromPosZ_ls (n1 + n2) z = (fromPosZ_ls n1 z) ++ (fromPosZ_ls n2 (Z.div z (Z.pow 2 (Z.of_nat n1)))). 
+
+  intros.
+  rewrite fromPosZ_ls_app.
+  rewrite <- fromPosZ_mod_eq.
+  reflexivity.
+
+Qed.
+
+Theorem fromNegZ_mod_eq : forall n z,
+  fromNegZ_ls n z = fromNegZ_ls n (Z.modulo z (2^Z.of_nat n)).
+
+  induction n; intros.
+  simpl in *. trivial.
+  replace (S n ) with (n + 1)%nat.
+  rewrite fromNegZ_ls_app.
+  rewrite IHn.
+  rewrite Zdiv.Zmod_mod.
+  rewrite fromNegZ_ls_app.
+  f_equal.
+  f_equal.
+  rewrite <- Znumtheory.Zmod_div_mod.
+  reflexivity.
+  apply Z.pow_pos_nonneg; lia.
+  apply Z.pow_pos_nonneg; lia.
+  rewrite Znat.Nat2Z.inj_add.
+  rewrite Z.pow_add_r.
+  apply Z.divide_factor_l.
+  lia.
+  lia.
+
+  simpl.
+  f_equal.
+  f_equal.
+  repeat rewrite Zdiv.Zeven_mod.
+  f_equal.
+  rewrite Z_mod_div_eq.
+  replace ((2 ^ Z.of_nat (n + 1) / 2 ^ Z.of_nat n)) with 2.
+  rewrite Zdiv.Zmod_mod.
+  reflexivity.
+  rewrite <- Z.pow_sub_r.
+  replace (Z.of_nat (n + 1) - Z.of_nat n) with 1.
+  lia.
+  lia.
+  lia.
+  lia.
+  apply Z.lt_gt.
+  apply Z.pow_pos_nonneg; lia.
+  apply Z.lt_gt.
+  apply Z.pow_pos_nonneg; lia.
+  rewrite Znat.Nat2Z.inj_add.
+  rewrite Z.pow_add_r.
+  rewrite Z.mul_comm.
+  rewrite Z.mod_mul.
+  trivial.
+  assert (0 < 2^ (Z.of_nat n)).
+  apply Z.pow_pos_nonneg; lia.
+  lia.
+  lia.
+  lia.
+  lia.
+Qed.
+
+Theorem fromNegZ_ls_app' : forall n1 n2 z, 
+ 
+  fromNegZ_ls (n1 + n2) z = (fromNegZ_ls n1 z) ++ (fromNegZ_ls n2 (Z.div z (Z.pow 2 (Z.of_nat n1)))). 
+
+  intros.
+  rewrite fromNegZ_ls_app.
+  rewrite <- fromNegZ_mod_eq.
+  reflexivity.
+
+Qed.
+
+Ltac pairInv :=
+  match goal with
+  | [H: (_, _) = (_, _) |- _] => inversion H; clear H; subst
+  end.
+
+Theorem Z_even_xor : forall p1 p2,
+  Z.even (Z.add (Z.pos p1) (Z.pos p2)) =  xor (Z.even (Z.pos p1)) (Z.even (Z.pos p2)).
+
+Admitted.
+
+Theorem Z_even_testbit : forall z,
+  Z.even z = negb (Z.testbit z 0).
+
+  intros.
+  destruct z; simpl; trivial;
+  destruct p; trivial.
+
+Qed.
+
+Theorem not_even_impl_odd : forall z,
+  Z.even z = 0%bool ->
+  Z.odd z = 1%bool.
+
+  intros.
+  rewrite Zeven.Zeven_odd_bool in H.
+  destruct (Z.odd z); simpl in *; trivial; discriminate.
+
+Qed.
+
+Ltac evenOddCases_1 :=
+  try match goal with
+  | [H: Z.even _ = true |- _ ]=>
+    apply even_exists_factor in H; destruct H; subst
+  | [H: Z.even _ = false |- _ ]=>
+    apply not_even_impl_odd in H; apply odd_exists_factor in H; destruct H; subst
+  end;
+  try rewrite Zdiv.Z_div_plus; try lia;
+  try rewrite splitmsb_ls_cons_eq.
+
+Ltac evenOddCases := repeat evenOddCases.
+
+Theorem div_same_eq_1 : forall z,
+  z <> 0 ->
+  z / z  = 1.
+
+  intros.
+  replace z with (0 + 1*z) at 1.
+  rewrite Z.div_add.
+  rewrite Zdiv.Zdiv_0_l.
+  lia.
+  lia.
+  lia.
+
+Qed.
+
+
+Theorem fromZ_ls_plus_eq : forall n1 n2 z,
+  fromZ_ls (n1 + n2) z = (fromZ_ls n1 z) ++ 
+    match z with
+    | 0 => zero_ls n2
+    | Z.pos _ => fromPosZ_ls n2 (Z.shiftr z (Z.of_nat n1))  
+    | Z.neg _ => fromNegZ_ls n2 (Z.shiftr (Z.pred (- z)) (Z.of_nat n1))
+    end.
+
+  intros.
+  unfold fromZ_ls.
+  destruct z.
+
+  unfold zero_ls.
+  apply repeat_app.
+  rewrite fromPosZ_ls_app'.
+  f_equal.
+  rewrite Z.shiftr_div_pow2.
+  reflexivity.
+  lia.
+
+  rewrite fromNegZ_ls_app'.
+  f_equal.
+  rewrite Z.shiftr_div_pow2 in *; try lia.
+  reflexivity.
+Qed.
+
+(*
+Theorem fromZ_add_eq : forall n a b (c : bool),
+   fromZ_ls n ((if c then 1 else 0) + a + b) = snd (splitmsb_ls (adcBmain_ls c (fromZ_ls n a) (fromZ_ls n b))).
+
+  induction n; intros.
+
+  admit.
+
+  replace (S n ) with (n + 1)%nat.
+  repeat rewrite fromZ_ls_plus_eq.
+  rewrite IHn.
+  simpl.
+  rewrite adcBmain_ls_app; repeat rewrite fromZ_ls_length; trivial.
+  remember (splitmsb_ls (adcBmain_ls c (fromZ_ls n a) (fromZ_ls n b))) as z.
+  destruct z; simpl in *.
+  destruct b0; destruct a; destruct b; simpl.
+  replace ((l ++ [1%bool; 0%bool])) with ((l ++ [1%bool]) ++  [0%bool]).
+  rewrite splitmsb_ls_app_eq.
+  simpl.
+  f_equal.
+  destruct c; simpl.
+  Search app cons.
+  rewrite <- app_cons_comm.
+  Search splitmsb_ls app.
+  rewrite adcBmain_ls_app.
+  Search adcBmain_ls app.
+  unfold fromZ_ls.
+  simpl.
+  destruct a; destruct b; simpl.
+  destruct c; simpl.
+  rewrite splitmsb_ls_cons_eq.
+  simpl.
+  f_equal.
+  admit.
+  admit.
+
+  rewrite splitmsb_ls_cons_eq.
+  simpl.
+  f_equal.
+  admit.
+  admit.
+
+  destruct c; simpl.
+
+  unfold fromZ_ls.
+
+  admit.
+
+  Search fromPosZ_ls plus.
+
+Qed.
+
+*)
+
+Theorem fromPosZ_add_eq : forall n a b (c : bool),
+  0 <= a ->
+  0 <= b ->
+   fromPosZ_ls n ((if c then 1 else 0) + a + b) = snd (splitmsb_ls (adcBmain_ls c (fromPosZ_ls n a) (fromPosZ_ls n b))).
+
+  induction n; intros.
+  simpl in *.
+  reflexivity.
+
+  repeat rewrite (fromPosZ_ls_app' 1%nat n).
+  rewrite Z.pow_1_r.
+  simpl.
+
+  rewrite Z.even_add.
+  rewrite Z.even_add.
+  destruct c;
+  case_eq (Z.even a);
+  case_eq (Z.even b); intros;
+  
+   try evenOddCases_1;
+  try evenOddCases_1;
+  try evenOddCases_1;
+  try evenOddCases_1;
+  try evenOddCases_1.
+  simpl.
+   try evenOddCases_1; simpl.
+  f_equal.
+  rewrite <- IHn.
+  f_equal.
+  repeat rewrite Zdiv.Z_div_mult; lia.
+  apply Zdiv.Z_div_pos; try lia.
+  apply Zdiv.Z_div_pos; try lia.
+  apply adcBmain_length_nz. 
+  repeat rewrite fromPosZ_ls_length.
+  trivial.
+
+  rewrite Z.add_assoc.
+  replace (1 + x * 2 + 1 + x0 * 2) with (2 + x * 2 + x0 * 2) .
+  try evenOddCases_1.
+  try evenOddCases_1.
+  rewrite (IHn _ _ true).
+  simpl.
+  evenOddCases_1.
+  simpl.
+  f_equal.
+  rewrite Zdiv.Z_div_mult; try  lia.
+  reflexivity.
+  apply adcBmain_length_nz. 
+  repeat rewrite fromPosZ_ls_length.
+  trivial.
+  lia.
+  lia.
+  lia.
+  
+  remember (((1 + (1 + x0 * 2)) / 2 + x)) as z.
+  simpl.
+  rewrite splitmsb_ls_cons_eq.
+  simpl.
+  f_equal.
+  rewrite <- IHn.
+  f_equal.
+  subst.
+  rewrite Z.add_assoc.
+  rewrite Zdiv.Z_div_plus.
+  rewrite Zdiv.Z_div_mult.
+  rewrite div_same_eq_1.
+  lia.
+  lia.
+  lia.
+  lia.
+  lia.
+  rewrite Zdiv.Z_div_mult.
+  lia.
+  lia.
+  apply adcBmain_length_nz.
+  repeat rewrite fromPosZ_ls_length.
+  reflexivity.
+
+  remember ((1 + (1 + x * 2) + (1 + x0 * 2)) / 2)  as z.
+  simpl.
+  rewrite splitmsb_ls_cons_eq.
+  simpl.
+  f_equal.
+  rewrite <- IHn.
+  f_equal.
+  subst.
+  replace (1 + (1 + x * 2) + (1 + x0 * 2)) with (1 +  ( 1 + x + x0) * 2).
+  rewrite Zdiv.Z_div_plus.
+  rewrite Z.div_small.
+  lia.
+  lia.
+  lia.
+  lia.
+  lia.
+  lia.
+  apply adcBmain_length_nz.
+  repeat rewrite fromPosZ_ls_length.
+  reflexivity.
+
+  remember (0 / 2 + x + x0)  as z.
+  simpl.
+  rewrite splitmsb_ls_cons_eq.
+  simpl.
+  f_equal.
+  rewrite <- IHn.
+  f_equal.
+  subst.
+  repeat rewrite Z.div_mul; try lia.
+  rewrite Z.div_small; try lia.
+  rewrite Z.div_mul; lia.
+  rewrite Z.div_mul; lia.
+  apply adcBmain_length_nz.
+  repeat rewrite fromPosZ_ls_length.
+  reflexivity.
+
+  remember ((0 + x * 2 + (1 + x0 * 2)) / 2) as z.
+  simpl.
+  rewrite splitmsb_ls_cons_eq.
+  simpl.
+  f_equal.
+  rewrite <- IHn.
+  f_equal.
+  subst.
+  repeat rewrite Z.div_mul; try lia.
+  rewrite Z.add_0_l.
+  replace (x * 2 + (1 + x0 * 2)) with (1 + (x + x0)*2).
+  rewrite Zdiv.Z_div_plus; try lia.
+  rewrite Z.div_small; try lia.
+  lia.
+  rewrite Z.div_mul; lia.
+  lia.
+  apply adcBmain_length_nz.
+  repeat rewrite fromPosZ_ls_length.
+  reflexivity.
+
+  remember ((0 + (1 + x0 * 2)) / 2 + x)  as z.
+  simpl.
+  rewrite splitmsb_ls_cons_eq.
+  simpl.
+  f_equal.
+  rewrite <- IHn.
+  f_equal.
+  subst.
+  repeat rewrite Z.div_mul; try lia.
+  rewrite Z.add_0_l.
+  rewrite Zdiv.Z_div_plus; try lia.
+  rewrite Z.div_small; try lia.
+  lia.
+  rewrite Z.div_mul; lia.
+  apply adcBmain_length_nz.
+  repeat rewrite fromPosZ_ls_length.
+  reflexivity.
+
+  remember  ((0 + (1 + x * 2) + (1 + x0 * 2)) / 2)  as z.
+  simpl.
+  rewrite splitmsb_ls_cons_eq.
+  simpl.
+  f_equal.
+  rewrite <- IHn.
+  f_equal.
+  subst.
+  rewrite Z.add_0_l.
+  replace (1 + x * 2 + (1 + x0 * 2))  with ((1 + x + x0)*2) .
+  rewrite Z.div_mul; lia.
+  lia.
+  lia.
+  lia.
+  apply adcBmain_length_nz.
+  repeat rewrite fromPosZ_ls_length.
+  reflexivity.
+Qed.
+
+
+Theorem intToBv_add_equiv : forall (n : Nat) (x y : Z), 
+  intToBv n (x + y) = bvAdd n (intToBv n x) (intToBv n y).
+
+  intros.
+  unfold bvAdd.
+  listify.
+  unfold fromZ_ls.
+  destruct x.
+  rewrite Z.add_0_l.
+  destruct y.
+ 
+  unfold addB_ls, adcB_ls.  
+  unfold zero_ls.
+  rewrite adcBmain_ls_zero_eq_gen.
+  rewrite splitmsb_ls_app_eq.
+  reflexivity.  
+  rewrite repeat_length.
+  reflexivity.
+  unfold addB_ls, adcB_ls.  
+  unfold zero_ls.
+  rewrite adcBmain_ls_zero_eq_gen.
+  rewrite splitmsb_ls_app_eq.
+  reflexivity.
+  rewrite fromPosZ_ls_length.
+  reflexivity.
+  unfold addB_ls, adcB_ls.  
+  unfold zero_ls.
+  rewrite adcBmain_ls_zero_eq_gen.
+  rewrite splitmsb_ls_app_eq.
+  reflexivity.
+  rewrite fromNegZ_ls_length.
+  reflexivity.
+
+  destruct y.
+  rewrite Z.add_0_r.
+  rewrite addB_ls_comm.
+  unfold addB_ls, adcB_ls.  
+  unfold zero_ls.
+  rewrite adcBmain_ls_zero_eq_gen.
+  rewrite splitmsb_ls_app_eq.
+  reflexivity.
+  rewrite fromPosZ_ls_length.
+  reflexivity.
+
+  f_equal.
+  remember (Z.pos p + Z.pos p0) as z.
+  destruct z.
+  lia.
+  unfold addB_ls.
+  unfold adcB_ls.
+  rewrite <- fromPosZ_add_eq.
+  f_equal.
+  lia.
+  lia.
+  lia.
+  
+  lia.
+
+  remember (Z.pos p + Z.neg p0 ) as z.
+  destruct z.
+  
+
+  Search rev.
+  simpl.
+  
+
+  
+  rewrite repeat_length.
+  reflexivity.
+  
+
+
+  Search adcBmain_ls repeat.
+  
+  Print intToBv.
+  Search spec.fromZ.
+
+
+  listify.
+  Search bvToBITS  tuple.tval.
+  rewrite bvToBITS_ls_equiv.
+  apply eq_if_to_list_eq.
+  
+  destruct n.
+  apply vec_0_eq.
+
+Qed.
+
+Theorem toPosZ_ls_toNegZ_ls_add_small_equiv : forall ls1 ls2 c,
+  length ls1 = length ls2 ->
+  0 < toPosZ_ls ls1 + - Z.succ (toNegZ_ls ls2) < 2^(Z.of_nat (length ls1)) ->
+  toPosZ_ls (snd (splitmsb_ls (adcBmain_ls c ls1 ls2))) = (if c then 1 else 0) + toPosZ_ls ls1 + - Z.succ (toNegZ_ls ls2).
+
+  induction ls1; destruct ls2; intros; unfold toZ_ls in *; simpl in *; trivial; try lia.
+
+  destruct a;
+  destruct b;
+  destruct c; simpl.
+  rewrite splitmsb_ls_cons_eq;
+  simpl.
+Abort.
+
+Search bvAdd.
+Print Assumptions intToBv_add_equiv.
+
+ 
+Theorem bvToInt_bvAdd_small_equiv : forall n (v1 v2 : bitvector n),
+  (* (sbvToInt _ v2 <= bvToInt _ v1)%Z -> *)
+  (0 <= (bvToInt _ v1) + (sbvToInt _ v2) < Z.pow 2 (Z.of_nat n))%Z->
+  (bvToInt n (bvAdd _ v1 v2)) =
+  ((bvToInt _ v1) + (sbvToInt _ v2))%Z.
+
+  intros.
+  repeat rewrite <- bvToInt_ls_equiv in *.
+  repeat rewrite <- sbvToInt_ls_equiv in *.
+  unfold bvToInt_ls, sbvToInt_ls, bvToBITS_ls in *.
+  unfold bvAdd.
+  destruct n.
+  simpl in *.
+  lia.
+
+  rewrite <- bitsToBv_ls_eq.
+  rewrite addB_ls_eq. 
+  unfold bitsToBv_ls.
+  rewrite rev_involutive.
+  repeat rewrite bvToBITS_ls_equiv.
+  unfold bvToBITS_ls.
+  
+  unfold toZ_ls in *.
+  destruct (Vec_S_cons v2).
+  destruct H0. subst.
+  repeat rewrite to_list_cons in *.
+  simpl in *.
+  repeat rewrite splitmsb_ls_app_eq in *.
+  destruct x.
+  rewrite <- toNegZ_app_1_eq.
+  unfold addB_ls, adcB_ls.
+  Search toNegZ_ls.
+  unfold addB_ls.
+  unfold adcB_ls.
+  rewrite adcBmain_ls_app'.
+  simpl.
+  simpl.
+  remember (splitmsb_ls (adcBmain_ls 0 (rev (to_list x2)) (rev (to_list x0)))) as z.
+  
+  Search adcBmain_ls app.
+  destruct x.
+  
+  Search Vector.t S Vector.cons.
+
+  Search bvToBITS_ls.
+  Search adcB tuple.tval.
+  Search to_list bitsToBv.
+
+  Search sbvToInt.
+  unfold bvToInt, sbvToInt in *.
+  destruct n.
+  (* empty bit vectors *)
+  admit.
+
+
+Qed.
+
 Theorem bvToInt_bvSub_small_equiv : forall n v1 v2,
   (0 <= (bvToInt _ v1) - (sbvToInt _ v2) < Z.pow 2 (Z.of_nat n))%Z->
   (- 2 ^ Z.of_nat (pred n) < sbvToInt n v2)%Z ->
@@ -8072,11 +8666,6 @@ Theorem bvAdd_replicate_0 : forall n v,
   symmetry.
   apply tuple_tval_length.
 Qed.
-
-Ltac pairInv :=
-  match goal with
-  | [H: (_, _) = (_, _) |- _] => inversion H; clear H; subst
-  end.
 
 Theorem adcB_ls_same_l_if : forall x y1 y2 c,
   length x = length y1 ->
@@ -8344,7 +8933,5 @@ Theorem bvMul_2_shiftl_equiv : forall (n : nat) (v : bitvector n),
   trivial.
 
 Qed.
-
-
 
 
