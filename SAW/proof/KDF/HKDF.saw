@@ -49,6 +49,8 @@ let HKDF_extract_spec = do {
 };
 
 // HKDF_expand specification
+let HKDF_out = "HKDF.out";
+
 let HKDF_expand_spec outLen = do {
   global_alloc_init "OPENSSL_ia32cap_P" {{ ia32cap }};
   alloc_md_globals;
@@ -70,7 +72,8 @@ let HKDF_expand_spec outLen = do {
   , (crucible_term info_len)
   ];
 
-  crucible_points_to out_ptr (crucible_term {{ HKDF_expand`{l = outLen} prk info info_len }});
+  llvm_setup_with_tag HKDF_out
+    (crucible_points_to out_ptr (crucible_term {{ HKDF_expand`{l = outLen} prk info info_len }}));
 
   crucible_return (crucible_term {{ 1 : [32] }});
 };

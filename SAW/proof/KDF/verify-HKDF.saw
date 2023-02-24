@@ -41,10 +41,9 @@ let verify_HKDF_extract = do {
 };
 HKDF_extract_ov <- verify_HKDF_extract;
 
-// 1 min
-// verify HKDF_expand with outLen = 32
-let verify_HKDF_expand_32 = do {
-  print "Verifying HKDF_expand with digest length 32";
+// verify HKDF_expand with output length 16 32 48
+let verify_HKDF_expand (outLen, bvEq_vecEq_equivalence_thm, HMAC_expand_thm) = do {
+  print (str_concat "Verifying HKDF_expand with digest length =" (show outLen));
   llvm_verify m "HKDF_expand"
   [  HMAC_Init_ex_array_ov
   , OPENSSL_cleanse_ov
@@ -53,58 +52,65 @@ let verify_HKDF_expand_32 = do {
   , HMAC_Update_array_ov
   ]
   true
-  (HKDF_expand_spec 32)
+  (HKDF_expand_spec outLen)
   (do {
-    goal_eval_unint ["HMACInit_Array", "SHAUpdate_Array", "HMACFinal_Array"];
-    simplify (addsimps [ArrayCopy_of_arrayConstant_0_thm] empty_ss);
-    simplify (addsimps [HMACInit_Array_o_ctx_block_equal_zero_thm] empty_ss);
-    simplify (addsimps [HMACInit_Array_o_ctx_n_equal_0_thm] empty_ss);
-    goal_eval_unint ["HMACInit_Array", "SHAUpdate_Array", "HMACFinal_Array"];
-    goal_insert SHAUpdate_2compositional_thm;
-    goal_insert arrayRangeEq_HMACState_Array_eq_transitivity_thm;
-    goal_insert HMACState_Array_eq_implies_HMACFinal_Array_equal_thm;
-    w4_unint_z3 ["HMACInit_Array", "SHAUpdate_Array", "HMACFinal_Array"];
+    hard_goal <- goal_has_some_tag [HKDF_out];
+    if hard_goal then do {
+      goal_eval_unint ["HMACInit_Array", "SHAUpdate_Array", "HMACFinal_Array"];
+      simplify (addsimps [ArrayCopy_of_arrayConstant_0_thm] empty_ss);
+      simplify (addsimps [HMACInit_Array_o_ctx_block_equal_zero_thm] empty_ss);
+      simplify (addsimps [HMACInit_Array_o_ctx_n_equal_0_thm] empty_ss);
+      goal_eval_unint ["HMACInit_Array", "SHAUpdate_Array", "HMACFinal_Array"];
+      normalize_sequent;
+      focus_concl 3;
+      simplify (addsimps [bvEq_vecEq_equivalence_thm] empty_ss);
+      simplify (addsimps [replicate_128_8_equivalence_thm] empty_ss);
+      goal_apply HMAC_expand_thm;
+      // (1)
+      w4_unint_z3 ["HMACInit_Array", "SHAUpdate_Array", "HMACFinal_Array"];
+      // (2)
+      w4_unint_z3 ["HMACInit_Array", "SHAUpdate_Array", "HMACFinal_Array"];
+      // (3)
+      w4_unint_z3 ["HMACInit_Array", "SHAUpdate_Array", "HMACFinal_Array"];
+      // (4)
+      w4_unint_z3 ["HMACInit_Array", "SHAUpdate_Array", "HMACFinal_Array"];
+      // (5)
+      goal_eval_unint ["HMACInit_Array", "SHAUpdate_Array", "HMACFinal_Array"];
+      normalize_sequent;
+      focus_concl 3;
+      simplify (addsimps [bvEq_vecEq_8_64_equivalence_thm] empty_ss);
+      goal_apply SHAUpdate_2compositional_concrete_thm;
+      // (5.1)
+      w4_unint_z3 ["HMACInit_Array", "SHAUpdate_Array", "HMACFinal_Array"];
+      // (5.2)
+      w4_unint_z3 ["HMACInit_Array", "SHAUpdate_Array", "HMACFinal_Array"];
+      // (6)
+      goal_eval_unint ["HMACInit_Array", "SHAUpdate_Array", "HMACFinal_Array"];
+      goal_insert HMACState_Array_eq_implies_HMACFinal_Array_equal_thm;
+      w4_unint_z3 ["HMACInit_Array", "SHAUpdate_Array", "HMACFinal_Array"];
+    } else do {
+      goal_eval_unint ["HMACInit_Array", "SHAUpdate_Array", "HMACFinal_Array"];
+      simplify (addsimps [ArrayCopy_of_arrayConstant_0_thm] empty_ss);
+      simplify (addsimps [HMACInit_Array_o_ctx_block_equal_zero_thm] empty_ss);
+      simplify (addsimps [HMACInit_Array_o_ctx_n_equal_0_thm] empty_ss);
+      w4_unint_z3 ["HMACInit_Array", "SHAUpdate_Array", "HMACFinal_Array"];
+    };
   });
 };
-HKDF_expand_32_ov <- verify_HKDF_expand_32;
+HKDF_expand_ovs <-
+for [ (16, bvEq_vecEq_48_8_16_equivalence_thm, HMAC_expand_16_thm)
+    , (32, bvEq_vecEq_48_8_32_equivalence_thm, HMAC_expand_32_thm)
+    , (48, bvEq_vecEq_48_8_48_equivalence_thm, HMAC_expand_48_thm) ] verify_HKDF_expand;
 
-// 6 min
-// Verify HKDF_expand with outLen = 16
-// In principle, HKDF_expand_16 should be at the same difficulty level as HKDF_expand_32
-// However, Z3 seems to have trouble solving HKDF_expand_16 and is moderately fast
-// with HKDF_expand_32
-let verify_HKDF_expand_16 = do {
-  print "Verifying HKDF_expand with digest length 16";
-  llvm_verify m "HKDF_expand"
-  [ HMAC_Init_ex_array_ov
-  , OPENSSL_cleanse_ov
-  , OPENSSL_malloc_init_ov
-  , HMAC_Final_array_ov
-  , HMAC_Update_array_ov
-  ]
-  true
-  (HKDF_expand_spec 16)
-  (do {
-    goal_eval_unint ["HMACInit_Array", "SHAUpdate_Array", "HMACFinal_Array"];
-    simplify (addsimps [ArrayCopy_of_arrayConstant_0_thm] empty_ss);
-    simplify (addsimps [HMACInit_Array_o_ctx_block_equal_zero_thm] empty_ss);
-    simplify (addsimps [HMACInit_Array_o_ctx_n_equal_0_thm] empty_ss);
-    goal_eval_unint ["HMACInit_Array", "SHAUpdate_Array", "HMACFinal_Array"];
-    goal_insert SHAUpdate_2compositional_thm;
-    goal_insert HMACState_Array_eq_implies_HMACFinal_Array_equal_thm;
-    w4_unint_z3 ["HMACInit_Array", "SHAUpdate_Array", "HMACFinal_Array"];
-  });
-};
-HKDF_expand_16_ov <- verify_HKDF_expand_16;
-
-// verify HKDF
-let verify_HKDF (outLen, HKDF_expand_ov) = do {
+// verify HKDF with output length 16 32 48
+let verify_HKDF outLen = do {
   print (str_concat "Verifying HKDF with output key length = " (show outLen));
   llvm_verify m "HKDF"
-  [ HKDF_expand_ov
-  , HKDF_extract_ov ]
+  (concat
+    HKDF_expand_ovs
+    [ HKDF_extract_ov])
   true
   (HKDF_spec outLen)
   (w4_unint_z3 ["HKDF_expand", "HKDF_extract"]);
 };
-for [(16, HKDF_expand_16_ov), (32, HKDF_expand_32_ov)] verify_HKDF;
+for [16, 32, 48] verify_HKDF;

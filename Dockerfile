@@ -15,6 +15,7 @@ RUN wget "https://dl.google.com/go/${GO_ARCHIVE}" && tar -xvf $GO_ARCHIVE && \
 RUN pip3 install wllvm
 
 ADD ./SAW/scripts /lc/scripts
+RUN /lc/scripts/docker_install.sh
 ENV CRYPTOLPATH="../../../cryptol-specs:../../spec"
 
 # This container expects all files in the directory to be mounted or copied. 
