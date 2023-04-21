@@ -17,15 +17,14 @@ include "../SHA512/goal-rewrites.saw";
 include "../SHA512/lemmas.saw";
 include "../SHA512/SHA512-function-specs.saw";
 include "../HMAC/HMAC-SHA384.saw";
-include "../HMAC/HMAC-common.saw";
-include "../HMAC/HMAC-array.saw";
+include "../HMAC/HMAC.saw";
 include "../HMAC/lemmas.saw";
 
 include "lemmas.saw";
 include "HKDF.saw";
 
 // Assume HMAC, HMAC_Init_ex, HMAC_Update and HMAC_Final satisfy the specs to save proof time
-// The specifications are verified in ../HMAC/verify-HMAC.saw
+// The specifications are verified in ../HMAC/verify-HMAC-SHA384.saw
 HMAC_array_withLength_ov <- crucible_llvm_unsafe_assume_spec m "HMAC" (HMAC_array_spec true);
 HMAC_Init_ex_array_ov <- crucible_llvm_unsafe_assume_spec m "HMAC_Init_ex" HMAC_Init_ex_array_spec;
 HMAC_Update_array_ov <- crucible_llvm_unsafe_assume_spec m "HMAC_Update" HMAC_Update_array_spec;

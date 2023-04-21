@@ -1,0 +1,86 @@
+/*
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+*/
+
+module HASH::SHA where
+
+import `Primitive::Keyless::Hash::SHA as SHA
+import Array
+import Common::ByteArray
+
+parameter
+  type w : #
+  type constraint (fin w, w >= 32, 32 >= width w)
+
+  type digest_size : #
+  type constraint (fin digest_size, 8*w >= digest_size)
+
+  type j : #
+  type constraint (fin j, j >= 17)
+
+  H0 : [8][w]
+  K  : [j][w]
+
+  SIGMA_0 : [w] -> [w]
+  SIGMA_1 : [w] -> [w]
+  sigma_0 : [w] -> [w]
+  sigma_1 : [w] -> [w]
+
+type digestsize_bytes = digest_size / 8
+type blocksize_bytes = 16 * w
+
+type SHAState = SHA::SHAState w digest_size j
+type SHAState_Array = SHA::SHAState_Array w digest_size j
+params = {H0 = H0, K = K, SIGMA_0 = SIGMA_0, SIGMA_1 = SIGMA_1, sigma_0 = sigma_0, sigma_1 = sigma_1}
+
+SHAInit_Array : SHAState_Array
+SHAInit_Array = SHA::SHAInit_Array`{digest_size = digest_size} params
+
+SHAUpdate_Array : SHAState_Array -> ByteArray -> [64] -> SHAState_Array
+SHAUpdate_Array state data len = (SHA::SHAUpdate_Array`{digest_size = digest_size} params) state data len
+
+SHAFinal_Array : SHAState_Array -> [digest_size]
+SHAFinal_Array state = (SHA::SHAFinal_Array`{digest_size = digest_size} params) state
+
+// This version doesn't zeroize state.block
+SHAInit_Array2 : SHAState_Array -> SHAState_Array
+SHAInit_Array2 state = { h = SHAInit_Array.h
+                       , block = state.block
+                       , n = 0
+                       , sz = 0 }
+
+// This version uses SHAInit_Array2 instead of SHAInit_Array
+SHAImp_Array2 : SHAState_Array -> ByteArray -> [64] -> [digest_size]
+SHAImp_Array2 state msg msg_len = SHAFinal_Array (SHAUpdate_Array (SHAInit_Array2 state) msg msg_len)
+
+
+SHAInit_Array_zeroized : SHAState_Array
+SHAInit_Array_zeroized =
+  { h = zero
+  , block = arrayConstant 0
+  , n = 0
+  , sz = 0
+  }
+
+SHAInit_zeroized : SHAState
+SHAInit_zeroized =
+  { h = zero
+  , block = zero
+  , n = 0
+  , sz = 0
+  }
+
+SHAState_eq : SHAState -> SHAState -> Bool
+SHAState_eq state1 state2 =
+     state1.block == state2.block
+  /\ state1.h == state2.h
+  /\ state1.n == state2.n
+  /\ state1.sz == state2.sz
+
+SHAState_Array_eq : SHAState_Array -> SHAState_Array -> Bool
+SHAState_Array_eq state1 state2 =
+     (arrayRangeEqual state1.block 0 state2.block 0 `(blocksize_bytes))
+  /\ state1.h == state2.h
+  /\ state1.n == state2.n
+  /\ state1.sz == state2.sz

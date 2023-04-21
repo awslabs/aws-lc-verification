@@ -12,7 +12,7 @@ import "../../spec/HASH/HMAC.cry";
 import "../../spec/HASH/HMAC_Seq.cry";
 import "../../spec/HASH/HMAC_Helper.cry";
 // Include SHA512 helper functions
-include "../SHA512/SHA512-384.saw";
+include "../SHA512/SHA512-512.saw";
 include "../SHA512/SHA512-common.saw";
 // Include SHA512 rewrites
 include "../SHA512/goal-rewrites.saw";
@@ -21,12 +21,10 @@ include "../SHA512/lemmas.saw";
 include "../SHA512/SHA512-function-specs.saw";
 
 // Include HMAC-SHA384 definitions
-include "HMAC-SHA384.saw";
-// Include HMAC common definitions
-include "HMAC-common.saw";
-// Include HMAC-array definitions
-include "HMAC-array.saw";
-// Include HMAC-array lemmas
+include "HMAC-SHA512.saw";
+// Include HMAC definitions
+include "HMAC.saw";
+// Include HMAC lemmas
 include "lemmas.saw";
 
 // Verify SHA512_Update when num=0 and len=SHA_DIGEST_LENGTH

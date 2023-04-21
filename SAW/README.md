@@ -17,7 +17,7 @@ The following table describes the implementations that are verified using SAW. S
 | Algorithm | Variants |  API Operations | Platform   | Caveats
 | ----------| -------------| --------------- | -----------| ------------
 | SHA-2     | 384, 512     | EVP_DigestInit, EVP_DigestUpdate, EVP_DigestFinal | SandyBridge+ | NoEngine, MemCorrect
-| HMAC      | with <nobr>SHA-384</nobr> | HMAC_CTX_init, HMAC_Init_ex, HMAC_Update, HMAC_Final, HMAC | SandyBridge+ | NoEngine, MemCorrect, InitZero, NoInline, CRYPTO_once_Correct
+| HMAC      | with <nobr>SHA-384</nobr>, <nobr>SHA-512</nobr> | HMAC_CTX_init, HMAC_Init_ex, HMAC_Update, HMAC_Final, HMAC | SandyBridge+ | NoEngine, MemCorrect, InitZero, NoInline, CRYPTO_once_Correct
 | AES-GCM   | 256 | EVP_CipherInit_ex, EVP_EncryptUpdate, EVP_DecryptUpdate, EVP_EncryptFinal_ex, EVP_DecryptFinal_ex | SandyBridge-Skylake | InputLength, NoEngine, MemCorrect, InitZero, AESNI_GCM_Patch, AES_GCM_FROM_CIPHER_CTX_Correct, NoInline
 | <nobr>AES-KW(P)</nobr> | 256     | AES_wrap_key, AES_unwrap_key, AES_wrap_key_padded, AES_unwrap_key_padded | SandyBridge+ | InputLength, MemCorrect, NoInline
 | Elliptic Curve Keys and Parameters | with <nobr>P-384</nobr> | EVP_PKEY_CTX_new_id, EVP_PKEY_CTX_new, EVP_PKEY_paramgen_init, EVP_PKEY_CTX_set_ec_paramgen_curve_nid, EVP_PKEY_paramgen, EVP_PKEY_keygen_init, EVP_PKEY_keygen | SandyBridge+ | EC_Ops_Correct, NoEngine, MemCorrect, CRYPTO_refcount_Correct, CRYPTO_once_Correct
@@ -41,9 +41,9 @@ The EVP_Digest* functions are verified to have the following properties related 
 | EVP_DigestUpdate | <ul><li>The context is valid and the internal buffer offset is a symbolic integer n.</li><li>The input length is a symbolic integer k, and the input buffer has at least k allocated bytes.</li></ul> | <ul><li>The hash state in the context has been correctly updated for each complete block as defined by the SHA-2 specification.</li><li>The first (n+k)%BLOCK_LENGTH bytes of the internal buffer are equal to the remaining input bytes, and the internal buffer offset has been updated to (n+k)%BLOCK_LENGTH.</li></ul> |
 | EVP_DigestFinal | <ul><li>The context is valid and the internal buffer offset is a symbolic integer n.</li><li> The output buffer has at least DIGEST_LENGTH allocated bytes.</li><li> The length output pointer is either null or it points to an integer.</li></ul> | <ul><li>The output buffer holds the correct hash value as defined by the SHA-2 specification. This hash value is produced from the hash state and the remaining n bytes in the internal buffer.</li><li> If the output length pointer is non-null, it points to the value DIGEST_LENGTH.</li></ul> |
 
-### HMAC with SHA-384
+### HMAC
 
-The HMAC_* functions are verified to have the following properties related to HMAC with SHA-384. For more detailed specifications, see [HMAC-array.saw](proof/HMAC/HMAC-array.saw). BLOCK_LENGTH is the block length of the hash function, in bytes. DIGEST_LENGTH is the digest length of the hash function, in bytes. For SHA-384, BLOCK_LENGTH is 64 and DIGEST_LENGTH is 48.
+The HMAC_* functions are verified to have the following properties related to HMAC with SHA-384 and SHA-512. For more detailed specifications, see [HMAC.saw](proof/HMAC/HMAC.saw). BLOCK_LENGTH is the block length of the hash function, in bytes. DIGEST_LENGTH is the digest length of the hash function, in bytes. For example, for SHA-384, BLOCK_LENGTH is 64 and DIGEST_LENGTH is 48.
 
 | Function  | Preconditions |  Postconditions |
 | ---------------| -------------| --------------- |
