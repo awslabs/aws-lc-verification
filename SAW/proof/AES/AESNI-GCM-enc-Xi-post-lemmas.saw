@@ -606,6 +606,7 @@ enc_Xi_post_lemma_statement <-
          , {{ [A0,A1,A2,A3,A4,A5,A6,A7,A8,A9,A10,A11,A12,A13,A14,A15]
                  == split (gcm_ghash_array_6x_enc_final H (join Xi)
                             out_data
+                            0
                             blocks) }}
          ]);
 

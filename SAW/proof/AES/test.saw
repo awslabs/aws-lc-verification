@@ -1,0 +1,16 @@
+enable_experimental;
+
+import "../../spec/AES/AES-GCM.cry";
+import "../../spec/AES/X86.cry";
+import "../../spec/AES/AES-GCM-implementation.cry";
+import "../../../cryptol-specs/Primitive/Symmetric/Cipher/Block/AES.cry";
+import "../../../cryptol-specs/Primitive/Symmetric/Cipher/Authenticated/AES_256_GCM.cry";
+
+include "../common/helpers.saw";
+
+let do_prove = false;
+include "goal-rewrites.saw";
+include "Lemmas.saw";
+let do_prove = true;
+
+include "implementation-to-spec.saw";

@@ -123,7 +123,7 @@ let aesni_gcm_cipher_spec (enc:Term) : LLVMSetup () =
     else
       // for encryption, hash the output (which is the ciphertext)
       crucible_points_to_untyped (crucible_elem Xi_ptr 0)
-        (crucible_term {{ split`{16,8} (gcm_ghash_array_6x_enc_final H (join Xi) out_data (res_len64/16)) }})
+        (crucible_term {{ split`{16,8} (gcm_ghash_array_6x_enc_final H (join Xi) out_data 0 (res_len64/16)) }})
    );
 
   llvm_setup_with_tag "output buffer postcondition"

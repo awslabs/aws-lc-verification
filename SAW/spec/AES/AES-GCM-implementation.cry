@@ -155,13 +155,15 @@ gcm_enc_6x in iv ctr rndkeys buf i =
 // This captures the computation done in the final steps of 'aesni_gcm_encrypt'
 // There are 2 final groups of 6 blocks that are processed after the main loop,
 // and they are computed in a slightly different way.
-gcm_ghash_array_6x_enc_final : [128] -> [128] -> Array [64] [8] -> [64] -> [128]
-gcm_ghash_array_6x_enc_final H Xi outp blocks =
-  if blocks >= 18 then
+gcm_ghash_array_6x_enc_final : [128] -> [128] -> Array [64] [8] -> [64] -> [64] -> [128]
+gcm_ghash_array_6x_enc_final H Xi outp i blocks =
+  if blocks - i >= 18 then
     aesni_gcm_cipher_block6 (gcm_init_Htable (gcm_init_H H))
       (aesni_gcm_cipher_block6 (gcm_init_Htable (gcm_init_H H))
         (aesni_gcm_cipher_block6 (gcm_init_Htable (gcm_init_H H))
-          (gcm_ghash_array_6x H Xi outp 0 (blocks-18))
+          (gcm_ghash_array_6x H Xi outp
+            i
+            (blocks-18))
 	  [ join (arrayRangeLookup outp ((blocks-18+j) * 16 )) | j <- [0 .. 5] ])
         [ join (arrayRangeLookup outp ((blocks-12+j) * 16 )) | j <- [0 .. 5] ])
       [ join (arrayRangeLookup outp ((blocks-6+j) * 16 )) | j <- [0 .. 5] ]
@@ -380,13 +382,14 @@ update_bulk_encrypt in ctx buf i len =
 		  (drop`{32} (ctx.len/16) + 2)
 		  (aes_round_keys ctx.key)
 		  buf // (arrayCopy zeroByteArray 0 buf i res_len)  I think this array copy will be necessary when we enable the prephase
-		  0
+		  (i / 16) // NOTE
 		  (res_len/16)
 
     Xi_final = gcm_ghash_array_6x_enc_final
                   (join (aes_hw_encrypt zero ctx.key))
 		  (join ctx.Xi)
 		  out_data
+                  (i / 16) // NOTE
 		  (res_len/16)
 
     len32 = drop`{32} len
