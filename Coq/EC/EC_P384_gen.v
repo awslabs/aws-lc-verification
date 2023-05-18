@@ -148,7 +148,6 @@ Theorem mul_scalar_rwnaf_odd_gen_equiv : forall s,
     replace (to_list (SAWCoreVectorsAsCoqVectors.scanl t1 t2 n f a v)) with (scanl f (to_list v) a); [idtac | symmetry; apply toList_scanl_equiv]
   end.
 
-  rewrite to_list_of_list_opp.
   rewrite ecFromTo_0_n_equiv.
   rewrite sawAt_nth_equiv.
   rewrite toList_reverse_equiv.
@@ -258,8 +257,9 @@ Section PointMul.
     intros.
     unfold conditional_subtract_if_even_ct, EC_P384_5.conditional_subtract_if_even_ct.
     unfold felem_cmovznz.
+    simpl.
     match goal with
-    | [|- context[of_list [if ?a then _ else _; _; _]]] =>
+    | [|- context[Vector.cons (if ?a then _ else _) _ ]] =>
       case_eq a; intros
     end.
     unfold ecEq, ecAnd, ecZero, byte_to_limb in H. simpl in H.
@@ -267,7 +267,6 @@ Section PointMul.
     (* both even *)
     simpl.
     Local Transparent of_list.
-    unfold of_list.
     apply sawAt_3_equiv.
 
     (* contradiction *)

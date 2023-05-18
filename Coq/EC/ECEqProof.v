@@ -523,14 +523,14 @@ Section ECEqProof.
     intros.
     unfold seqToProd, prodToSeq.
     simpl.
-    destruct (Vec_S_cons x).
+    destruct (Vec_S_cons _ _ x).
     destruct H.
-    destruct (Vec_S_cons x1).
+    destruct (Vec_S_cons _ _ x1).
     destruct H0.
-    destruct (Vec_S_cons x3).
+    destruct (Vec_S_cons _ _ x3).
     destruct H1.
     subst.
-    rewrite (Vec_0_nil x5).
+    rewrite (Vec_0_nil _ x5).
     reflexivity.
   Qed.
 
@@ -1846,7 +1846,6 @@ Feq
     rewrite Z.mul_comm.
     apply Z.mod_pos_bound.
     apply Z.mul_pos_pos; try lia.
-    apply Z.pow_pos_nonneg; lia.
     lia.
     lia.
     lia.
@@ -3105,7 +3104,7 @@ Theorem ct_abs_equiv : forall  b1 b2,
     
 
     intros.
-    destruct (Vec_S_cons v).
+    destruct (Vec_S_cons _ _ v).
     destruct H.
     subst.
     

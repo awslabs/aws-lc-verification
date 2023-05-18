@@ -9,9 +9,11 @@ RUN apt-get install -y wget unzip git cmake clang llvm golang python3-pip libncu
 RUN pip3 install wllvm
 
 RUN opam init --disable-sandboxing
-RUN opam install -vv -y coq.8.13.2
+RUN opam install -vv -y coq.8.15.1
 RUN opam repo add coq-released https://coq.inria.fr/opam/released
 RUN opam install -y coq-bits
+RUN opam pin -y entree-specs https://github.com/GaloisInc/entree-specs.git#52c4868f1f65c7ce74e90000214de27e23ba98fb
+
 
 ADD ./SAW/scripts /lc/scripts
 RUN /lc/scripts/install.sh

@@ -14,6 +14,8 @@ apply_patch() {
   (cd ../src; patch -p1 -r - --forward < "$PATCH"/"$PATCH_NAME".patch || true)
 }
 
+go env -w GOPROXY=direct
+
 # First, apply some patches (TODO: remove them)...
 
 apply_patch "rsa-encrypt"
