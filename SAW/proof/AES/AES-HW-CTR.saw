@@ -113,126 +113,6 @@ let original_aes_hw_ctr32_encrypt_blocks_spec blocks = do {
   global_alloc_init "OPENSSL_ia32cap_P" {{ ia32cap }};
 };
 
-// The following commented-out section is the beginning of an unbounded
-// proof for the AES/CTR32 mode routine. It is currently complete enough
-// to prove memory safety and establish some of the necesary bookkeeping
-// properties. To complete it, one needs to establish the basic invariant
-// property regarding the computation of the output array (the one
-// listed below is probably in the right neighborhood), and then use it
-// to establish the final postcondition. I don't expect this to be fundamentally
-// difficult (and is probably easier than the bulk encryption proofs). However,
-// there are 8 blocks in flight at a time in the loop body, and the post-loop
-// code has a pretty gnarly sequence of tests to compute the final at-most-seven
-// blocks, so the terms involved get quite large.
-
-// let {{
-//   bswap4 : [32] -> [32]
-//   bswap4 x = join (reverse ((split x):[4][8]))
-
-//   type aes_hw_ctr32_invariant_tuple =
-//     ( Array [64] [8]
-//     , [32], [32]
-//     , [512], [512], [512], [512], [512], [512], [512], [512]
-//     , [512], [512], [512], [512], [512], [512], [512], [512]
-//     , [64], [64], [64], [64]
-//     )
-
-//   aes_hw_ctr32_encrypt_blocks_invariant :
-//     Array [64] [8] ->
-//     [32][8] ->
-//     [16][8] ->
-//     aes_hw_ctr32_invariant_tuple ->
-//     aes_hw_ctr32_invariant_tuple ->
-//     Bool
-//   aes_hw_ctr32_encrypt_blocks_invariant in key ivec
-//     ( i_buf, _, _
-//     , _, _, _, _, _, _, _, _
-//     , _, _, _, _, _, _, _, _
-//     , _, _, _, i_blocks )
-
-//     ( c_buf
-//     , c_temp1, c_temp2
-
-//     , _, _, _, _, _, _, _, _ // junk values?
-
-//     , xmm7, xmm6, xmm5, xmm4, xmm3, xmm2, xmm1, xmm0
-
-//     , c_cnt, c_off1, c_off2 , c_blocks )
-
-//     =  i_blocks >= c_blocks
-//     /\ processed_blocks%8 == 0
-//     /\ c_off1 == offset
-//     /\ c_off2 == offset
-//     /\ c_cnt  == zext cnt
-
-//     /\ c_temp1 == cnt_and_key 6
-//     /\ c_temp2 == cnt_and_key 7
-
-//     // xmm0 and xmm1 seem to just be scratch registers at this point?
-
-//     /\ drop`{512-128} xmm2 == ivec_and_key 0
-//     /\ drop`{512-128} xmm3 == ivec_and_key 1
-//     /\ drop`{512-128} xmm4 == ivec_and_key 2
-//     /\ drop`{512-128} xmm5 == ivec_and_key 3
-//     /\ drop`{512-128} xmm6 == ivec_and_key 4
-//     /\ drop`{512-128} xmm7 == ivec_and_key 5
-
-// // Now to actually reason about the encryption...
-// //    /\ arrayEq (aes_hw_ctr32_encrypt_blocks_array in key ivec 0 i_blocks i_buf)
-// //               (aes_hw_ctr32_encrypt_blocks_array in key ivec processed_blocks i_blocks c_buf)
-
-//     where
-//       top_ivec_and_key : [96]
-//       top_ivec_and_key = join (reverse (take`{12} ivec)) ^ join (reverse (take`{12} key))
-
-//       cnt_and_key : [32] -> [32]
-//       cnt_and_key i = (bswap4 (cnt + i)) ^ (join (reverse (take`{4} (drop`{12} key))))
-
-//       ivec_and_key : [32] -> [128]
-//       ivec_and_key i = cnt_and_key i # top_ivec_and_key
-
-//       processed_blocks = i_blocks - c_blocks
-//       offset = processed_blocks * 16
-//       i_cnt = join (drop`{12} ivec)
-//       cnt = i_cnt + drop`{32} processed_blocks
-
-// }};
-
-// let go = w4_unint_yices
-//   [ "aes_hw_ctr32_encrypt_blocks_array","ExpandKey","aesenc","aesenclast"
-//   , "AESRound", "AESFinalRound"
-//   ];
-
-// add_x86_preserved_reg "r11";
-
-// unbounded_aes_hw_ctr32_ovr <- llvm_verify_x86_with_invariant
-//   m "../../build/x86/crypto/crypto_test" "aes_hw_ctr32_encrypt_blocks"
-//     []
-//     true
-//     ("aes_hw_ctr32_encrypt_blocks", 2, {{ aes_hw_ctr32_encrypt_blocks_invariant }})
-//     aes_hw_ctr32_encrypt_blocks_spec
-//     do {
-//       loop_inv0 <- goal_has_some_tag ["initial loop invariant"];
-//       loop_inv  <- goal_has_some_tag ["inductive loop invariant"];
-//       out_goal  <- goal_has_some_tag ["output buffer"];
-//       if loop_inv0 then do {
-//         return (run (print "<<initial loop invariant>>"));
-//      go;
-//       } else if loop_inv then do {
-//         return (run (print "<<inductive loop invariant>>"));
-//      go;
-//       } else if out_goal then do {
-//         return (run (print "<<output buffer goal>>"));
-//      admit "TODO";
-//       } else do {
-//          print_goal_summary;
-//       go;
-//       };
-//     };
-
-// default_x86_preserved_reg;
-
-
 let aes_hw_ctr32_tactic = do {
   print_goal_summary;
   simplify (cryptol_ss ());
@@ -276,7 +156,7 @@ aes_hw_ctr32_encrypt_blocks_concrete_ovs <-
   for (eval_list {{ [ 1:[16] .. < MAX_BLOCKS_AFTER_BULK ] }}) (\i -> do
   { let blocks = eval_int i;
     print (str_concat "aes_hw_ctr32_encrypt lemma: " (show blocks));
-    // TODO! This is currently limited to only do the concrete-size proofs
+    // NB: This is currently limited to only do the concrete-size proofs
     // up to 5 blocks in order to control memory usage.
     if eval_bool {{ i <= 5 }} then do {
       ov <- llvm_verify_x86 m
@@ -287,7 +167,7 @@ aes_hw_ctr32_encrypt_blocks_concrete_ovs <-
         (original_aes_hw_ctr32_encrypt_blocks_spec blocks)
         aes_hw_ctr32_tactic;
 
-      // TODO, it seems odd to me that we need to do the proof first
+      // NB, it seems odd to me that we need to do the proof first
       // with the "original" spec and then refine here. However,
       // attempting to do the proof directly without the extra step
       // doesn't seem to work.  The proof goes through with an unchanged

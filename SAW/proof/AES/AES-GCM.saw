@@ -3,19 +3,6 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 
-/**
- * RWD: notes and issues to investigate
- *
- * -- We are currently requiring the "output" buffer to be initialized with
- *    bytes, which is annoying.
- *
- * -- In decryption mode, it would be nice if the specification would allow
- *    the authentication tag to be set before OR after the updates.
- *    Right now, the spec only allows the tag to be set immediately before
- *    finalization, but I beleive this has no material impact on the
- *    main content of the "update" proof.
- */
-
 import "../../../cryptol-specs/Primitive/Symmetric/Cipher/Block/AES.cry";
 import "../../../cryptol-specs/Primitive/Symmetric/Cipher/Authenticated/AES_256_GCM.cry";
 import "../../spec/AES/X86.cry";
@@ -26,7 +13,6 @@ enable_experimental;
 set_path_sat_solver "yices";
 
 // Disable debug intrinsics to avoid https://github.com/GaloisInc/crucible/issues/778
-// TODO: RWD, I think this is no longer necessary
 disable_debug_intrinsics;
 
 m <- llvm_load_module "../../build/llvm/crypto/crypto_test.bc";

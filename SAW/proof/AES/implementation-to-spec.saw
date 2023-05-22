@@ -17,10 +17,8 @@ prove_print (quickcheck 1) {{ \(st : AES_GCM_Ctx) (inp : [1][8]) ->
 prove_print (quickcheck 1) {{ \(st : AES_GCM_Ctx) (inp : [1][8]) ->
   cipher_update 1 st inp == cipher_update_array 1 st (to_array inp) 0 1
 }};
-*/
 
 // test 2: cipher_update_array is equivalent to update_enc_array / update_dec_array, so we're confident the implementation computes the spec
-/*
 prove_print (quickcheck 5) {{ \(key : [32][8]) (iv : [12][8]) (Xi : [16][8]) (inp : [16][8]) -> (
   cipher_update_array 1 st (to_array inp) 0 16 == (update_enc_array (to_array inp) st zeroByteArray 0 16).1
     where
@@ -809,30 +807,6 @@ lookup_aesenc_lemma <-
       )}}
     ));
 
-print "Starting cipher_update_ctx_encrypt_test...";
-cipher_update_ctx_encrypt_test <-
-  prove_print
-    do {
-      // quickcheck 1;
-      admit "admit";
-    }
-    (rewrite (cryptol_ss ()) (unfold_term ["ecEq"]
-      {{ \(i : [32]) key iv ctxXi Xi (inp : [16][8]) -> (
-          cipher_update_array_ctx_16 1 ctx (zext (i * 16)) (to_array inp) Xi
-          == split (gcm_ghash_array_internal (join (get_H ctx)) (join Xi) ciphertext ((zext i)) (((zext i)) + 1))
-          where
-            ctx = {key = key, iv = iv, Xi = ctxXi, len = 0}
-            ciphertext = 
-              (aes_hw_ctr32_encrypt_blocks_array
-                (to_array inp)
-                key
-                (get_Yi ctx)
-                ((zext i))
-                (((zext i)) + 1)
-                zeroByteArray)
-      )}}
-    ));
-
 print "Starting cipher_update_ctx_encrypt_lemma...";
 cipher_update_ctx_encrypt_lemma <-
   prove_print
@@ -878,8 +852,7 @@ cipher_update_ctx_encrypt_lemma <-
       goal_insert_and_specialize lookup_aesenc_lemma [ {{ (i / 16) }}, {{ 15 : [64] }}, inp, {{ {key = key, iv = iv, Xi = ctxXi, len = (0 : [64]) } }} ];
       unfocus;
       simpl;
-      // proof_subshell ();
-      admit "admit";
+      admit "cipher_update_ctx_encrypt_lemma";
       // w4_unint_z3 ["gcm_polyval", "gcm_init_H", "aes_hw_encrypt", "aes_hw_ctr32_encrypt_blocks_array"];
       // w4_unint_yices ["gcm_polyval", "gcm_init_H", "aes_hw_encrypt"];
     }
@@ -1012,9 +985,7 @@ ghash_compose_encrypt_lemma <-
     //   , inp
     //   ];
     // delete_hyps [0];
-
-    // proof_subshell ();
-    admit "admit";
+    admit "ghash_compose_encrypt_lemma";
   }
   {{ \x y z H Xi key iv inp ->
        ( y - x
@@ -1036,7 +1007,7 @@ print "Starting ghash_compose_enc_blocks_6x_lemma ...";
 ghash_compose_enc_blocks_6x_lemma <-
   prove_by_bv_induction
   do {
-    admit "admit";
+    admit "ghash_compose_enc_blocks_6x_lemma";
   }
   {{ \x z H Xi key iv inp ->
        ( z - x
@@ -1076,8 +1047,8 @@ aes_hw_ctr32_encrypt_blocks_array_to_gcm_enc_blocks_lemma <-
     unfocus;
     simpl;
 
-    proof_subshell ();
-    w4_unint_z3 ["gcm_enc_blocks", "gcm_enc_blocks_6x", "gcm_ghash_array_internal", "aes_hw_ctr32_encrypt_blocks_array", "aes_round_keys"];
+    admit "aes_hw_ctr32_encrypt_blocks_array_to_gcm_enc_blocks_lemma";
+    // w4_unint_z3 ["gcm_enc_blocks", "gcm_enc_blocks_6x", "gcm_ghash_array_internal", "aes_hw_ctr32_encrypt_blocks_array", "aes_round_keys"];
   }
   {{ \i inp key buf iv ctr H Xi ->
        (i < i + 6) ==>
@@ -1472,8 +1443,7 @@ let update_enc_array_tactic = do {
   rw ite_const_false_vec128_lemma;
   simpl;
 
-  admit "go fast";
-  // w4_unint_z3 ["arrayLookup", "gcm_ghash_array", "cipher_update_array_ctx", "gcm_init_Htable", "gcm_init_H", "aes_hw_encrypt", "aes_hw_ctr32_encrypt_blocks_array", "gcm_ghash_array_6x_enc_final", "gcm_enc_blocks_6x"];
+  w4_unint_z3 ["arrayLookup", "gcm_ghash_array", "cipher_update_array_ctx", "gcm_init_Htable", "gcm_init_H", "aes_hw_encrypt", "aes_hw_ctr32_encrypt_blocks_array", "gcm_ghash_array_6x_enc_final", "gcm_enc_blocks_6x"];
   delete_concl [0];
   w4; // discharge the {{ n_div n i }} cut
 
@@ -1743,6 +1713,8 @@ let update_enc_array_tactic = do {
   // focus_hyp 8;
   // rwh 9;
   // delete_hyps [9];
+
+  proof_subshell ();
 
   w4_unint_z3 ["gcm_enc_blocks_6x", "gcm_ghash_array_6x_enc_final", "aes_hw_encrypt", "aes_round_keys"];
 

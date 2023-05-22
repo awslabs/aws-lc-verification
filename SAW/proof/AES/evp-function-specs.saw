@@ -97,8 +97,8 @@ let EVP_CipherUpdate_spec enc = do {
   llvm_precond {{ ctx.len <= `TOTAL_MESSAGE_MAX_LENGTH }};
   llvm_precond {{ ctx.len + (sext len) <= `TOTAL_MESSAGE_MAX_LENGTH }};
   
-  // SB: this assumption is what allows us to skip the prephase in update_foo_array?
-  // TODO, remove this restiction on full blocks
+  // NB: This precondition represents a limitation of the proof - we only handle lengths
+  // that are multiples of 16 bytes.
   llvm_setup_with_tag "16-byte aligned" do {
      llvm_precond {{ ctx.len % 16 == 0 }};
      llvm_precond {{ len % 16 == 0 }};
@@ -111,10 +111,9 @@ let EVP_CipherUpdate_spec enc = do {
 
   (in_, in_ptr) <- ptr_to_fresh_array_readonly "in" {{ (sext len):[64] }};
 
-  /* TODO, this isn't great, we require that the caller initialize the output
-   * buffer with bytes. We need to fix asMemAllocationArrayStore or somesuch
-   * if we want to avoid this.
-   */
+  // NB: The requirement here that the output buffer is initialized is not ideal.
+  // This is a consequence of the array-backed memory model, see asMemAllocationArrayStore
+  // in Crucible.
   // out_ptr <- llvm_symbolic_alloc false 1 {{ (sext len):[64] }};
   (out_, out_ptr) <- ptr_to_fresh_array "out" {{ (sext len):[64] }};
 
@@ -178,7 +177,8 @@ let EVP_EncryptFinal_ex_spec = do {
   out_ptr <- crucible_fresh_pointer (llvm_array AES_BLOCK_SIZE (llvm_int 8));
   out_len_ptr <- crucible_alloc (llvm_int 32);
 
-  // TODO, remove this restiction on full blocks
+  // NB: This precondition represents a limitation of the proof - we only handle lengths
+  // that are multiples of 16 bytes.
   llvm_setup_with_tag "16-byte aligned" do {
      llvm_precond {{ ctx.len % 16 == 0 }};
   };
@@ -233,7 +233,8 @@ let EVP_DecryptFinal_ex_spec = do {
   out_ptr <- crucible_fresh_pointer (llvm_array AES_BLOCK_SIZE (llvm_int 8));
   out_len_ptr <- crucible_alloc (llvm_int 32);
 
-  // TODO, remove this restiction on full blocks
+  // NB: This precondition represents a limitation of the proof - we only handle lengths
+  // that are multiples of 16 bytes.
   llvm_setup_with_tag "16-byte aligned" do {
      llvm_precond {{ ctx.len % 16 == 0 }};
   };

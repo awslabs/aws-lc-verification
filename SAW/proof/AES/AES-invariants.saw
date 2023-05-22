@@ -228,7 +228,7 @@ let points_to_gcm128_key_st ptr ctx = do {
  */
 let points_to_GCM128_CONTEXT ptr ctx = do {
   //let mres = {{ drop`{32} (ctx.len % `AES_BLOCK_SIZE) }};
-  // TODO! relax this constraint
+  // NB: This constraint could be relaxed
   let mres = {{ 0:[32] }};
 
   llvm_setup_with_tag "Yi value"

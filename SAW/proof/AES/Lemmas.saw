@@ -627,7 +627,6 @@ gcm_enc_blocks_compose_lemma <-
 let aesni_gcm_cipher_block6_tac =
   do {
     goal_eval_unint
-        // TODO? not sure all of these are necesary *shrug*
         [ "pmult", "pmod", "gcm_polyval", "gcm_polyval_mul"
         , "gcm_polyval_mul_pmult3", "gcm_polyval_mul_pmult4"
         , "gcm_polyval_red", "gcm_polyval_red_pmult"
