@@ -3071,6 +3071,7 @@ Theorem ct_abs_equiv : forall  b1 b2,
     unfold sign_extend_16_64.
     simpl.
     apply (@sbvToInt_sign_extend_equiv 16 48).
+    lia.
 
   Qed.
 
