@@ -13,8 +13,8 @@ import (
 	"sync"
 )
 
-// The AES GCM proofs use approximately 7 gb of memory each, round up to 8 gb for headroom
-const memory_used_per_test uint64 = 8e9
+// The AES GCM proofs use more than 8.2 gb of memory each, using 9 gb for headroom
+const memory_used_per_test uint64 = 9e9
 
 func main() {
 	log.Printf("Started AES-GCM check.")
@@ -38,7 +38,7 @@ func main() {
 		wg.Add(1)
 		saw_template := "verify-AES-GCM-selectcheck-template.txt"
 		placeholder_name := "TARGET_LEN_PLACEHOLDER"
-		go utility.CreateAndRunSawScript(saw_template, placeholder_name, i, &wg)
+		go utility.CreateAndRunSawScript(saw_template, []string{}, placeholder_name, i, &wg)
 		utility.Wait(&process_count, num_parallel_process, &wg)
 	}
 

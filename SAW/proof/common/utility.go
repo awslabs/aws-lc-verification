@@ -42,7 +42,7 @@ func ParseSelectCheckRange(env_var_name string, default_val int) int {
 }
 
 // A function to create a saw script, replace `placeholder_key` with value, and then execute the script.
-func CreateAndRunSawScript(path_to_template string, placeholder_key string, value int, wg *sync.WaitGroup) {
+func CreateAndRunSawScript(path_to_template string, saw_params []string,  placeholder_key string, value int, wg *sync.WaitGroup) {
 	log.Printf("Start creating saw script for target value %s based on template %s.", value, path_to_template)
 	// Create a new saw script.
 	file_name := fmt.Sprint(value, ".saw")
@@ -59,13 +59,14 @@ func CreateAndRunSawScript(path_to_template string, placeholder_key string, valu
 	defer os.Remove(file_name)
 	// Run saw script.
 	defer wg.Done()
-	RunSelectCheckScript(file_name, path_to_template)
+	RunSelectCheckScript(file_name, saw_params, path_to_template)
 }
 
 // A function to run saw script.
-func RunSelectCheckScript(path_to_saw_file string, path_to_template string) {
+func RunSelectCheckScript(path_to_saw_file string, saw_params []string, path_to_template string) {
 	log.Printf("Running saw script %s. Related template: %s.", path_to_saw_file, path_to_template)
-	cmd := exec.Command("saw", path_to_saw_file)
+	saw_command := append(saw_params, path_to_saw_file)
+	cmd := exec.Command("saw", saw_command...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	err := cmd.Run()
@@ -91,8 +92,9 @@ func RunSawScript(path_to_saw_file string) {
 
 // A function to limit number of concurrent processes.
 func Wait(process_count *int, limit int, wg *sync.WaitGroup) {
-	if *process_count >= limit {
-		log.Printf("Count [%d] reached process limit [%d].", *process_count, limit)
+	// *process_count starts from 0, therefore comparing it with limit-1
+	if *process_count >= limit-1 {
+		log.Printf("Count [%d] reached process limit [%d].", *process_count+1, limit)
 		wg.Wait()
 		*process_count = 0
 	} else {
@@ -106,5 +108,5 @@ func SystemMemory() uint64 {
 	if err != nil {
 		return 0
 	}
-	return uint64(info.Totalram) * uint64(info.Unit)
+	return uint64(info.Freeram) * uint64(info.Unit)
 }
