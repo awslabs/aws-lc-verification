@@ -9,10 +9,18 @@ ARG GO_VERSION=1.20.1
 ARG GO_ARCHIVE="go${GO_VERSION}.linux-amd64.tar.gz"
 RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections
 RUN apt-get update
-RUN apt-get install -y wget unzip git cmake clang llvm python3-pip libncurses5
+RUN apt-get install -y wget unzip git cmake clang llvm python3-pip libncurses5 opam libgmp-dev
 RUN wget "https://dl.google.com/go/${GO_ARCHIVE}" && tar -xvf $GO_ARCHIVE && \
    mkdir $GOROOT &&  mv go/* $GOROOT && rm $GO_ARCHIVE
+
 RUN pip3 install wllvm
+
+RUN opam init --disable-sandboxing
+RUN opam install -vv -y coq.8.15.1
+RUN opam repo add coq-released https://coq.inria.fr/opam/released
+RUN opam install -y coq-bits
+RUN opam pin -y entree-specs https://github.com/GaloisInc/entree-specs.git#52c4868f1f65c7ce74e90000214de27e23ba98fb
+
 
 ADD ./SAW/scripts /lc/scripts
 RUN /lc/scripts/docker_install.sh
@@ -22,4 +30,4 @@ ENV CRYPTOLPATH="../../../cryptol-specs:../../spec"
 # The GitHub action will mount the workspace and set the working directory of the container.
 # Another way to mount the files is: docker run -v `pwd`:`pwd` -w `pwd` <name>
 
-ENTRYPOINT ["./SAW/scripts/docker_entrypoint.sh"]
+ENTRYPOINT ["./docker_entrypoint.sh"]
