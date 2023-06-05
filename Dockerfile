@@ -15,7 +15,7 @@ RUN wget "https://dl.google.com/go/${GO_ARCHIVE}" && tar -xvf $GO_ARCHIVE && \
 
 RUN pip3 install wllvm
 
-RUN opam init --disable-sandboxing
+RUN opam init --auto-setup --yes --disable-sandboxing
 RUN opam install -vv -y coq.8.15.1
 RUN opam repo add coq-released https://coq.inria.fr/opam/released
 RUN opam install -y coq-bits
