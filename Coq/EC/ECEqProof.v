@@ -8,7 +8,6 @@ From Coq Require Import ZArith.BinInt.
 From Coq Require Import Classes.SetoidClass.
 From Coq Require Import Lia.
 
-
 From CryptolToCoq Require Import SAWCoreScaffolding.
 From CryptolToCoq Require Import SAWCoreVectorsAsCoqVectors.
 Import ListNotations.
@@ -912,14 +911,12 @@ Section ECEqProof.
     exists p2', p2 = fromPoint p2'.
 
     intros.
-    Search is_jacobian.
     assert (is_jacobian p2).
     eapply jac_eq_is_jacobian; eauto.
     apply fromPoint_is_jacobian.
     exists (toPoint _ H0).
     reflexivity.
   Qed.
-
 
  
   (* Need a more general form of the point add correctness proof using Jacobian equality *)
@@ -3832,10 +3829,8 @@ Theorem ct_abs_equiv : forall  b1 b2,
   Print Assumptions point_mul_correct.
 
 
-
-
   (* If we want to prove that the generic multiplication operation is correct, we need a group on generic points. *)
-  (* probably sufficient to prove the fiat representation multiplication operation is correct *)
+
 
 (*
 

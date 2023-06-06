@@ -11,7 +11,7 @@ KNOWNFILES   := Makefile _CoqProject
 CoqMakefile: Makefile _CoqProject
 	$(COQBIN)coq_makefile -f _CoqProject -o CoqMakefile
 
-invoke-coqmakefile: fiat-crypto saw-script CoqMakefile
+invoke-coqmakefile: fiat-crypto saw-script extract CoqMakefile
 	$(MAKE) --no-print-directory -f CoqMakefile $(filter-out $(KNOWNTARGETS),$(MAKECMDGOALS))
 
 saw-script: 
