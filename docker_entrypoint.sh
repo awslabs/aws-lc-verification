@@ -5,6 +5,5 @@
 
 (pushd SAW; ./scripts/install.sh; popd)
 export CI=true
-eval $(opam env)
 (pushd Coq; make; popd)
 (pushd SAW; ./scripts/entrypoint_check.sh; popd)
