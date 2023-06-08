@@ -25,6 +25,10 @@ jobs:
       with:
         submodules: true
 
+    # Print Docker version
+    - name: Print Docker version
+      run: docker --version
     # Runs the formal verification action
     - name: Proofs
       uses: ./
+
