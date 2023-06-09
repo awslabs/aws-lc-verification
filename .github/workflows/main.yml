@@ -23,11 +23,8 @@ jobs:
     - uses: actions/checkout@v2
       name: check out top-level repository and all submodules
       with:
-        submodules: true
+        submodules: recursive
 
-    # Print Docker version
-    - name: Print Docker version
-      run: docker --version
     # Runs the formal verification action
     - name: Proofs
       uses: ./
