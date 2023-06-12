@@ -7,9 +7,8 @@
 # Disable git security checks that ensure files are owned by the current user.
 git config --global --add safe.directory '*'
 (pushd SAW; ./scripts/install.sh; popd)
-export PATH=$PATH:$HOME/bin
 export CI=true
 export OPAMROOT=/root/.opam
 eval $(opam env)
 (pushd Coq; make; popd)
-#(pushd SAW; ./scripts/entrypoint_check.sh; popd)
+(pushd SAW; ./scripts/entrypoint_check.sh; popd)
