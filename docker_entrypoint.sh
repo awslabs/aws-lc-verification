@@ -11,5 +11,6 @@ NUM_CPU_THREADS=$(grep -c ^processor /proc/cpuinfo)
 export CI=true
 export OPAMROOT=/root/.opam
 eval $(opam env)
-(pushd Coq; make -j $NUM_CPU_THREADS; popd)
+#(pushd Coq; make -j $NUM_CPU_THREADS; popd)
+(pushd Coq; make; popd)
 (pushd SAW; ./scripts/entrypoint_check.sh; popd)
