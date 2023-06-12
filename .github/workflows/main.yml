@@ -24,7 +24,7 @@ jobs:
       name: check out top-level repository and all submodules
       with:
         submodules: recursive
-        set-safe-directory: '*'
+        set-safe-directory: 'Coq/fiat-crypto'
 
     # Runs the formal verification action
     - name: Proofs
