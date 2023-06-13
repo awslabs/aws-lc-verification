@@ -9,6 +9,7 @@ git config --global --add safe.directory '*'
 NUM_CPU_THREADS=$(grep -c ^processor /proc/cpuinfo)
 (pushd SAW; ./scripts/install.sh; popd)
 export CI=true
+export PATH=/lc/bin:$PATH
 export OPAMROOT=/root/.opam
 eval $(opam env)
 #(pushd Coq; make -j $NUM_CPU_THREADS; popd)
