@@ -11,5 +11,4 @@ export CI=true
 export OPAMROOT=/root/.opam
 eval $(opam env)
 NUM_CPU_THREADS=$(grep -c ^processor /proc/cpuinfo)
-#(pushd Coq; make -j $NUM_CPU_THREADS; popd)
-(pushd Coq; make; popd)
+(pushd Coq; make -j $NUM_CPU_THREADS; popd)

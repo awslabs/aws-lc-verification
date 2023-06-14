@@ -27,7 +27,7 @@ jobs:
 
     # Runs the formal verification action
     - name: SAW Proofs
-      uses: ./SAW/
+      uses: ./
   coq:
     # The type of runner that the job will run on
     runs-on: aws-lc-verification_ubuntu-latest_16-core
