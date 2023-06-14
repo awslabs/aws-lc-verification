@@ -11,18 +11,13 @@ RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selectio
 RUN apt-get update \
    && apt-get install -y wget unzip git cmake clang llvm python3-pip libncurses5 opam libgmp-dev cabal-install 
 
-RUN wget "https://dl.google.com/go/${GO_ARCHIVE}" && tar -xvf $GO_ARCHIVE && \
-   mkdir $GOROOT &&  mv go/* $GOROOT && rm $GO_ARCHIVE
-
-RUN pip3 install wllvm
-
 RUN opam init --auto-setup --yes --disable-sandboxing \
    && opam install -vv -y -j "$(nproc)" coq.8.15.1 \
    && opam repo add coq-released https://coq.inria.fr/opam/released \
    && opam install -y coq-bits \
    && opam pin -y entree-specs https://github.com/GaloisInc/entree-specs.git#52c4868f1f65c7ce74e90000214de27e23ba98fb
 
-ADD ./SAW/scripts /lc/scripts
+ADD ./scripts /lc/scripts
 RUN /lc/scripts/docker_install.sh
 ENV CRYPTOLPATH="../../../cryptol-specs:../../spec"
 
