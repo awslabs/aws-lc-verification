@@ -14,7 +14,7 @@ RUN wget "https://dl.google.com/go/${GO_ARCHIVE}" && tar -xvf $GO_ARCHIVE && \
    mkdir $GOROOT &&  mv go/* $GOROOT && rm $GO_ARCHIVE
 RUN pip3 install wllvm
 
-ADD ./SAW/scripts /lc/scripts
+ADD ./scripts /lc/scripts
 RUN /lc/scripts/docker_install.sh
 ENV CRYPTOLPATH="../../../cryptol-specs:../../spec"
 
