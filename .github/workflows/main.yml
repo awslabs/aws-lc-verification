@@ -27,7 +27,6 @@ jobs:
 
     # Runs the formal verification action
     - name: SAW Proofs
-      working-directory: ./SAW
       uses: ./SAW/
   coq:
     # The type of runner that the job will run on
@@ -43,6 +42,5 @@ jobs:
 
     # Runs the formal verification action
     - name: Coq Proofs
-      working-directory: ./Coq
       uses: ./Coq/
 
