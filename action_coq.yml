@@ -5,4 +5,4 @@ name: 'AWS-LC Formal Verification Coq Proofs'
 description: 'Check Coq proofs to validate some specifications used in AWS-LC'
 runs:
   using: 'docker'
-  image: 'Dockerfile'
+  image: 'Dockerfile_coq'
