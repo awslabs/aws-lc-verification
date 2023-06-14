@@ -22,4 +22,4 @@ ENV CRYPTOLPATH="../../../cryptol-specs:../../spec"
 # The GitHub action will mount the workspace and set the working directory of the container.
 # Another way to mount the files is: docker run -v `pwd`:`pwd` -w `pwd` <name>
 
-ENTRYPOINT ["./scripts/docker_entrypoint.sh"]
+ENTRYPOINT ["./SAW/scripts/docker_entrypoint.sh"]
