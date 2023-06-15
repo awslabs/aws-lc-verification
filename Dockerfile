@@ -14,6 +14,12 @@ RUN wget "https://dl.google.com/go/${GO_ARCHIVE}" && tar -xvf $GO_ARCHIVE && \
    mkdir $GOROOT &&  mv go/* $GOROOT && rm $GO_ARCHIVE
 RUN pip3 install wllvm
 
+RUN opam init --auto-setup --yes --disable-sandboxing \
+   && opam install -vv -y -j "$(nproc)" coq.8.15.1 \
+   && opam repo add coq-released https://coq.inria.fr/opam/released \
+   && opam install -y coq-bits \
+   && opam pin -y entree-specs https://github.com/GaloisInc/entree-specs.git#52c4868f1f65c7ce74e90000214de27e23ba98fb
+
 ADD ./SAW/scripts /lc/scripts
 RUN /lc/scripts/docker_install.sh
 ENV CRYPTOLPATH="../../../cryptol-specs:../../spec"
