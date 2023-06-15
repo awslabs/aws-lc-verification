@@ -42,5 +42,5 @@ jobs:
 
     # Runs the formal verification action
     - name: Coq Proofs
-      uses: ./action_coq.yml
+      uses: ./Coq/
 
