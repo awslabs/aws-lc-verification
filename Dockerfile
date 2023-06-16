@@ -14,6 +14,7 @@ RUN apt-get install -y wget unzip git cmake clang llvm python3-pip libncurses5 o
 RUN wget "https://dl.google.com/go/${GO_ARCHIVE}" && tar -xvf $GO_ARCHIVE && \
    mkdir $GOROOT &&  mv go/* $GOROOT && rm $GO_ARCHIVE
 RUN pip3 install wllvm
+RUN pip3 install psutil
 
 RUN opam init --auto-setup --yes --disable-sandboxing \
    && opam install -vv -y -j "$(nproc)" coq.8.15.1 \
