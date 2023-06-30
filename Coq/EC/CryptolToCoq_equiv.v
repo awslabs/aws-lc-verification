@@ -1,4 +1,13 @@
 
+(* Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0 *)
+
+(* This file contains theory and tactics for proving equivalence between definitions extracted from Cryptol and 
+simpler hand-written definitions. *)
+
+(* Cryptol sequences are extracted to Coq vectors, and it is difficult to write well-typed expressions in which these vectors are reversed. 
+To avoid this problem, we develop alternative definitions using lists and prove them equivalent to the definitions using vectors. *)
+
 Set Implicit Arguments.
 
 From Coq Require Import Lists.List.
@@ -29,10 +38,6 @@ From CryptolToCoq Require Import Everything.
 From Bits Require Import operations.
 From Bits Require Import operations.properties.
 From Bits Require Import spec.properties.
-
-(*
-Require Import CryptolToCoq.SAWCoreBitvectorsZifyU64.
-*)
 
 
 Ltac ecSimpl_one :=
@@ -276,13 +281,6 @@ Theorem ecFromTo_0_n_bv_equiv : forall (s : nat) n,
 Qed.
 
 
-Theorem toList_ecDrop_equiv : forall A (inh : Inhabited A) n m (v : Vec (addNat n m) A),
-  to_list (ecDrop n m _ v) = skipn n (to_list v).
-
-Admitted.
-
-
-
 Theorem map_cons : forall A B n (v : Vec n A) (f : A -> B) a,
   map _ _ f _ (VectorDef.cons _ a _ v) = Vector.cons _ (f a) _ (map _ _ f _ v).
 
@@ -332,13 +330,6 @@ Theorem toList_scanl_equiv : forall (A B : Type)(f : A -> B -> A) n (v : Vec n B
 
 Qed.
 
-Theorem ecAtBack_0_equiv : forall n A (inh : Inhabited A)(def : A) r (v : seq (TCNum n) A),
-  (@ecAtBack (TCNum n) A inh _ r v 0) = List.hd def (List.rev (to_list v)).
-    
-  intros.
-  unfold ecAtBack.
-
-Abort.
 
 Fixpoint scanl_fix (A C : Type)(f : A -> A)(f1 f2 : A -> C) n a := 
   match n with
@@ -465,20 +456,6 @@ Theorem Vec_plus_app : forall (A : Type) n m (v : Vec (n + m)%nat A),
   reflexivity.
 
 Qed.
-
-(*
-Require Import Eqdep.
-
-Check eq_dep.
-
-Theorem Vec_rev_append_eq : forall (A : Type) n1 (v1 : Vec n1 A) n2 (v2 : Vec n2 A),
-  eq_dep nat (fun n => Vec n A) _ (Vector.rev (Vector.append v1 v2)) _ (Vector.append (Vector.rev v2) (Vector.rev v1)).
-
-Abort.
-
-Definition Vec_eq_length (A : Type) (n m : nat) (len_eq : n = m) v :=
-  eq_rect _ (fun k => @Vec k A) v _ len_eq.
-*)
 
 
 Fixpoint gen_ls (n : nat)(A : Type)(f : nat -> A) : list A :=
@@ -656,11 +633,6 @@ Theorem toList_zip_equiv : forall (A B : Type)(inha : Inhabited A)(inhb: Inhabit
   reflexivity. 
 Qed.
 
-Theorem ecAt_equiv : forall A s (ls : Vec s A) (n : Z) def,
-    (Z.to_nat n < s)%nat ->
-    ecAt (TCNum s) A _ PIntegralInteger ls n = nth (Z.to_nat n) (to_list ls) def.
-
-Admitted.
 
 Theorem fold_left_ext : forall (A B : Type)(f1 f2 : A -> B -> A) ls a,
     (forall a b, f1 a b = f2 a b) ->
@@ -819,11 +791,6 @@ Theorem lsb_1_not_even : forall n (v : Vec n _) (pf : (pred n < n)%nat),
 Qed.
 
 
-Theorem bvAnd_cons : forall n a1 a2 (v1 v2 : Vec n _),
-  bvAnd _ (Vector.cons _ a1 _ v1) (Vector.cons _ a2 _ v2) = 
-  Vector.cons _ (andb a1 a2) _ (bvAnd _ v1 v2).
-Admitted.
-
 Theorem addNat_equiv : forall n1 n2,
   (n1 + n2)%nat = addNat n1 n2.
 
@@ -832,10 +799,6 @@ Theorem addNat_equiv : forall n1 n2,
   reflexivity.
 Qed.
 
-Theorem drop_0_equiv : forall (A : Type)(inh : Inhabited A) n2 (v : Vector.t A (addNat O n2)),
-  drop _ O n2 v = v.
-
-Admitted.
 
 Theorem append_nil_eq : forall (A : Type)(inh : Inhabited A) n (v : Vec n A),
   SAWCorePrelude.append _ _ _ (@Vector.nil A) v = v.
@@ -991,16 +954,6 @@ Theorem bvAnd_drop_equiv: forall n1 n2 v1 v2,
 Qed.
 
 
-Theorem intToBv_1_append_eq : forall n1 n2,
-  (n1 > 0)%nat ->
-  append (intToBv n2 0) (intToBv n1 1) = intToBv (addNat n2 n1) 1.
-Admitted.
-
-Theorem intToBv_1_append_eq' : forall n1 n2,
-  (n1 > 0)%nat ->
-  Vector.append (intToBv n2 0) (intToBv n1 1) = intToBv (n2 + n1)%nat 1.
-Admitted.
-
 Theorem bvAnd_lsb_drop_equiv: forall n1 n2 v,
   (bvAnd (@drop _ _ n2 n1 v) (intToBv _ 1)) = 
   drop _ _ _ (bvAnd v (intToBv _ 1)).
@@ -1020,11 +973,6 @@ Theorem bvAnd_lsb_drop_equiv: forall n1 n2 v,
 Qed.
 
 
-
-Theorem bvAnd_0 : forall n (v : Vec n _),
-  bvAnd v (intToBv n 0) = (intToBv n 0).
-Admitted.
-
 Theorem bvAnd_lsb_drop_append_equiv: forall n1 n2 v,
   (n1 > 0)%nat ->
   (bvAnd v (intToBv _ 1)) = 
@@ -1042,24 +990,6 @@ Theorem bvAnd_lsb_drop_append_equiv: forall n1 n2 v,
   reflexivity.
 
 Qed.
-
-Theorem bvEq_append_same : forall n1 n2 (v1 : Vec n1 _) (v2a v2b : Vec n2 _),
-  bvEq _ (append v1 v2a) (append v1 v2b) = bvEq _ v2a v2b.
-
-Admitted.
-
-Theorem append_0_320_56 : forall n3 (v : Vec n3 _),
-  (append (intToBv 320%nat 0)
-       (append (intToBv 56%nat 0) v)) = append (intToBv 376%nat 0) v.
-
-Admitted.
-
-Theorem nth_order_append_r_eq : forall (A : Type)(inh : Inhabited A) n1 (v1 : Vec n1 A) 
-  n2 (v2 : Vec n2 A)  n' (nlt2 : (n' < addNat n2 n1)%nat) (nlt1 : (n'-n2 < n1)%nat),
-  (n' >= n2)%nat ->
-  nth_order (append v2 v1) nlt2 = nth_order v1 nlt1.
-Admitted.
-
 
 Theorem nth_order_ext : forall (A : Type) n1 n2 (v : Vec n1 A)(lt1 lt2 : (n2 < n1)%nat),
   nth_order v lt1 = nth_order v lt2.
@@ -1222,38 +1152,6 @@ Theorem scanl_fix_convert : forall (A1 A2 B1 B2: Type)
 Qed.
 
 
-Theorem mod_drop_equiv : forall s1 m a,
-  (Z.modulo (bvToInt _ a) (Z.shiftl 1 (Z.of_nat m))) =
-  (bvToInt _ (drop Bool s1 m a)).
-
-  intros.
-  
-
-Admitted.
-
-
-Theorem shiftR_bvToInt_nonneg : 
-  forall n s x,
-  (s > 0)%nat ->
-  (VectorDef.hd (shiftR (S n) bool false x s) = false).
-
-Admitted.
-
-
-
-Theorem bvToInt_drop_equiv : forall n1 n2 x,
-  ((bvToInt _ x) < Z.pow 2 (Z.of_nat n2))%Z ->
-  bvToInt _ (drop _ n1 n2 x) = bvToInt _ x.
-
-Admitted.
-
-
-Theorem bvToInt_drop_le : forall n1 n2 v,
-  (bvToInt _ (drop _ n1 n2 v) <= bvToInt _ v)%Z.
-
-Admitted.
-
-
 Theorem shiftL1_shiftL : forall (A : Type) n (b : A) v n1,
   (shiftL1 n _ b (shiftL n _ b v n1)) = shiftL n _ b v (S n1).
 
@@ -1284,31 +1182,6 @@ Theorem shiftL_shiftL : forall (A : Type) n (b : A) v n1 n2,
   lia.
 
 Qed.
-
-Theorem bvToInt_bvSub_nonneg_equiv : forall n v1 v2,
-  (bvToInt _ v2 <= bvToInt _ v1)%Z ->
-  (bvToInt n (bvSub v1 v2)) =
-  ((bvToInt _ v1) - (bvToInt _ v2))%Z.
-Admitted.
-
-
-Theorem toZ_toPosZ_equiv : forall n (v : spec.BITS (S n)),
-  (spec.toZ v mod 2 ^ Z.of_nat (S n) = spec.toPosZ v mod 2 ^ Z.of_nat (S n))%Z.
-Admitted.
-
-Theorem toPosZ_addB_equiv: forall n (v1 v2 : spec.BITS (S n)),
-  (0 <= spec.toPosZ v1 + spec.toZ v2 < Z.pow 2 (Z.of_nat (S n)))%Z ->
-  spec.toPosZ (addB v1 v2) =
-  (spec.toPosZ v1 + spec.toZ v2)%Z.
-
-  intros.
-  erewrite <- (@Zdiv.Zmod_small (spec.toPosZ v1 + spec.toZ v2)); eauto.
-  rewrite <- Zdiv.Zplus_mod_idemp_r.
-  rewrite toZ_toPosZ_equiv.
-  rewrite Zdiv.Zplus_mod_idemp_r.
- 
-  rewrite addB_def.
-Admitted.
 
 
 Theorem forall2_symm : forall (A B : Type)(P : B -> A -> Prop) lsa lsb,
@@ -1361,10 +1234,6 @@ Theorem forall2_map_eq : forall (A B : Type)(f : B -> A) lsa lsb,
 
 Qed.
 
-
-Theorem bvSShr_intToBv_equiv : forall n z v,
-  bvSShr _ (intToBv (S n) z) v = intToBv (S n) (Z.shiftr z (Z.of_nat v)).
-Admitted.
 
 Theorem fold_left_unroll_one : forall (A B : Type) def (f : A -> B -> A) (ls : list B) a,
   (List.length ls > 0)%nat ->
@@ -1488,11 +1357,6 @@ Theorem Forall2_nth_lt : forall (A B : Type)(P : A -> B -> Prop) lsa lsb,
 
 Qed.
 
-Theorem bvNat_Z_to_nat_eq_intToBv : forall n (z : Z),
-  (0 <= z)%Z ->
-  bvNat n (Z.to_nat z) = intToBv n z.
-Admitted.
-
 Theorem skipn_1_eq_tl : forall (A : Type)(ls : list A),
   skipn 1 ls = List.tl ls.
 
@@ -1528,15 +1392,6 @@ Theorem Forall2_rev : forall (A B : Type)(P : A -> B -> Prop) ls1 ls2,
 Qed.
 
 
-Theorem sbvToInt_shiftR_equiv:
-  forall [n s : nat] x,
-  (s >= 0)%nat ->
-  sbvToInt n (shiftR n bool false x s) =
-  BinInt.Z.shiftr (sbvToInt _ x) (BinInt.Z.of_nat s).
-
-Admitted.
-
-
 Theorem bvXor_cons : forall n x y u v,
   bvXor (S n) (Vector.cons u x) (Vector.cons v y) = 
   Vector.cons (xor u v) (bvXor _ x y).
@@ -1554,39 +1409,6 @@ Theorem bvEq_cons : forall n x y u v,
   reflexivity.
 Qed.
 
-(*
-Theorem intToBv_add_equiv_64 : forall x y,
-  intToBv 64%nat (x + y) = bvAdd 64%nat (intToBv 64%nat x) (intToBv 64%nat y).
-
-  intros.
-  lia.
-
-Qed.
-*)
-
-(*
-Theorem sign_extend_equiv : forall n1 n2 z,
-    (-2^(Z.of_nat n1) <= z < 2^(Z.of_nat n1)) ->
-    append 
-  (if sawAt (S n1) Bool (intToBv (S n1) z) 0%nat
-   then ecCompl (bitvector n2) (PLogicWord n2) (ecZero (bitvector n2) (intToBv n2 0))
-   else ecZero (bitvector n2) (intToBv n2 0)) (intToBv (S n1) z) = intToBv _ z.
-Admitted.
-*)
-
-Theorem bvNeg_replicate_0 : forall n,
-    bvNeg _ (replicate n bool false) = replicate n bool false.
-Admitted.
-
-Theorem shiftR_small_nonneg : forall n1 n2 v,
-  (0 <= sbvToInt _ v < 2^(Z.of_nat n2))%Z ->
-  (shiftR n1 bool false v n2) = replicate n1 bool false.
-Admitted.
-
-Theorem bvNeg_1_replicate : forall n,
-    bvNeg n (intToBv n 1) = replicate n bool true.
-Admitted.
-
 Theorem replicate_S_cons : forall (A : Type) n (a : A),
   replicate (S n) _ a = Vector.cons a (replicate n _ a).
 
@@ -1595,62 +1417,12 @@ Theorem replicate_S_cons : forall (A : Type) n (a : A),
 
 Qed.
 
-
-
-
-Theorem adcB_0_1_equiv : forall n (a : spec.BITS n),
-  (adcB 1 (spec.fromZ 0) a) = 
-  (adcB 0 (spec.fromZ 1) a).
-Abort.
-
-
-Theorem ssr_addn_comm : forall n1 n2, 
-  ssrnat.addn n1 n2 = (n2 + n1)%nat.
-Abort.
-
-
 Theorem xorB_cons : forall n (v1 v2 : spec.BITS n) b1 b2,
   xorB (spec.consB b1 v1) (spec.consB b2 v2) = spec.consB (xorb b1 b2) (xorB v1 v2).
 
   intros.
   apply liftBinOpCons.
 Qed.
-
-
-Theorem shiftR_shiftR_eq : forall (A : Type)(n1 n2 len : nat)(v : Vec len A) a,
-    shiftR _ _ a (shiftR _ _ a v n1) n2 = shiftR _ _ a v (n1 + n2)%nat.
-Abort.
-
-Theorem shiftR1_eq : forall (A : Type)(len : nat)(v : Vec len A) a,
-  shiftR1 _ _ a v = shiftR _ _ a v 1.
-Abort.
-
-
-
-Theorem nth_order_shiftR_eq : forall (A : Type)(n1 n2 len : nat)(v : Vec len A) (nlt : (n2 < len)%nat)(nlt' : (n2-n1 < len)%nat) a,
-  (n1 <= n2)%nat ->
-  nth_order (shiftR _ _ a v n1) nlt = nth_order v nlt'.
-
-Abort.
-
-
-Theorem sbvToInt_neg_bits_set : forall n wsize b2 n' (ltpf : (n' < n)%nat),
-    (n' <= n - wsize)%nat ->
-    (- 2 ^ Z.of_nat wsize <= sbvToInt n b2 < 0)%Z ->
-    nth_order b2 ltpf = true.
-Abort.
-
-Theorem sbvToInt_nonneg_bits_clear : forall n wsize b2 n' (ltpf : (n' < n)%nat),
-    (n' <= n - wsize)%nat ->
-    (0 <= sbvToInt n b2 < 2 ^ Z.of_nat wsize )%Z ->
-    nth_order b2 ltpf = false.
-Admitted.
-
-Theorem sbvToInt_z_nth:
-  forall [n : nat] (v : Vec n bool),
-  (forall [n' : nat] (nlt : (n' < n)%nat), nth_order v nlt = false) -> sbvToInt n v = 0%Z.
-Abort.
-
 
 
 Theorem addb_same_l : forall n (x y1 y2 : spec.BITS n),
@@ -1854,19 +1626,6 @@ Theorem bitsToBv_ls_eq : forall n (bs : spec.BITS n),
 
 Qed.
 
-(*
-Theorem bitsToBv_cons_eq : forall (n : nat) (x : spec.BITS n) (h : Bool), VectorDef.cons h (bitsToBv x) = bitsToBv (spec.consB h x).
-
-  intros.
-  eapply eq_if_to_list_eq.
-  rewrite to_list_cons.
-  repeat rewrite <- bitsToBv_ls_eq.
-  unfold spec.consB.
-  simpl.
-
-Qed.
-*)
-
 
 Fixpoint zipWith_ls (A B C : Type)(f : A -> B -> C)(lsa : list A)(lsb : list B) :=
   match lsa with 
@@ -2058,10 +1817,6 @@ Theorem bvAnd_replicate_1 : forall n v,
   eapply IHv.
 Qed.
 
-
-Theorem vec_split_append_eq : forall (A : Type) n1 n2  (v : Vec (n1 + n2) A),
-  Vector.append (fst (Vector.splitat n1 v)) (snd (splitat n1 v)) = v.
-Admitted.
 
 Theorem nth_order_eq_impl_eq : forall (A : Type) n (v1 v2 : Vec n A),
   (forall n1 (n1lt : (n1 < n)%nat), nth_order v1 n1lt = nth_order v2 n1lt) ->
@@ -2309,11 +2064,6 @@ Qed.
 
 Definition joinlsb_ls(pair : (list bool) * bool) := (snd pair) :: (fst pair).
 
-(*
-This is not right---list is reversed
-Definition bvToBITS_ls(n : nat)(v : Vec n bool) := to_list v.
-*)
-
 Theorem foldl_dep_conv_const_equiv : forall (A : Type) n (v : Vec n A)
   (B1 : nat -> Type)(B2 : Type)
   (conv : forall n, B1 n -> B2) b1
@@ -2421,110 +2171,6 @@ Definition sbvToInt_ls n (v : Vec n bool) :=
     | 0%nat => fun _ : bitvector 0 => 0
     | S n0 => fun b0 : bitvector (S n0) => toZ_ls (bvToBITS_ls b0)
   end) v.
-
-
-(*
-Theorem bvToBITS_ls_eq : forall n (v : Vec n bool) n2 (bs : spec.BITS n2),
-  tuple.tval
-  (foldl_dep bool (fun n0 => spec.BITS (n0 + n2)) n (fun (n0 : Nat) (bs : spec.BITS (n0 + n2)) (b : bool) => spec.joinlsb (bs, b)) 
-     bs v) = seq.rev (to_list v) ++ (tuple.tval bs).
-
-
-Theorem bvToBITS_ls_eq_h : forall n (v : Vec n bool) n2 (bs : spec.BITS n2),
-  tuple.tval
-  (foldl_dep bool (fun n0 => spec.BITS (n0 + n2)) n (fun (n0 : Nat) (bs : spec.BITS (n0 + n2)) (b : bool) => spec.joinlsb (bs, b)) 
-     bs v) = seq.rev (to_list v) ++ (tuple.tval bs).
-
-  induction v; intros; simpl in *.
-  reflexivity.
-  rewrite to_list_cons.
-  
-
-  Check ((spec.joinlsb (tuple.nil_tuple bool, h))).
-  Check (foldl_dep bool (fun n0 : Nat => spec.BITS (S n0)) n
-     (fun (n0 : Nat) (bs : spec.BITS (S n0)) (b : bool) => spec.joinlsb (bs, b)) (spec.joinlsb (tuple.nil_tuple bool, h)) v).
-  Check (foldl_dep bool (fun n0 : Nat => spec.BITS (S n0)) n
-     (fun (n0 : Nat) (bs : spec.BITS (S n0)) (b : bool) => spec.joinlsb (bs, b)) ).
-  Check (foldl_dep bool (fun n0 : Nat => spec.BITS (S n0))).
-
-Qed.
-*)
-
-(*
-
-Theorem foldl_dep_ls_equiv : forall (A : Type) n (v : Vec n A) (B1 : Nat->Type) b1 (f1 : forall (n : Nat), B1 n -> A -> B1 (S n))
-    (B2 : Type)(convB : forall (n : Nat), B1 n -> B2)(f2 : B2 -> A -> B2), 
-    (forall n (b : B1 n) a, convB _ (f1 _ b a) = f2 (convB _ b) a) ->
-    convB _ (foldl_dep A B1 n f1 b1 v) = fold_left f2 (to_list v) (convB _ b1).
-
-  induction v; intros. simpl in *.
-  reflexivity.
-
-  rewrite to_list_cons.
-  simpl.
-  rewrite <- H.
-  rewrite <- IHv.
-
-Qed.
-
-
-Theorem foldl_dep_BITS_foldl_eq : forall n v (f1 : forall n, spec.BITS n -> bool -> spec.BITS (S n)) f2 acc,
-  (forall n (bs : spec.BITS n) (b : bool), tuple.tval (f1 n bs b) = f2 (tuple.tval bs) b) ->
-  tuple.tval (foldl_dep bool spec.BITS n f1 acc v) =
-  fold_left f2 (to_list v)  (tuple.tval acc).
-
-  induction v; intros; simpl in *.
-  reflexivity.
-
-  
-
-  unfold to_list.
-  unfold fold_left.
-  simpl.
-  reflexivity.
-  
-
-Qed.
-  
-
-Theorem bvToBITS_ls_eq : forall n (v : Vec n bool),
- tuple.tval (bvToBITS v) = seq.rev (to_list v).
-
-  intros.
-  unfold bvToBITS.
-
-  induction v; intros; simpl in *.
-  reflexivity.
-
-Qed.
-
-Theorem bvToBITS_cons_eq : forall n (v : Vec n bool) h,
- tuple.tval (bvToBITS (VectorDef.cons h v)) = tuple.tval (bvToBITS v) ++ [h].
-
-  induction v; intros; simpl in *; trivial.
-
-  rewrite IHv.
-
-  unfold bvToBITS.
-
-Qed.
-
-Theorem bvToBITS_ls_equiv : forall n (v : Vec n bool),
-  bvToBITS_ls v = (tuple.tval (bvToBITS v)).
-
-  intros.
-  induction v; intros; simpl in *.
-  reflexivity.
-
-  unfold bvToBITS_ls in *.
-  rewrite to_list_cons.
-  rewrite IHv.
-  rewrite bvToBITS_cons_eq.
-  simpl.
-  reflexivity.
-
-Qed.
-*)
 
 Theorem splitmsb_ls_eq : forall n (b : spec.BITS (S n)),
   splitmsb_ls (tuple.tval b)  = 
@@ -2665,11 +2311,8 @@ Definition fromZ_ls n z :=
      | Z.neg _ => fromNegZ_ls n (Z.pred (- z))
    end.
 
-
-
 Definition intToBv_ls n z:=
   bitsToBv_ls (fromZ_ls n z).
-
 
 Theorem tuple_nseq_ls_eq : forall n (A : Type) (a: A), 
   repeat a n = tuple.tval (tuple.nseq_tuple n a).
@@ -5981,37 +5624,6 @@ Theorem bvToInt_shiftL_1_equiv : forall n s : nat, (s < n)%nat -> bvToInt n (shi
 
 Qed.
 
-Theorem toPosZ_ls_toZ_ls_range : forall ls (x : Z), 
-  0 <= x ->
-  (toPosZ_ls ls < 2 ^ (1 + x))%Z -> 
-  (- 2 ^ x <= toZ_ls ls < 2 ^ x)%Z.
-
-  intros.
-  unfold toZ_ls.
-  destruct ls using rev_ind.
-  simpl.
-  intuition idtac.
-  apply Z.opp_nonpos_nonneg.
-  apply Z.pow_nonneg; lia.
-  apply Z.pow_pos_nonneg; lia.
-  clear IHls.
-
-  rewrite splitmsb_ls_app_eq.
-  rewrite Z.add_comm in *.
-  rewrite toPosZ_ls_app in *.
-  simpl in *.
-  destruct x0.
-  rewrite Z.mul_1_l in *.
-  specialize (@toPosZ_ls_nonneg ls); intros.
-  specialize (@toPosZ_ls_upper_bound ls); intros.
-  
-  intuition idtac.
-  apply (@Z.opp_le_mono _ (2^x)).
-  apply Zorder.Zlt_le_succ.
-  
-
-Abort.
-
 Theorem toPosZ_ls_toZ_ls_equiv : forall ls,
   toPosZ_ls ls < 2^(Z.of_nat (pred (length ls))) ->
   toZ_ls ls = toPosZ_ls ls.
@@ -6547,17 +6159,6 @@ Theorem toPosZ_succ_trivial_eq : forall ls,
 
 Qed.
 
-(*
-Theorem lor_toPosZ_ls_cons_eq : forall ls1 ls2 a b,
-  Z.lor (toPosZ_ls (a :: ls1)) (toPosZ_ls (b :: ls2)) = (orb a b) + 2 * (Z.lor (toPosZ_ls ls1) (toPosZ_ls ls2)).
-
-  intros.
-  simpl.
-  destruct a; destruct b; simpl.
-
-Qed.
-*)
-
 Theorem bvOr_toPosZ_ls_equiv : forall ls1 ls2,
   length ls1 = length ls2 ->
   toPosZ_ls (zipWith_ls or ls1 ls2) = Z.lor (toPosZ_ls ls1) (toPosZ_ls ls2).
@@ -6711,20 +6312,6 @@ Theorem sbvToInt_bvURem_equiv : forall n v1 v2,
   lia.
   lia.
 Qed.
-
-
-Theorem bvToBITS_z_equiv : forall (n : Nat) (z : Z), bvToBITS (intToBv n z) = spec.fromZ z.
-
-
-Admitted.
-
-Theorem bvToBITS_xor_eq : forall (n : Nat) (v1 v2 : bitvector n), bvToBITS (bvXor n v1 v2) = xorB (bvToBITS v1) (bvToBITS v2).
-
-Admitted.
-
-Theorem bvToBITS_ones_eq : forall n : Nat, bvToBITS (replicate n bool 1%bool) = spec.ones n.
-
-Admitted.
 
 Fixpoint adcBmain_ls (carry : bool) ls1 ls2 := 
   match ls1 with
@@ -7552,11 +7139,6 @@ Ltac pairInv :=
   | [H: (_, _) = (_, _) |- _] => inversion H; clear H; subst
   end.
 
-Theorem Z_even_xor : forall p1 p2,
-  Z.even (Z.add (Z.pos p1) (Z.pos p2)) =  xor (Z.even (Z.pos p1)) (Z.even (Z.pos p2)).
-
-Admitted.
-
 Theorem Z_even_testbit : forall z,
   Z.even z = negb (Z.testbit z 0).
 
@@ -7986,21 +7568,6 @@ Theorem intToBv_add_equiv : forall (n : Nat) (x y : Z),
   lia.
 Qed.
 
-Theorem toPosZ_ls_toNegZ_ls_add_small_equiv : forall ls1 ls2 c,
-  length ls1 = length ls2 ->
-  0 < toPosZ_ls ls1 + - Z.succ (toNegZ_ls ls2) < 2^(Z.of_nat (length ls1)) ->
-  toPosZ_ls (snd (splitmsb_ls (adcBmain_ls c ls1 ls2))) = (if c then 1 else 0) + toPosZ_ls ls1 + - Z.succ (toNegZ_ls ls2).
-
-  induction ls1; destruct ls2; intros; unfold toZ_ls in *; simpl in *; trivial; try lia.
-
-  destruct a;
-  destruct b;
-  destruct c; simpl.
-  rewrite splitmsb_ls_cons_eq;
-  simpl.
-Abort.
-
-
 Theorem twos_complement_equiv : forall n v,
     (n > 0)%nat ->
     -Z.pow 2 (Z.of_nat (pred n)) < sbvToInt _ v ->
@@ -8266,21 +7833,6 @@ Theorem fullmulB_ls_0_eq : forall n ls2,
   eauto.
 
 Qed.
-
-Theorem fullmulB_ls_app_0_eq : forall ls1 ls2 n,
-  fullmulB_ls (ls1 ++ (repeat false n)) ls2 = 
-  zeroExtend_ls (fullmulB_ls ls1 ls2) n.
-
-  induction ls1; intros; simpl in *.
-  rewrite fullmulB_ls_0_eq.
-  unfold zeroExtend_ls.
-  rewrite plus_comm.
-  apply repeat_app.
-  
-  destruct a.
-
-
-Abort.
 
 Theorem bvMul_2_shiftl_equiv : forall (n : nat) (v : bitvector n), 
   (n >= 2)%nat ->
@@ -8665,26 +8217,6 @@ Definition signedModPow n z :=
   let z' := z mod (Z.pow 2 (Z.of_nat (S n))) in
   if (ZArith_dec.Z_ge_lt_dec z' (Z.pow 2 (Z.of_nat n))) then (Z.sub z' (Z.pow 2 (Z.of_nat (S n)))) else z'.
 
-(*
-Theorem sbvToInt_bvAdd_equiv : forall n (v1 v2 : bitvector (S n)),
-  (sbvToInt _ (bvAdd _ v1 v2)) =
-  (signedModPow n ((sbvToInt _ v1) + (sbvToInt _ v2)))%Z.
-
-  intros.
-  rewrite <- (@sbvToInt_intToBv_id (S n) (signedModPow n (sbvToInt _ v1 + sbvToInt _ v2))).
-  f_equal.
-  rewrite intToBv_mod_eq.
-  rewrite intToBv_add_equiv.
-  f_equal.
-  f_equal.
-  symmetry.
-  apply intToBv_sbvToInt_id.
-  symmetry.
-  apply intToBv_sbvToInt_id.
-  apply Z.mod_pos_bound.
-  lia.
-Qed.
-*)
 
 Theorem mod_eq_impl_signedModPow_eq : forall n x y,
   (x mod (Z.pow 2 (Z.of_nat (S n)))) = (y mod (Z.pow 2 (Z.of_nat (S n)))) ->
