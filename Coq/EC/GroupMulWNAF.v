@@ -1,3 +1,7 @@
+(* Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0 *)
+
+(* Definitions and facts related to optimized group multiplication. The main result is a proof that multiplication using windowed non-adjacent form is correct. *)
 
 Set Implicit Arguments.
 Require Import BinNat.
@@ -796,17 +800,6 @@ Section GroupMulWNAF.
     reflexivity.
 
   Qed.
-
-  (*
-  Theorem zDouble_n_nonneg_if : forall n z,
-      0 <= zDouble_n n z -> 0 <= z.
-  Abort.
-  
-  Theorem zDouble_n_bit_length : forall n z1 z2,
-    Z.abs z1 < Z.abs z2 ->
-    Z.abs (zDouble_n n z1) < Z.abs (zDouble_n n z2).
-  Abort.
-*)
 
   Theorem windowsToZ_bit_length_small : forall ws,
     (forall w, In w ws -> Z.abs w < Z.shiftl 1 (Z.of_nat wsize)) ->

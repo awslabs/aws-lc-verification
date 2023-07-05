@@ -1,3 +1,8 @@
+(* Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0 *)
+
+(* Proof of equivalence and correctness for extracted scalar/point multiplication operation. *)
+
 From Coq Require Import Lists.List.
 From Coq Require Import String.
 From Coq Require Import Vectors.Vector.
@@ -52,14 +57,8 @@ Section ECEqProof.
   Variable Fadd  : F -> F -> F.
   Variable Fsub  : F -> F -> F.
   Variable Fmul  : F -> F -> F.
-  (* Variable Fsquare : F -> F. *)
   Variable Finv : F -> F.
   Definition Fdiv (x y:F) := Fmul x (Finv y).
-
-(*
-  Variable fiat_from_bytes : seq 384 Bool -> F.
-  Variable fiat_to_bytes : F -> seq 384 Bool.
-*)
 
   Local Notation "0" := Fzero.  Local Notation "1" := Fone.
   Local Infix "+" := Fadd. Local Infix "-" := Fsub.
@@ -470,23 +469,6 @@ Section ECEqProof.
     (seqToProd p3).
 
 
-(*
-  Theorem point_add_jac_prod_is_jacobian : forall p1 p2,
-    is_jacobian p1 ->
-    is_jacobian p2 ->
-    is_jacobian (point_add_jac_prod p1 p2).
-
-    intros.
-    unfold is_jacobian, point_add_jac_prod, point_add_jac in *.
-    
-  Qed.
-
-  Definition point_add_jacobian (p1 p2 : point) : point :=
-    toPoint 
-      (point_add_jac_prod (fromPoint p1) (fromPoint p2)) 
-      (point_add_jac_prod_is_jacobian (fromPoint p1) (fromPoint p2) (proj2_sig p1) (proj2_sig p2)).
-*)
-
   (* Assume that squaring satisifes its spec. *)
   Hypothesis felem_sqr_spec : forall (x : F), Fsquare x = Fmul x x.
 
@@ -497,7 +479,6 @@ Section ECEqProof.
      same point (up to strict equality) as the specialized (for a = -3)
      point-doubling procedure from fiat-crypto.
   *)
-
   Definition point_double := point_double Fsquare Fmul Fsub Fadd.
 
   Lemma double_eq_minus_3_h : forall p:point,
@@ -919,7 +900,7 @@ Section ECEqProof.
   Qed.
 
  
-  (* Need a more general form of the point add correctness proof using Jacobian equality *)
+  (* A more general form of the point add correctness proof using Jacobian equality *)
   Lemma point_add_jac_eq : forall (a b:point) a' b',
     jac_eq (fromPoint a) (seqToProd a') ->
     jac_eq (fromPoint b) (seqToProd b') -> 
@@ -950,8 +931,6 @@ Section ECEqProof.
   Definition groupMul := @groupMul point Jacobian.add zero_point.
   Definition point_mul := point_mul Fsquare Fmul Fsub Fadd Fopp.
 
-  (* Variable min_l : forall n, Nat.min n n = n.*)
-
   (* Jacobian.v defines an Equivalence instance for Jacobian.eq. Use this to construct a Setoid. *)
   Instance jac_eq_setoid : Setoid point := {equiv := Jacobian.eq}.
 
@@ -973,16 +952,9 @@ Section ECEqProof.
   Definition W_opp : wpoint -> wpoint := W.opp.
 
   (* Discriminant is non-zero *)
-  (* Can we simplify this assumption because a=-3? *)
-  (* Should be b <> 2 /\ b <> -2 --- See if there is something in Fiat for this *)
-    
-(* when a = -3, 
-    4 * (-27) + 27b^2 <> 0
-    b^2 <> 4
-    *)
   Hypothesis discriminant_nonzero : 
     ~
-Feq
+  Feq
   ((1 + 1 + 1 + 1) * a * a * a +
    ((1 + 1 + 1 + 1) ^ 2 + (1 + 1 + 1 + 1) + (1 + 1 + 1 + 1) + 1 + 1 + 1) * b * b) 0.
 
@@ -1269,409 +1241,6 @@ Feq
     
   Qed.
 
-(*
-  Theorem Z_sub_range_pos_h : forall x y z,
-    (0 <= x ->
-    0 <= y <= x ->
-    0 <= z <= x ->
-    (-x + -x) <= y - z <= x + x)%Z.
-
-    intros.
-    lia.
-
-  Qed.
-
-  Theorem Z_div2_le : forall x,
-    (2 * (Z.div2 x) <= x)%Z.
-
-    intros.
-    destruct (Zeven.Zeven_odd_dec x).
-    rewrite Zeven.Zeven_div2.
-    reflexivity.
-    trivial.
-    rewrite Zeven.Zodd_div2.
-    lia.
-    trivial.
-  Qed.
-*)
-
-(*
-  Theorem Z_sub_range_le_lt_pos : forall x y z,
-    (0 <= x ->
-    0 <= y < x ->
-    0 <= z < x ->
-    -x <= y - z < x)%Z.
-
-    intros.
-    intuition idtac.
-    rewrite <- (Z.opp_involutive (y - z)).
-    eapply (@Z.opp_le_mono _ x).
-    rewrite Z.opp_sub_distr.
-    eapply Z.le_trans.
-    apply Z.add_le_mono_l.
-    apply Z.lt_le_incl.
-    eauto.
-    eapply Z.le_trans.
-    apply Z.add_le_mono_r.
-    apply Z.opp_nonpos_nonneg.
-    trivial.
-    lia.
-    eapply Z.lt_le_trans.
-    apply Z.sub_lt_mono_r.
-    eauto.
-    eapply Z.le_trans.
-    apply Z.sub_le_mono_l.
-    eauto.
-    lia.
-
-  Qed.
-
-*)
-
-(*
-  Theorem mul_scalar_rwnaf_odd_loop_body_gen_equiv : forall wsize z,
-    wsize < 15 -> 
-    sbvToInt _ z = bvToInt _ z ->
-    recode_rwnaf_odd_scanl_fix_body wsize (bvToInt _ z) =
-    (sbvToInt _ 
-          (fst (mul_scalar_rwnaf_odd_loop_body_gen wsize z)),
-    sbvToInt _ 
-         (snd (mul_scalar_rwnaf_odd_loop_body_gen wsize z))).
-
-    intros.
-    
-    unfold recode_rwnaf_odd_scanl_fix_body, mul_scalar_rwnaf_odd_loop_body_gen.
-    simpl.
-    f_equal.
-    rewrite sbvToInt_drop_equiv_h.
-    rewrite sbvToInt_bvSub_equiv.
-    f_equal.
-    rewrite sbvToInt_bvURem_equiv.
-    f_equal.
-    rewrite bvMul_2_shiftl_equiv.
-    rewrite shiftL_shiftL.
-    rewrite bvToInt_shiftL_1_equiv.
-    unfold twoToWsize.
-    rewrite Zdouble_shiftl.
-    f_equal.
-    lia.
-    lia.
-    lia.
-    lia.
-
-    rewrite bvMul_2_shiftl_equiv.
-    rewrite shiftL_shiftL.
-    rewrite bvToInt_shiftL_1_equiv.
-    rewrite Z.shiftl_mul_pow2.
-    apply Z.mul_pos_pos.
-    lia.
-    apply Z.pow_pos_nonneg.
-    lia.
-    lia.
-    lia.
-    lia.
-
-    rewrite bvMul_2_shiftl_equiv.
-    rewrite shiftL_shiftL.
-    rewrite bvToInt_shiftL_1_equiv.
-    rewrite Z.shiftl_mul_pow2.
-    rewrite Z.mul_1_l.
-    apply Z.pow_le_mono.
-    lia.
-    lia.
-    lia.
-    lia.
-
-    rewrite sbvToInt_shiftL_1_equiv.
-    reflexivity.
-    lia.
-    lia.
-    lia.
-
-    intuition idtac.  
-    eapply Z.le_trans.
-    apply Z.opp_nonpos_nonneg.
-    apply Z.pow_nonneg.
-    lia.
-    rewrite sbvToInt_bvURem_equiv.
-    apply Z.mod_pos_bound.
-    rewrite bvMul_2_shiftl_equiv.
-    rewrite shiftL_shiftL.
-    rewrite bvToInt_shiftL_1_equiv.
-    rewrite Z.shiftl_mul_pow2.
-    rewrite Z.mul_1_l.
-    apply Z.pow_pos_nonneg.
-    lia.
-    lia.
-    lia.
-    lia.
-    lia.
-    rewrite bvMul_2_shiftl_equiv.
-    rewrite shiftL_shiftL.
-    rewrite bvToInt_shiftL_1_equiv.
-    rewrite Z.shiftl_mul_pow2.
-    rewrite Z.mul_1_l.
-    apply Z.pow_pos_nonneg.
-    lia.
-    lia.
-    lia.
-    lia.
-
-    rewrite bvMul_2_shiftl_equiv.
-    rewrite shiftL_shiftL.
-    rewrite bvToInt_shiftL_1_equiv.
-    rewrite Z.shiftl_mul_pow2.
-    rewrite Z.mul_1_l.
-    apply Z.pow_le_mono; lia.
-    lia.
-    lia.
-
-    rewrite sbvToInt_bvURem_equiv.
-    eapply Z.lt_le_trans.
-    apply Z.mod_pos_bound.
-    rewrite bvMul_2_shiftl_equiv.
-    rewrite shiftL_shiftL.
-    rewrite bvToInt_shiftL_1_equiv.
-    rewrite Z.shiftl_mul_pow2.
-    rewrite Z.mul_1_l.
-    apply Z.pow_pos_nonneg.
-    lia.
-    lia.
-    lia.
-    lia.
-
-    rewrite bvMul_2_shiftl_equiv.
-    rewrite shiftL_shiftL.
-    rewrite bvToInt_shiftL_1_equiv.
-    rewrite Z.shiftl_mul_pow2.
-    rewrite Z.mul_1_l.
-    apply Z.pow_le_mono.
-    lia.
-    lia.
-    lia.
-    lia.
-    lia.
-
-    rewrite bvMul_2_shiftl_equiv.
-    rewrite shiftL_shiftL.
-    rewrite bvToInt_shiftL_1_equiv.
-    rewrite Z.shiftl_mul_pow2.
-    rewrite Z.mul_1_l.
-    apply Z.pow_pos_nonneg.
-    lia.
-    lia.
-    lia.
-    lia.
-
-    rewrite bvMul_2_shiftl_equiv.
-    rewrite shiftL_shiftL.
-    rewrite bvToInt_shiftL_1_equiv.
-    rewrite Z.shiftl_mul_pow2.
-    rewrite Z.mul_1_l.
-    apply Z.pow_le_mono.
-    lia.
-    lia.
-    lia.
-    lia.
-
-    intuition idtac.
-    eapply Z.le_trans.
-    apply Z.opp_nonpos_nonneg.
-    apply Z.pow_nonneg.
-    lia.
-    rewrite sbvToInt_shiftL_1_equiv.
-    rewrite Z.shiftl_mul_pow2.
-    rewrite Z.mul_1_l.
-    apply Z.pow_nonneg.
-    lia.
-    lia.
-    lia.
-    lia.
-    rewrite sbvToInt_shiftL_1_equiv.
-    rewrite Z.shiftl_mul_pow2.
-    rewrite Z.mul_1_l.
-    apply Z.pow_lt_mono_r.
-    lia.
-    lia.
-    lia.
-    lia.
-    lia.
-    lia.
-
-    rewrite sbvToInt_bvSub_equiv.
-    rewrite sbvToInt_bvURem_equiv.
-    rewrite bvMul_2_shiftl_equiv.
-    rewrite shiftL_shiftL.
-    rewrite bvToInt_shiftL_1_equiv.
-    rewrite Z.shiftl_mul_pow2.
-    rewrite sbvToInt_shiftL_1_equiv.
-    rewrite Z.mul_1_l.
-    apply Z_sub_range_le_lt_pos.
-    lia.
-    intuition idtac.
-    apply Z.mod_pos_bound.
-    apply Z.pow_pos_nonneg; lia.
-    eapply Z.lt_le_trans.
-    apply Z.mod_pos_bound.
-    apply Z.pow_pos_nonneg; lia.
-    apply Z.pow_le_mono_r.
-    lia.
-    lia.
-    rewrite Z.shiftl_1_l.
-    intuition idtac.
-    apply Z.pow_nonneg; lia.
-    apply Z.pow_lt_mono_r.
-    lia.
-    lia.
-    lia.
-    lia.
-    lia.
-    lia.
-    lia.
-    lia.
-
-    rewrite bvMul_2_shiftl_equiv.
-    rewrite shiftL_shiftL.
-    rewrite bvToInt_shiftL_1_equiv.
-    rewrite Z.shiftl_mul_pow2.  
-    rewrite Z.mul_1_l.
-    apply Z.pow_pos_nonneg; lia.
-    lia.
-    lia.
-    
-    rewrite bvMul_2_shiftl_equiv.
-    rewrite shiftL_shiftL.
-    rewrite bvToInt_shiftL_1_equiv.
-    rewrite Z.shiftl_mul_pow2.  
-    rewrite Z.mul_1_l.
-    apply Z.pow_le_mono_r; lia.
-    lia.
-    lia.
-    lia.
-
-    rewrite sbvToInt_bvURem_equiv.
-    rewrite bvMul_2_shiftl_equiv.
-    rewrite shiftL_shiftL.
-    rewrite bvToInt_shiftL_1_equiv.
-    rewrite Z.shiftl_mul_pow2.
-    rewrite Z.mul_1_l.
-    intuition idtac.
-    eapply Z.le_trans.
-    apply Z.opp_nonpos_nonneg.
-    apply Z.pow_nonneg; lia.
-    apply Z.mod_pos_bound.
-    apply Z.pow_pos_nonneg; lia.
-    eapply Z.lt_le_trans.
-    apply Z.mod_pos_bound.
-    apply Z.pow_pos_nonneg; lia.
-    apply Z.pow_le_mono_r; lia.
-    lia.
-    lia.
-    lia.
-    rewrite bvMul_2_shiftl_equiv.
-    rewrite shiftL_shiftL.
-    rewrite bvToInt_shiftL_1_equiv.
-    rewrite Z.shiftl_mul_pow2.
-    rewrite Z.mul_1_l.
-    apply Z.pow_pos_nonneg; lia.
-    lia.
-    lia.
-
-    rewrite bvMul_2_shiftl_equiv.
-    rewrite shiftL_shiftL.
-    rewrite bvToInt_shiftL_1_equiv.
-    rewrite Z.shiftl_mul_pow2.
-    rewrite Z.mul_1_l.
-    apply Z.pow_le_mono_r; lia.
-    lia.
-    lia.
-
-    rewrite sbvToInt_shiftL_1_equiv.
-    rewrite Z.shiftl_mul_pow2.
-    rewrite Z.mul_1_l.
-    intuition idtac.
-    eapply Z.le_trans.
-    apply Z.opp_nonpos_nonneg.
-    apply Z.pow_nonneg; lia.
-    apply Z.pow_nonneg; lia.
-    apply Z.pow_lt_mono_r.
-    lia.
-    lia.
-    lia.
-    lia.
-    lia.
-
-    lia.
-    
-    rewrite bvMul_2_shiftl_equiv.
-    rewrite shiftL_shiftL.
-    match goal with
-    | [|- _ = spec.toZ (bvToBITS ?a)] =>
-    replace (spec.toZ (bvToBITS a)) with (sbvToInt _ a)
-    end.
-    rewrite sbvToInt_shiftR_equiv.
-    repeat rewrite sbvToInt_bvSub_equiv.
-    rewrite sbvToInt_bvURem_equiv.
-    rewrite bvToInt_shiftL_1_equiv.
-    rewrite Z.shiftl_mul_pow2.
-    rewrite Z.mul_1_l.
-    rewrite Z.shiftr_div_pow2.
-    
-    f_equal.
-    f_equal.
-    congruence.
-    f_equal.
-    unfold twoToWsize.
-    rewrite Zdouble_shiftl.
-    rewrite Z.shiftl_1_l.
-    f_equal.
-    f_equal.
-    lia.
-    lia.
-    rewrite sbvToInt_shiftL_1_equiv.
-    reflexivity.
-    lia.
-    lia.
-    unfold twoToWsize.
-    rewrite Z.shiftl_1_l.
-    reflexivity.
-
-    lia.
-    lia.
-    lia.
-    lia.
-    
-    (* a bunch of size checks *)
-    admit.
-    admit.
-    lia.
-    admit.
-    admit.
-    lia.
-    admit.
-    admit.
-    lia.
-    admit.
-    admit.
-    lia.
-    admit.
-
-  Abort.
-*)
-
-
-  Theorem mul_scalar_rwnaf_odd_loop_body_gen_snd_nonneg : 
-    forall wsize x, 
-      wsize > 0 ->
-     (VectorDef.hd (snd (mul_scalar_rwnaf_odd_loop_body_gen wsize x)) = false).
-
-    intros.
-    unfold mul_scalar_rwnaf_odd_loop_body_gen.
-    unfold snd, Datatypes.snd.
-    apply shiftR_bvToInt_nonneg.
-    lia.
-
-  Qed.
 
   Local Opaque sbvToInt.
 
@@ -1782,7 +1351,6 @@ Feq
   Theorem recode_rwnaf_odd_bv_equiv : 
     forall wsize nw n,
     0 < wsize < 16 -> 
-    (* bvToInt 384 n = sbvToInt 384 n -> *)
     (bvToInt _ n < (Z.pow 2 (Z.of_nat ((S nw) * wsize))))%Z -> 
     List.Forall2 (fun (x : Z) (y : bitvector 16) => x = (sbvToInt _ y)) 
     (recode_rwnaf_odd wsize nw (bvToInt _ n)) 
@@ -2340,7 +1908,6 @@ Feq
 
   Theorem mul_scalar_rwnaf_odd_gen_equiv : forall nw wsize z,
     0 < wsize < 16 ->
-    (* bvToInt _ z = sbvToInt _ z -> *)
     (bvToInt 384%nat z < 2 ^ Z.of_nat (S (S (S nw)) * wsize))%Z ->
     List.Forall2 (fun (x : Z) (y : bitvector 16) => x = (sbvToInt _ y))
   (recode_rwnaf_odd wsize (S (S nw)) (bvToInt _ z))
@@ -2380,7 +1947,6 @@ Feq
   Theorem mul_scalar_rwnaf_gen_equiv : forall nw wsize z,
     0 < wsize < 16 ->
     (bvToInt 384%nat z < 2 ^ Z.of_nat (S (S (S nw)) * wsize))%Z ->
-   (*  sbvToInt _ z = bvToInt _ z -> *)
     List.Forall2 (fun x (y : bitvector 16) => x = (sbvToInt _ y))
     (recode_rwnaf wsize (S (S (S nw))) (bvToInt _ z)) 
     (mul_scalar_rwnaf_gen wsize nw z).
@@ -2477,19 +2043,6 @@ Feq
     rewrite conditional_subtract_if_even_ct_equiv.
     eapply jac_eq_refl.
   Qed.
-
-(*
-  Theorem fiat_pre_comp_table_0 : forall p,
-    (ecAt 64 (seq 3 (seq 6 (seq 64 Bool))) Integer
-           PIntegralInteger
-           (fiat_pre_comp_table Fsquare Fmul Fsub Fadd
-              p)
-           (ecNumber 0%nat Integer PLiteralInteger)) = p.
-
-    intros.
-
-  Abort.
-*)
 
   Theorem point_opp_equiv : forall p,
     jac_eq 
@@ -2681,18 +2234,6 @@ Feq
     trivial.
   Qed.
 
-(*
-  Theorem sign_extend_16_64_intToBv_equiv : forall z,
-    (-2^15 <= z < 2^15)%Z ->
-    sign_extend_16_64 (intToBv 16 z) = intToBv 64 z.
-
-    intros.
-    unfold sign_extend_16_64.
-    simpl.
-    apply  (@sign_extend_equiv 15 48 z); trivial.
-  Abort.
-*)
-
   Theorem groupDouble_n_zero : forall n,
     groupDouble_n Jacobian.double n zero_point == zero_point.
 
@@ -2775,69 +2316,9 @@ Feq
     eapply jac_eq_refl.
   Qed.
 
-(*
-  Theorem ct_abs_equiv_old : forall wsize b1 b2,
-    (-2^(Z.of_nat wsize) <= b1 < 2^(Z.of_nat wsize))%Z ->
-    b1 = sbvToInt 16 b2 ->
-    sbvToInt 16 (bvAdd 16
-                       (bvXor 16 b2
-                          (bvNeg 16
-                             (bvAnd 16
-                                (shiftR 16 bool
-                                 false b2 wsize)
-                                (bvNat 16 1%nat))))
-                       (bvAnd 16
-                          (shiftR 16 bool false b2
-                             wsize) (bvNat 16 1%nat)))
-    =
-    Z.abs b1.
+  Local Opaque shiftR.
 
-    intros.
-    subst.
-    remember (bvAnd 16 (shiftR 16 bool false b2 wsize) (bvNat 16 1%nat)) as is_neg.
-    case_eq (sbvToInt 16 b2); intros; simpl in *.
-
-    (* zero *)
-    apply sbvToInt_0_replicate in H0.
-    subst.
-    rewrite bvXor_comm.
-    rewrite bvXor_zero.
-    rewrite shiftR_false_0.
-    repeat rewrite bvAnd_replicate_0.
-    rewrite bvNeg_replicate_0.
-    rewrite bvAdd_replicate_0.
-    apply sbvToInt_replicate_0.
-
-    (* positive *)
-    simpl.
-    rewrite shiftR_small_nonneg in Heqis_neg.
-    rewrite bvAnd_replicate_0 in Heqis_neg.
-    rewrite Heqis_neg.
-    rewrite bvNeg_replicate_0.
-    rewrite bvXor_zero. 
-    rewrite bvAdd_comm.
-    rewrite bvAdd_replicate_0.
-    trivial.
-    intuition idtac.
-    lia.
-
-    (* negative *)
-    rewrite bvAnd_shiftR_small_neg in Heqis_neg.
-    rewrite Heqis_neg.
-    rewrite bvNeg_1_replicate.
-    rewrite twos_complement_equiv.
-    rewrite H0.
-    apply Pos2Z.opp_neg.
-    intuition idtac.
-    lia.
-    lia.
-
-  Qed.
-*)
-
-Local Opaque shiftR.
-
-Theorem ct_abs_equiv : forall  b1 b2,
+  Theorem ct_abs_equiv : forall  b1 b2,
     (Z.opp (Z.pow 2 (Z.of_nat 15)) < b1)%Z ->
     b1 = sbvToInt 16 b2 ->
     sbvToInt 16 (bvAdd 16 (shiftR 16 bool false b2 15) (bvXor 16 b2 (bvSShr 15 b2 15))) 
@@ -3072,28 +2553,6 @@ Theorem ct_abs_equiv : forall  b1 b2,
 
   Qed.
 
-
-  (*
-
-  Theorem shiftR1_cons_eq : forall (A : Type)(n : nat)(v : Vec n A) a1 a2,
-    shiftR1 _ _ a2 (Vector.cons _ a1 _ v) = VectorDef.shiftin a2 v.
-
-    induction v; intros.
-    reflexivity.
-  
-    simpl.
-    erewrite <- IHv.
-    unfold shiftR1.
-    simpl.
-    reflexivity.
-    unfold shiftR1 in *.
-    simpl.
- simpl in *.
-    unfold shiftR1. simpl.
-
-  Qed.
-  *)
-
   Theorem nth_order_shiftout_eq : forall (A : Type)(n : nat)(v : Vec (S n) A) n' (nlt : n' < n)(nlt' :n' < S n),
     nth_order (shiftout v) nlt = nth_order v nlt'.
 
@@ -3164,27 +2623,27 @@ Theorem ct_abs_equiv : forall  b1 b2,
     b1 = sbvToInt 16 b2 ->
     (- 2 ^ Z.of_nat (S pred_wsize) < b1 < 2 ^ Z.of_nat (S pred_wsize))%Z ->
     jac_eq
-  (fromPoint
-     (groupMul_signedWindows_fold_body Jacobian.add Jacobian.double
-        (S pred_wsize)
-        (fun x : Z =>
-         if (x <? 0)%Z
-         then
-          Jacobian.opp
-            (List.nth
-               (BinInt.Z.to_nat (BinInt.Z.shiftr (BinInt.Z.abs x) 1))
-               (preCompTable Jacobian.add zero_point Jacobian.double
-                  (S pred_wsize) p) zero_point)
-         else
-          List.nth
-            (BinInt.Z.to_nat (BinInt.Z.shiftr (BinInt.Z.abs x) 1))
-            (preCompTable Jacobian.add zero_point Jacobian.double
-               (S pred_wsize) p) zero_point) a1 b1))
-  (seqToProd
-     (double_add_body_gen Fsquare Fmul Fsub Fadd Fopp pred_wsize
-        (EC_P384_gen.pre_comp_table_gen Fsquare Fmul Fsub
-           Fadd (Nat.pred (Nat.pred (tableSize (S pred_wsize))))
-           (prodToSeq (fromPoint p))) a2 b2)).
+      (fromPoint
+         (groupMul_signedWindows_fold_body Jacobian.add Jacobian.double
+            (S pred_wsize)
+            (fun x : Z =>
+             if (x <? 0)%Z
+             then
+              Jacobian.opp
+                (List.nth
+                   (BinInt.Z.to_nat (BinInt.Z.shiftr (BinInt.Z.abs x) 1))
+                   (preCompTable Jacobian.add zero_point Jacobian.double
+                      (S pred_wsize) p) zero_point)
+             else
+              List.nth
+                (BinInt.Z.to_nat (BinInt.Z.shiftr (BinInt.Z.abs x) 1))
+                (preCompTable Jacobian.add zero_point Jacobian.double
+                   (S pred_wsize) p) zero_point) a1 b1))
+      (seqToProd
+         (double_add_body_gen Fsquare Fmul Fsub Fadd Fopp pred_wsize
+            (EC_P384_gen.pre_comp_table_gen Fsquare Fmul Fsub
+               Fadd (Nat.pred (Nat.pred (tableSize (S pred_wsize))))
+               (prodToSeq (fromPoint p))) a2 b2)).
 
     intros.
     unfold double_add_body_gen.
@@ -3453,45 +2912,44 @@ Theorem ct_abs_equiv : forall  b1 b2,
 
   Theorem point_mul_gen_signedRegular_cases : forall wsize numWindows n p,
     1 < wsize < 16 ->
-    (* sbvToInt _ n = bvToInt _ n -> *)
     (BinInt.Z.of_nat (bvToNat 384%nat n) <
- BinInt.Z.shiftl 1 (BinInt.Z.of_nat (S (S (S numWindows)) * wsize)))%Z->
-    jac_eq
-  (seqToProd
-     (List.fold_left
-        (double_add_body_gen Fsquare Fmul Fsub Fadd Fopp (Nat.pred wsize)
-           (EC_P384_gen.pre_comp_table_gen Fsquare Fmul
-              Fsub Fadd (Nat.pred (Nat.pred (tableSize wsize)))
-              (prodToSeq (fromPoint p))))
-        (skipn 1
-           (List.rev (mul_scalar_rwnaf_gen wsize numWindows n)))
-        (select_point_ct_gen
-           (sign_extend_16_64
-              (bvSShr 15
-                 (List.nth (S (S numWindows))
-                    (mul_scalar_rwnaf_gen wsize numWindows n)
-                    (bvNat 16 0%nat)) 1))
-           (EC_P384_gen.pre_comp_table_gen Fsquare Fmul
-              Fsub Fadd (Nat.pred (Nat.pred (tableSize wsize)))
-              (prodToSeq (fromPoint p))))))
-  (fromPoint
-     (groupMul_signedWindows Jacobian.add zero_point Jacobian.double
-        wsize
-        (fun x : Z =>
-         if (x <? 0)%Z
-         then
-          Jacobian.opp
-            (List.nth
-               (BinInt.Z.to_nat (BinInt.Z.shiftr (BinInt.Z.abs x) 1))
-               (preCompTable Jacobian.add zero_point Jacobian.double
-                  wsize p) zero_point)
-         else
-          List.nth
-            (BinInt.Z.to_nat (BinInt.Z.shiftr (BinInt.Z.abs x) 1))
-            (preCompTable Jacobian.add zero_point Jacobian.double
-               wsize p) zero_point)
-        (recode_rwnaf wsize (S (S (S numWindows)))
-           (BinInt.Z.of_nat (bvToNat 384 n))))).
+   BinInt.Z.shiftl 1 (BinInt.Z.of_nat (S (S (S numWindows)) * wsize)))%Z->
+      jac_eq
+    (seqToProd
+       (List.fold_left
+          (double_add_body_gen Fsquare Fmul Fsub Fadd Fopp (Nat.pred wsize)
+             (EC_P384_gen.pre_comp_table_gen Fsquare Fmul
+                Fsub Fadd (Nat.pred (Nat.pred (tableSize wsize)))
+                (prodToSeq (fromPoint p))))
+          (skipn 1
+             (List.rev (mul_scalar_rwnaf_gen wsize numWindows n)))
+          (select_point_ct_gen
+             (sign_extend_16_64
+                (bvSShr 15
+                   (List.nth (S (S numWindows))
+                      (mul_scalar_rwnaf_gen wsize numWindows n)
+                      (bvNat 16 0%nat)) 1))
+             (EC_P384_gen.pre_comp_table_gen Fsquare Fmul
+                Fsub Fadd (Nat.pred (Nat.pred (tableSize wsize)))
+                (prodToSeq (fromPoint p))))))
+    (fromPoint
+       (groupMul_signedWindows Jacobian.add zero_point Jacobian.double
+          wsize
+          (fun x : Z =>
+           if (x <? 0)%Z
+           then
+            Jacobian.opp
+              (List.nth
+                 (BinInt.Z.to_nat (BinInt.Z.shiftr (BinInt.Z.abs x) 1))
+                 (preCompTable Jacobian.add zero_point Jacobian.double
+                    wsize p) zero_point)
+           else
+            List.nth
+              (BinInt.Z.to_nat (BinInt.Z.shiftr (BinInt.Z.abs x) 1))
+              (preCompTable Jacobian.add zero_point Jacobian.double
+                 wsize p) zero_point)
+          (recode_rwnaf wsize (S (S (S numWindows)))
+             (BinInt.Z.of_nat (bvToNat 384 n))))).
 
     intros.
     eapply jac_eq_symm.
@@ -3499,7 +2957,7 @@ Theorem ct_abs_equiv : forall  b1 b2,
     rewrite (@fold_left_unroll_one _ _ 0%Z).
     eapply (@fold_left_R _ _ _ _ 
       (fun a1 a2 => jac_eq (fromPoint a1) (seqToProd a2))
-      (fun b1 b2 => b1 = sbvToInt 16 b2 (* /\ (-2^(Z.of_nat wsize) <= b1 < 2^(Z.of_nat wsize))%Z *))
+      (fun b1 b2 => b1 = sbvToInt 16 b2)
     ).
     erewrite (@forall2_map_eq _ _
       (intToBv 16)
@@ -3749,7 +3207,6 @@ Theorem ct_abs_equiv : forall  b1 b2,
 
   Theorem point_mul_gen_signedRegular_equiv : forall wsize numWindows n p,
     1 < wsize < 16 ->
-    (* sbvToInt _ n = bvToInt _ n -> *)
     (BinInt.Z.of_nat (bvToNat 384%nat n) <
  BinInt.Z.shiftl 1 (BinInt.Z.of_nat (S (S (S numWindows)) * wsize)))%Z->
     jac_eq
@@ -3793,8 +3250,7 @@ Theorem ct_abs_equiv : forall  b1 b2,
   Qed.
     
   Theorem point_mul_correct : forall (p : point) (n : seq 384 Bool),
-      (BinInt.Z.of_nat (bvToNat _ n) <
- BinInt.Z.shiftl 1 (BinInt.Z.of_nat (55 * 7)))%Z ->
+      (BinInt.Z.of_nat (bvToNat _ n) < BinInt.Z.shiftl 1 (BinInt.Z.of_nat (55 * 7)))%Z ->
       jac_eq (fromPoint (groupMul (bvToNat _ n) p))
       (seqToProd (point_mul (prodToSeq (fromPoint p)) n)).
 

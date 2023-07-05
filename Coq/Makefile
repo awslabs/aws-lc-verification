@@ -21,7 +21,7 @@ fiat-crypto:
 	$(MAKE) SKIP_BEDROCK2=1 coq -C fiat-crypto
 
 extract:
-	saw ../SAW/spec/EC/extract_EC_P384.saw
+	$(MAKE) -C EC
 
 .PHONY: invoke-coqmakefile fiat-crypto saw-script extract $(KNOWNFILES)
 

@@ -1,4 +1,3 @@
-
 (* Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0 *)
 
@@ -913,6 +912,7 @@ Theorem Vec_addNat_append : forall (A : Type)(inh : Inhabited A) n1 n2 (v : Vec 
 
 Qed.
 
+
 Theorem drop_S_cons : forall (A : Type)(inh : Inhabited A) a n1 n2 (v : Vec (addNat n1 n2) A),
   drop _ (S n1) n2 (Vector.cons a v) = drop _ n1 n2 v.
 
@@ -921,75 +921,6 @@ Theorem drop_S_cons : forall (A : Type)(inh : Inhabited A) a n1 n2 (v : Vec (add
 
 Qed.
 
-Theorem drop_append_eq : forall (A : Type)(inh : Inhabited A) n1 n2 (v1 : Vec n1 A)(v2 : Vec n2 A),
-  drop _ n1 n2 (append v1 v2) = v2.
-
-  induction n1; intros; simpl in *.
-  rewrite drop_0_equiv.
-  rewrite (@Vec_0_nil _ v1).
-  rewrite append_nil_eq.
-  reflexivity.
-  destruct (Vec_S_cons v1).
-  destruct H.
-  subst.
-  rewrite SAWCorePrelude_proofs.append_cons.
-  rewrite drop_S_cons.
-  eauto.  
-Qed.
-
-Theorem bvAnd_drop_equiv: forall n1 n2 v1 v2,
-  (bvAnd (drop _ n1 n2 v1) (drop _ n1 n2 v2)) = 
-  drop _ _ _ (bvAnd v1 v2).
-
-  intros.
-  destruct (Vec_addNat_append _ _ _ v1).
-  destruct H.
-  destruct (Vec_addNat_append _ _ _ v2).
-  destruct H0.
-  subst.
-  rewrite bvAnd_append.
-  repeat rewrite drop_append_eq.
-  reflexivity.
-
-Qed.
-
-
-Theorem bvAnd_lsb_drop_equiv: forall n1 n2 v,
-  (bvAnd (@drop _ _ n2 n1 v) (intToBv _ 1)) = 
-  drop _ _ _ (bvAnd v (intToBv _ 1)).
-
-  intros.
-  replace (intToBv n1 1) with (drop _ n2 n1 (append (intToBv n2 0) (intToBv n1 1))).
-  rewrite bvAnd_drop_equiv.
-  destruct n1.
-  apply empty_Vec_eq.
-  f_equal.
-  f_equal.
-  apply intToBv_1_append_eq.
-  lia.
-  rewrite drop_append_eq.
-  trivial.
-
-Qed.
-
-
-Theorem bvAnd_lsb_drop_append_equiv: forall n1 n2 v,
-  (n1 > 0)%nat ->
-  (bvAnd v (intToBv _ 1)) = 
-  (append (intToBv _ 0) (bvAnd (@drop _ _ n2 n1 v) (intToBv _ 1))).
-
-  intros.
-  destruct (Vec_addNat_append _ _ _ v).
-  destruct H0.
-  subst.
-  rewrite <- intToBv_1_append_eq; trivial.
-  rewrite bvAnd_append.
-  f_equal.
-  apply bvAnd_0.
-  rewrite drop_append_eq.
-  reflexivity.
-
-Qed.
 
 Theorem nth_order_ext : forall (A : Type) n1 n2 (v : Vec n1 A)(lt1 lt2 : (n2 < n1)%nat),
   nth_order v lt1 = nth_order v lt2.
@@ -4191,6 +4122,11 @@ Theorem rep_false_eq_int_bv : forall n : Nat,
   reflexivity.
 Qed.
 
+(*
+Theorem bvAnd_0 : forall n (v : Vec n _),
+  bvAnd v (intToBv n 0) = (intToBv n 0).
+Admitted.
+
 Theorem bvAnd_replicate_0 : forall n v,
     bvAnd (replicate n bool false) v = replicate n bool false.
 
@@ -4200,6 +4136,7 @@ Theorem bvAnd_replicate_0 : forall n v,
   apply bvAnd_0.
 
 Qed.
+*)
 
 Theorem neg_sign_bit_set : forall (n : nat) (v : VectorDef.t Bool n) (h : Bool), 
   (sbvToInt (S n) (VectorDef.cons h v) < 0)%Z -> 

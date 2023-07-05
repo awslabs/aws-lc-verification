@@ -1,3 +1,5 @@
+(* Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+SPDX-License-Identifier: Apache-2.0 *)
 
 (* Generalized low-level specification for NIST prime curve arithmetic. These functions
 are equivalent to the functions extracted from Crypto, and the folloing changes are made:
