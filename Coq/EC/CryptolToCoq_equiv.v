@@ -4122,22 +4122,6 @@ Theorem rep_false_eq_int_bv : forall n : Nat,
   reflexivity.
 Qed.
 
-(*
-Theorem bvAnd_0 : forall n (v : Vec n _),
-  bvAnd v (intToBv n 0) = (intToBv n 0).
-Admitted.
-
-Theorem bvAnd_replicate_0 : forall n v,
-    bvAnd (replicate n bool false) v = replicate n bool false.
-
-  intros.
-  repeat rewrite rep_false_eq_int_bv.
-  rewrite bvAnd_comm.
-  apply bvAnd_0.
-
-Qed.
-*)
-
 Theorem neg_sign_bit_set : forall (n : nat) (v : VectorDef.t Bool n) (h : Bool), 
   (sbvToInt (S n) (VectorDef.cons h v) < 0)%Z -> 
   h = 1%bool.

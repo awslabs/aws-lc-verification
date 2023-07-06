@@ -3248,9 +3248,8 @@ Section ECEqProof.
     apply point_mul_gen_signedRegular_cases; trivial.
 
   Qed.
-    
+
   Theorem point_mul_correct : forall (p : point) (n : seq 384 Bool),
-      (BinInt.Z.of_nat (bvToNat _ n) < BinInt.Z.shiftl 1 (BinInt.Z.of_nat (55 * 7)))%Z ->
       jac_eq (fromPoint (groupMul (bvToNat _ n) p))
       (seqToProd (point_mul (prodToSeq (fromPoint p)) n)).
 
@@ -3263,7 +3262,7 @@ Section ECEqProof.
 
     specialize (@groupMul_signedRegular_table_correct point jac_eq_setoid Jacobian.add Jacobian.Proper_add jac_add_assoc).
     intros.  
-    rewrite H0.
+    rewrite H.
     reflexivity.
 
     apply jac_add_comm.
@@ -3276,9 +3275,20 @@ Section ECEqProof.
     apply jac_opp_involutive.
     lia.
     lia.
-    trivial.
+
+    eapply Z.lt_le_trans.
+    apply bvToNat_lt_word.
+    rewrite Z.shiftl_1_l.
+    eapply Z.pow_le_mono_r.
     lia.
-    trivial.
+    lia.
+    lia.
+    eapply Z.lt_le_trans.
+    apply bvToNat_lt_word.
+    rewrite Z.shiftl_1_l.
+    eapply Z.pow_le_mono_r.
+    lia.
+    lia.
 
   Qed.
 
