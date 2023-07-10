@@ -951,12 +951,113 @@ Section ECEqProof.
 
   Definition W_opp : wpoint -> wpoint := W.opp.
 
+  Theorem preCompTable_h_cons : forall tsize p ls p2, 
+    ls <> List.nil -> 
+    (preCompTable_h Jacobian.add zero_point tsize (p :: ls) p2) = 
+    p :: (preCompTable_h Jacobian.add zero_point tsize ls p2).
+
+      induction tsize; unfold preCompTable_h in *; intuition; simpl in *.
+      rewrite <- IHtsize.
+      destruct ls; simpl in *. intuition.
+      reflexivity.
+      intuition.
+      eapply app_cons_not_nil.
+      symmetry.
+      eauto.
+
+  Qed.
+  
+  Theorem recode_rwnaf_bound_In : forall wsize numWindows x z,
+    (wsize <> 0)%nat ->
+    (numWindows <> 0)%nat ->
+    (BinInt.Z.of_nat x < BinInt.Z.shiftl 1 (BinInt.Z.of_nat (numWindows * wsize)))%Z ->
+    List.In z (recode_rwnaf wsize numWindows (Z.of_nat x)) ->
+    (-2^(Z.of_nat wsize) < z < (2^(Z.of_nat wsize)))%Z.
+
+    intros.
+    apply Z.abs_lt.
+    rewrite <- Z.shiftl_1_l.
+    eapply (@recode_rwnaf_correct wsize _ numWindows); eauto.
+
+    Unshelve.
+    lia.
+
+  Qed.
+
+  Theorem recode_rwnaf_bound_nth : forall n wsize numWindows x,
+    (wsize <> 0)%nat ->
+    (numWindows <> 0)%nat ->
+    (BinInt.Z.of_nat x < BinInt.Z.shiftl 1 (BinInt.Z.of_nat (numWindows * wsize)))%Z ->
+    (-2^(Z.of_nat wsize) < (List.nth n
+   (recode_rwnaf wsize numWindows (Z.of_nat x)) 0) < (2^(Z.of_nat wsize)))%Z.
+
+    intros.
+    destruct (PeanoNat.Nat.lt_decidable n numWindows).
+    eapply recode_rwnaf_bound_In; eauto.
+    apply nth_In.
+    rewrite recode_rwnaf_length; lia.
+
+    rewrite nth_overflow.
+    intuition idtac.
+    apply Z.opp_neg_pos.
+    apply Z.pow_pos_nonneg; lia.
+    apply Z.pow_pos_nonneg; lia.
+    rewrite recode_rwnaf_length; lia.
+
+  Qed.
+
+  
   (* Discriminant is non-zero *)
-  Hypothesis discriminant_nonzero : 
+  (* When a=-3 and characerteristic is large, this follows from b<>2 and b<>-2 *)
+  Variable b_ne_plus_minus_2 : 
+    ~((Feq b (1 + 1)) \/ (Feq b (Fopp (1 + 1)))).
+
+  Hypothesis Fchar_28 : @Ring.char_ge F (@eq F) Fzero Fone Fopp Fadd Fsub Fmul 28.
+
+  Theorem discriminant_nonzero :
     ~
   Feq
   ((1 + 1 + 1 + 1) * a * a * a +
    ((1 + 1 + 1 + 1) ^ 2 + (1 + 1 + 1 + 1) + (1 + 1 + 1 + 1) + 1 + 1 + 1) * b * b) 0.
+
+    intros.
+    repeat rewrite a_is_minus_3.
+    replace ((1 + 1 + 1 + 1) * Fopp (1 + 1 + 1) * Fopp (1 + 1 + 1) * Fopp (1 + 1 + 1)) with (((1 + 1 + 1)^3) * (Fopp (1 + 1 + 1 + 1))).
+    replace (((1 + 1 + 1 + 1) ^ 2 + (1 + 1 + 1 + 1) + (1 + 1 + 1 + 1) + 1 + 1 + 1) * b * b) with (((1 + 1 + 1)^3) * (b^2)).
+    unfold Logic.not.
+    intros.
+
+    assert (~ Feq (1 + (1 + 1) * (1 + (1 + 1) * ((1 + 1) * (1 + (1 + 1))))) 0).
+    unfold Ring.char_ge in *.
+    unfold char_ge in *.
+    replace (1 + (1 + 1) * (1 + (1 + 1) * ((1 + 1) * (1 + (1 + 1))))) with (@Ring.of_Z felem 0 1 Fopp Fadd  (Z.pos 27)).
+    eapply Fchar_28.
+    lia.
+    simpl.
+    nsatz.
+    assert (Feq (b^2) ((1 + 1)^2)).
+    nsatz.
+
+    assert (Feq ((b + (1 + 1)) * (b  + (Fopp (1 + 1)))) 0).
+    nsatz.
+    destruct (Feq_dec b (1+1)).
+    apply b_ne_plus_minus_2.
+    left.
+    trivial.
+    apply b_ne_plus_minus_2.
+    right.
+    assert (Feq ((b + (1 + 1)) * ((Finv (b + Fopp (1 + 1)))* ( (b + Fopp (1 + 1))))) 0).
+    nsatz.
+    rewrite left_multiplicative_inverse in H3.
+    nsatz.
+    intuition idtac.
+    eapply H5.
+    nsatz.
+
+    nsatz.
+    nsatz.
+
+  Qed.
 
   Instance W_commutative_group : 
     @commutative_group wpoint
@@ -968,7 +1069,7 @@ Section ECEqProof.
     apply W.commutative_group.
     apply Fchar_12.
     unfold Datatypes.id.
-    trivial.
+    apply discriminant_nonzero.  
 
   Defined.
 
@@ -1159,22 +1260,6 @@ Section ECEqProof.
     | O => prev :: List.nil
     | S n' => prev :: (preCompTable_fix p n'(Jacobian.add (Jacobian.double p) prev))
     end.
-
-  Theorem preCompTable_h_cons : forall tsize p ls p2, 
-  ls <> List.nil -> 
-  (preCompTable_h Jacobian.add zero_point tsize (p :: ls) p2) = 
-  p :: (preCompTable_h Jacobian.add zero_point tsize ls p2).
-
-    induction tsize; unfold preCompTable_h in *; intuition; simpl in *.
-    rewrite <- IHtsize.
-    destruct ls; simpl in *. intuition.
-    reflexivity.
-    intuition.
-    eapply app_cons_not_nil.
-    symmetry.
-    eauto.
-
-  Qed.
 
 
   Theorem preCompTable_h_fix_equiv : forall tsize p1 p2,
@@ -2859,45 +2944,6 @@ Section ECEqProof.
   Qed.
 
   Definition point_mul_gen := point_mul_gen Fsquare Fmul Fsub Fadd Fopp.
-
-  Theorem recode_rwnaf_bound_In : forall wsize numWindows x z,
-    (wsize <> 0)%nat ->
-    (numWindows <> 0)%nat ->
-    (BinInt.Z.of_nat x < BinInt.Z.shiftl 1 (BinInt.Z.of_nat (numWindows * wsize)))%Z ->
-    List.In z (recode_rwnaf wsize numWindows (Z.of_nat x)) ->
-    (-2^(Z.of_nat wsize) < z < (2^(Z.of_nat wsize)))%Z.
-
-    intros.
-    apply Z.abs_lt.
-    rewrite <- Z.shiftl_1_l.
-    eapply (@recode_rwnaf_correct wsize _ numWindows); eauto.
-
-    Unshelve.
-    lia.
-
-  Qed.
-
-  Theorem recode_rwnaf_bound_nth : forall n wsize numWindows x,
-    (wsize <> 0)%nat ->
-    (numWindows <> 0)%nat ->
-    (BinInt.Z.of_nat x < BinInt.Z.shiftl 1 (BinInt.Z.of_nat (numWindows * wsize)))%Z ->
-    (-2^(Z.of_nat wsize) < (List.nth n
-   (recode_rwnaf wsize numWindows (Z.of_nat x)) 0) < (2^(Z.of_nat wsize)))%Z.
-
-    intros.
-    destruct (PeanoNat.Nat.lt_decidable n numWindows).
-    eapply recode_rwnaf_bound_In; eauto.
-    apply nth_In.
-    rewrite recode_rwnaf_length; lia.
-
-    rewrite nth_overflow.
-    intuition idtac.
-    apply Z.opp_neg_pos.
-    apply Z.pow_pos_nonneg; lia.
-    apply Z.pow_pos_nonneg; lia.
-    rewrite recode_rwnaf_length; lia.
-
-  Qed.
 
   Theorem In_tl : forall (A : Type)(ls : list A) a,
     List.In a (List.tl ls) ->
