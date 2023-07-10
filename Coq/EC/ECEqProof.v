@@ -3292,24 +3292,151 @@ Section ECEqProof.
 
   Qed.
 
-  Print Assumptions point_mul_correct.
-
-
   (* If we want to prove that the generic multiplication operation is correct, we need a group on generic points. *)
 
+  Variable felem_from_bytes: (seq 384 bool -> seq 6 (seq 64 bool)) .
+  Variable felem_to_bytes: seq 6 (seq 64 bool) -> seq 384 bool.
 
-(*
-
-  Definition point_mul_generic := point_mul_generic Fsquare Fmul Fadd Fsub Fopp min_l fiat_from_bytes fiat_to_bytes.
-
+  Hypothesis felem_from_bytes_felem_to_bytes_inv : 
+    forall f,
+      felem_from_bytes (felem_to_bytes f) = f.
+  
   Definition GenericPoint := (seq 384 Bool * (seq 384 Bool * seq 384 Bool))%type.
+  Definition genericToFelems (p : GenericPoint) :=
+    let '(x, (y, z)) := p in 
+    (felem_from_bytes x, felem_from_bytes y, felem_from_bytes z).
 
-  Theorem point_mul_generic_correct : forall (p : GenericPoint) (n : seq 384 Bool),
-      jac_eq (fromPoint (groupMul (unsignedToNat n) p))
-      (seqToProd (point_mul_generic (prodToSeq (fromPoint p)) n)).
+  Definition generic_is_jacobian(p : GenericPoint) :=
+    is_jacobian (genericToFelems p).
+
+  Definition GenericJacobianPoint := {p : GenericPoint | generic_is_jacobian p}.
+
+  Theorem generic_is_jac_impl_is_jac : forall (p : GenericPoint),
+    generic_is_jacobian p ->
+    is_jacobian (genericToFelems p).
+
+    intros.
+    unfold generic_is_jacobian in *.
+    trivial.
+
   Qed.
 
-  *)
+  Definition genericToPoint (p : GenericPoint)(p1 : generic_is_jacobian p) : point :=
+    toPoint (genericToFelems p) (generic_is_jac_impl_is_jac p p1).
+
+  Definition genericJacobianToPoint(p : GenericJacobianPoint) : point :=
+    genericToPoint (proj1_sig p) (proj2_sig p).
+
+   Definition felemsToGeneric (p : F * F * F) : GenericPoint :=
+    let '(x, y, z) := p in 
+    (felem_to_bytes x, (felem_to_bytes y, felem_to_bytes z)).
+
+  Definition pointToGeneric (p : point) : GenericPoint :=
+    felemsToGeneric (fromPoint p).
+
+  Theorem genericToFelems_felemsToGeneric_inv : forall p,
+    (genericToFelems (felemsToGeneric p)) = p.
+
+    intros.
+    unfold genericToFelems, felemsToGeneric.
+    destruct p.
+    destruct p.
+    repeat rewrite felem_from_bytes_felem_to_bytes_inv.
+    reflexivity.
+
+  Qed.
+
+  Theorem pointToGeneric_is_jac: forall (p : point),
+    generic_is_jacobian (pointToGeneric p).
+
+    intros.
+    unfold generic_is_jacobian, pointToGeneric.
+    rewrite genericToFelems_felemsToGeneric_inv.
+    apply fromPoint_is_jacobian.
+  Qed.
+
+  Definition pointToGenericJacobian(p : point) : GenericJacobianPoint :=
+   exist _ (pointToGeneric p) (pointToGeneric_is_jac p).
+
+
+  (* Correct addition on generic points is defined by converting to the specialized format, using Jacobin.add, and then converting back. *)
+  Definition jac_add_generic (p1 p2 : GenericJacobianPoint) := 
+    pointToGenericJacobian (Jacobian.add (genericJacobianToPoint p1) (genericJacobianToPoint p2)).
+
+  Definition zero_point_generic := (pointToGenericJacobian zero_point).
+
+  Definition groupMul_generic := @GroupMulWNAF.groupMul GenericJacobianPoint jac_add_generic zero_point_generic.
+  Definition point_mul_generic := point_mul_generic Fsquare Fmul Fsub Fadd Fopp felem_from_bytes felem_to_bytes.
+
+  Local Opaque jac_eq.
+
+  Theorem add_jac_eq_compat_r : forall p1 p2 p2',
+    jac_eq (fromPoint p2) (fromPoint p2') ->
+    jac_eq (fromPoint (Jacobian.add p1 p2)) (fromPoint (Jacobian.add p1 p2')).
+
+    intros.
+    eapply jacobian_eq_jac_eq.
+    eapply Jacobian.Proper_add.
+    reflexivity.
+    eapply jac_eq_jacobian_eq.
+    trivial.
+
+  Qed.
+
+  Theorem groupMul_generic_eq_groupMul : forall x p,
+      jac_eq (fromPoint (groupMul x (genericJacobianToPoint p))) (fromPoint (genericJacobianToPoint (groupMul_generic x p))).
+
+      induction x; intros.
+      simpl in *.
+      repeat rewrite felem_from_bytes_felem_to_bytes_inv.
+      eapply jac_eq_refl.
+
+      simpl.
+      eapply jac_eq_trans.
+      eapply add_jac_eq_compat_r.
+      eapply IHx.
+      simpl.
+      unfold pointToGeneric.
+      rewrite genericToFelems_felemsToGeneric_inv.
+      eapply jac_eq_refl.
+
+  Qed.
+
+
+  Theorem point_mul_generic_correct : forall (p : GenericJacobianPoint) (n : seq 384 Bool),
+      jac_eq (fromPoint (genericJacobianToPoint (groupMul_generic (bvToNat _ n) p)))
+      (genericToFelems (point_mul_generic (proj1_sig p) n)).
+
+      intros.
+      unfold point_mul_generic, EC_P384_5.point_mul_generic.
+      simpl.
+      repeat rewrite felem_from_bytes_felem_to_bytes_inv.
+      match goal with
+      | [|- jac_eq _ ?x ] => rewrite <- (seqToProd_inv x)
+      end.
+      unfold prodToSeq.
+      simpl.
+      rewrite sawAt_3_equiv.
+      specialize (groupMul_generic_eq_groupMul (bvToNat 384 n) p); intros.
+      apply jac_eq_symm in H.
+      eapply jac_eq_trans.
+      apply H.
+      eapply jac_eq_trans.
+      apply point_mul_correct.
+      unfold genericJacobianToPoint, genericToPoint.
+      rewrite <- fromPoint_toPoint_id.
+      unfold genericToFelems.
+      generalize (proj1_sig p); intros.
+      destruct g.
+      destruct p0.
+      unfold prodToSeq.
+      unfold point_mul.
+      unfold fst, snd.
+      unfold F.
+      eapply jac_eq_refl_gen.
+      reflexivity.
+  Qed.
+
 
 End ECEqProof.
 
