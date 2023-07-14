@@ -24,7 +24,7 @@ let p384_select_point_spec = do {
  
   crucible_execute_func [outarg_ptr, (crucible_term id), points_ptr, (crucible_term {{`tsize}})];
 
-  crucible_points_to outarg_ptr (crucible_term {{ select_point_ct id points }});
+  crucible_points_to outarg_ptr (crucible_term {{ select_point id points }});
 };
 
 
@@ -87,10 +87,7 @@ p384_select_point_ov <- llvm_verify m
   p384_select_point_spec (w4_unint_z3 []);
 
 
-mul_scalar_rwnaf_1_equiv <- prove_folding_theorem {{ \a -> (mul_scalar_rwnaf_1 a) == (mul_scalar_rwnaf_ct a) }};
-
-mul_scalar_rwnaf_equiv <- prove_folding_theorem {{ \a -> (mul_scalar_rwnaf a) == (mul_scalar_rwnaf_1 a) }};
-
+mul_scalar_rwnaf_ct_equiv <- prove_folding_theorem {{ \a -> (mul_scalar_rwnaf a) == (mul_scalar_rwnaf_ct a) }};
 
 p384_mul_scalar_rwnaf_ov <- llvm_verify m
   "p384_felem_mul_scalar_rwnaf" 
@@ -99,7 +96,7 @@ p384_mul_scalar_rwnaf_ov <- llvm_verify m
   p384_mul_scalar_rwnaf_spec
   (do{
   goal_eval_unint["scalar_get_bit", "mul_scalar_rwnaf"];
-  simplify (addsimps [mul_scalar_rwnaf_1_equiv, mul_scalar_rwnaf_equiv] basic_ss);
+  simplify (addsimps [mul_scalar_rwnaf_ct_equiv] basic_ss);
   w4_unint_z3 ["scalar_get_bit"];
   });
 
@@ -123,10 +120,9 @@ p384_point_mul_ov <- llvm_verify m "ec_GFp_nistp384_point_mul"
   true
   p384_point_mul_spec
   (do{
-  w4_unint_z3 ["select_point_ct", "felem_sqr", "felem_add", "felem_sub", 
+  w4_unint_z3 ["select_point", "felem_sqr", "felem_add", "felem_sub", 
   "felem_mul",
   "mul_scalar_rwnaf", "felem_opp",
-   "select_point", 
   "felem_cmovznz",
   "felem_to_bytes", "felem_from_bytes"
   ];

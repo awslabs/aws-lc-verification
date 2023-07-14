@@ -4,6 +4,7 @@
 */
 
 import "../../spec/EC/EC_primitives.cry";
+import "../../spec/EC/EC_impl.cry";
 import "../../../cryptol-specs/Common/EC/EC_P384.cry";
 
 let limb_length = 64;
@@ -430,6 +431,12 @@ p384_point_double_same_ov <- llvm_verify m "p384_point_double"
   p384_point_double_same_spec
   (w4_unint_z3 ["felem_sqr", "felem_mul", "felem_add", "felem_sub"]);
 
+/*
+The testForDouble_ct function closely matches the code, and the
+following rewrite rule allows this complicated function to be
+replaced with a much simpler form of the function that has the
+same behavior.
+*/
 double_test_equiv <- prove_folding_theorem {{ \w x y z-> (testForDouble w x y z) == (testForDouble_ct w x y z) }};
 
 constant_time_is_zero_w_ov <- llvm_verify m

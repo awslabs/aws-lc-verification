@@ -77,23 +77,9 @@ point_double p = p'
 
     p' = [x', y', z']
 
-testForDouble_ct : felem -> felem -> felem -> felem -> Bit
-testForDouble_ct p1z p2z h r = res
-  where
-    z1nz = (felem_nz p1z)
-    z2nz = (felem_nz p2z)
-    xneq = (felem_nz h)
-    yneq = (felem_nz r)
-
-    res = ((constant_time_is_zero_w (xneq || yneq)) &&
-            (~(constant_time_is_zero_w z1nz)) &&
-            (~(constant_time_is_zero_w z2nz))
-            ) != zero
 
 testForDouble : felem -> felem -> felem -> felem -> Bit
 testForDouble p1z p2z h r = ((h==zero) && (r==zero) && (p1z != zero) && (p2z != zero))
-
-property testForDoubleEquiv (f1, f2, f3, f4) = (testForDouble_ct f1 f2 f3 f4) == (testForDouble f1 f2 f3 f4)
 
 point_add : Bit -> point -> point -> point
 point_add mixed p1 p2 = p
@@ -171,8 +157,8 @@ sign_extend x = (if (x@0) then (~zero:[b]) else (zero:[b])) # x
 byte_to_limb : [8] -> limb
 byte_to_limb x = (0:[56]) # (x)
 
-conditional_subtract_if_even_ct : point -> scalar -> point -> point
-conditional_subtract_if_even_ct p1 t p2 = r where
+conditional_subtract_if_even : point -> scalar -> point -> point
+conditional_subtract_if_even p1 t p2 = r where
   t_limb = (byte_to_limb ((drop`{bit_length-8} t) && 1))
   tmp1 = [p2@0, (felem_opp (p2@1)), p2@2]
   tmp2 = point_add 0 p1 tmp1
