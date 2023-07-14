@@ -149,16 +149,6 @@ point_add mixed p1 p2 = p
 
     p = if is_nontrivial_double then (point_double p1) else [x3, y3, z3]
 
-/*
-scalar_get_bit_ct : scalar -> [32] -> [64]
-scalar_get_bit_ct s i = ((zero:[32]) # r)
-  where
-    s' = reverse (split`{48} s)
-    byte = (zero:[24]) # (s'@(i >>$ 3))
-    b = (byte >> (i && 7)) && 1
-    r = if (i > 383) then zero else b
-    */
-
 scalar_get_bit : scalar -> [32] -> [64]
 scalar_get_bit s i = (drop (s >> i)) && (1 : [64])
 

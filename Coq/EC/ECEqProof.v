@@ -91,12 +91,54 @@ Section ECEqProof.
 
   (* Now we assume that equality is decidable. This, we could implement relatively easily.
    *)
-  Hypothesis Feq_dec : DecidableRel (@eq F).
+
+  Theorem Vector_eq_dec : forall (A : Type)(n : nat)(v1 v2 : VectorDef.t A n),
+    (forall (a1 a2 : A), {a1 = a2} + {a1 <> a2}) ->
+    {v1 = v2} + {v1 <> v2}.
+
+    induction n; intros; simpl in *.
+    left.
+    apply vec_0_eq.
+    rewrite (eta v1).
+    rewrite (eta v2).
+    destruct (X (hd v1) (hd v2)).
+    destruct (IHn (tl v1) (tl v2)); eauto.
+    left.
+    f_equal; eauto.
+    right.
+    intuition idtac.
+    apply cons_inj in H.
+    intuition idtac.
+    right.
+    intuition idtac.
+    apply cons_inj in H.
+    intuition idtac.
+
+  Qed.
+
+  Theorem Feq_dec : DecidableRel (@eq F).
+
+    unfold Decidable.
+    intros.
+    apply Vector_eq_dec.
+    intros.
+    apply Vector_eq_dec.
+    intros.
+    decide equality.
+  Qed.
   Existing Instance Feq_dec.
 
-  (* Here we assume the field has characteristic at least 12. *)
-  (* This is necessary for the base point to generate a group. *)
-  Hypothesis Fchar_12 : @Ring.char_ge F (@eq F) Fzero Fone Fopp Fadd Fsub Fmul 12.
+  (* Assume the field has characteristic at least 28. This enables a simple proof that the discriminant is nonzero. *)
+  Hypothesis Fchar_28 : @Ring.char_ge F (@eq F) Fzero Fone Fopp Fadd Fsub Fmul 28.
+  Existing Instance Fchar_28.
+
+  (* The field must have characteristic at least 12 in order for the base point to generate a group. *)
+  Theorem Fchar_12 : @Ring.char_ge F (@eq F) Fzero Fone Fopp Fadd Fsub Fmul 12.
+    eapply char_ge_weaken.
+    eauto.
+    lia.
+
+  Qed.
   Existing Instance Fchar_12.
 
   (* Point addition requires the field to have characteristic at least 3. *)
@@ -1011,8 +1053,6 @@ Section ECEqProof.
   (* When a=-3 and characerteristic is large, this follows from b<>2 and b<>-2 *)
   Variable b_ne_plus_minus_2 : 
     ~((Feq b (1 + 1)) \/ (Feq b (Fopp (1 + 1)))).
-
-  Hypothesis Fchar_28 : @Ring.char_ge F (@eq F) Fzero Fone Fopp Fadd Fsub Fmul 28.
 
   Theorem discriminant_nonzero :
     ~
@@ -3405,7 +3445,10 @@ Section ECEqProof.
    exist _ (pointToGeneric p) (pointToGeneric_is_jac p).
 
 
-  (* Correct addition on generic points is defined by converting to the specialized format, using Jacobin.add, and then converting back. *)
+  (* Correct addition on points in other formats follows from the correctness of addition in the internal format (Jacobian with saturated 64-bit limbs)
+  and from the correctness of the conversion routines. As an example, the proof below shows the correctness of addition on Jacobian points
+  using a generic representation (i.e. byte array) *)
+
   Definition jac_add_generic (p1 p2 : GenericJacobianPoint) := 
     pointToGenericJacobian (Jacobian.add (genericJacobianToPoint p1) (genericJacobianToPoint p2)).
 
