@@ -19,15 +19,11 @@ jobs:
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-    # Checkout main repo.
+    # Check out main repo and submodules.
     - uses: actions/checkout@v2
-      name: check out top-level repository
-
-    # Check out submodules. 
-    - name: check out all submodules
-      run: |
-        git submodule update --init
-        git submodule update --init --recursive Coq/fiat-crypto
+      name: check out top-level repository and all submodules
+      with:
+        submodules: true
 
     # Runs the formal verification action
     - name: SAW Proofs
@@ -38,11 +34,16 @@ jobs:
 
     # Steps represent a sequence of tasks that will be executed as part of the job
     steps:
-    # Check out main repo and submodules.
+    # Checkout main repo and submodules
     - uses: actions/checkout@v2
-      name: check out top-level repository and all submodules
+      name: check out top-level repository
       with:
-        submodules: recursive
+        submodules: true
+
+    # Check out fiat-crypto submodule recursively 
+    - name: recursively check out fiat-crypto submodule
+      run: |
+        git submodule update --init --recursive Coq/fiat-crypto
 
     # Runs the formal verification action
     - name: Coq Proofs
