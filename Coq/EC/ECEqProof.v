@@ -40,7 +40,7 @@ From Crypto Require Import Curves.Weierstrass.AffineProofs.
 From EC Require Import GroupMulWNAF.
 From EC Require Import Zfacts.
 From EC Require Import EC_P384_5.
-From EC Require Import EC_P384_gen.
+From EC Require Import EC_P384_Abstract.
 From EC Require Import CryptolToCoq_equiv.
 
 Set Implicit Arguments.
@@ -582,7 +582,7 @@ Section ECEqProof.
   Proof.
       intros [ [[xa ya] za] Ha ] [ [[xb yb] zb] Hb ]; simpl.
     
-      unfold point_add_jac, fromPoint, point_add, EC_P384_gen.point_add, EC_P384_5.point_add, ecNotEq, ecEq, ecZero, ecAnd, ecOr, ecCompl, felem_cmovznz; simpl.
+      unfold point_add_jac, fromPoint, point_add, EC_P384_Abstract.point_add, EC_P384_5.point_add, ecNotEq, ecEq, ecZero, ecAnd, ecOr, ecCompl, felem_cmovznz; simpl.
       repeat rewrite felem_sqr_spec.
       unfold sawAt, atWithDefault. simpl.
       
@@ -2430,7 +2430,7 @@ Section ECEqProof.
       (pre_comp_table_gen (Nat.pred (Nat.pred (tableSize w))) (prodToSeq (fromPoint p))).
 
     intros.
-    unfold preCompTable, preCompTable_h, pre_comp_table_gen, EC_P384_gen.pre_comp_table_gen.
+    unfold preCompTable, preCompTable_h, pre_comp_table_gen, EC_P384_Abstract.pre_comp_table_gen.
     rewrite (@fold_left_scanl_equiv _ _ _ (fun a b => (Jacobian.add (Jacobian.double p) a))).
     eapply preCompTable_equiv_h.
     rewrite forNats_length.
@@ -2766,7 +2766,7 @@ Section ECEqProof.
                    (S pred_wsize) p) zero_point) a1 b1))
       (seqToProd
          (double_add_body_gen Fsquare Fmul Fsub Fadd Fopp pred_wsize
-            (EC_P384_gen.pre_comp_table_gen Fsquare Fmul Fsub
+            (EC_P384_Abstract.pre_comp_table_gen Fsquare Fmul Fsub
                Fadd (Nat.pred (Nat.pred (tableSize (S pred_wsize))))
                (prodToSeq (fromPoint p))) a2 b2)).
 
@@ -2972,12 +2972,12 @@ Section ECEqProof.
 
 
   Theorem pre_comp_table_gen_nth_0  : forall wsize p def,
-    List.nth 0 (EC_P384_gen.pre_comp_table_gen Fsquare Fmul
+    List.nth 0 (EC_P384_Abstract.pre_comp_table_gen Fsquare Fmul
               Fsub Fadd (Nat.pred (Nat.pred (tableSize wsize)))
               p) def = p.
   
     intros.
-    unfold EC_P384_gen.pre_comp_table_gen.
+    unfold EC_P384_Abstract.pre_comp_table_gen.
     rewrite nth_0_hd_equiv.
     apply scanl_head.
 
@@ -3004,7 +3004,7 @@ Section ECEqProof.
     (seqToProd
        (List.fold_left
           (double_add_body_gen Fsquare Fmul Fsub Fadd Fopp (Nat.pred wsize)
-             (EC_P384_gen.pre_comp_table_gen Fsquare Fmul
+             (EC_P384_Abstract.pre_comp_table_gen Fsquare Fmul
                 Fsub Fadd (Nat.pred (Nat.pred (tableSize wsize)))
                 (prodToSeq (fromPoint p))))
           (skipn 1
@@ -3015,7 +3015,7 @@ Section ECEqProof.
                    (List.nth (S (S numWindows))
                       (mul_scalar_rwnaf_gen wsize numWindows n)
                       (bvNat 16 0%nat)) 1))
-             (EC_P384_gen.pre_comp_table_gen Fsquare Fmul
+             (EC_P384_Abstract.pre_comp_table_gen Fsquare Fmul
                 Fsub Fadd (Nat.pred (Nat.pred (tableSize wsize)))
                 (prodToSeq (fromPoint p))))))
     (fromPoint
