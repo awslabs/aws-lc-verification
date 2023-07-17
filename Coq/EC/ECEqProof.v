@@ -2157,15 +2157,15 @@ Section ECEqProof.
     eapply fmul_same_l; eauto.
   Qed.
 
-  Definition conditional_subtract_if_even_ct := conditional_subtract_if_even_ct Fsquare Fadd Fsub Fmul Fopp.
+  Definition conditional_subtract_if_even := conditional_subtract_if_even Fsquare Fadd Fsub Fmul Fopp.
   Definition point_opp := (point_opp Fopp).
 
-  Theorem conditional_subtract_if_even_ct_jac_eq_ite : forall n p1 p2,
-    jac_eq (seqToProd (EC_P384_5.conditional_subtract_if_even_ct Fsquare Fmul Fsub Fadd
+  Theorem conditional_subtract_if_even_jac_eq_ite : forall n p1 p2,
+    jac_eq (seqToProd (EC_P384_5.conditional_subtract_if_even Fsquare Fmul Fsub Fadd
         Fopp p1 n p2)) (seqToProd (if (Nat.even (bvToNat _ n)) then (point_add false p1 (point_opp p2)) else p1)).
   
     intros.
-    rewrite conditional_subtract_if_even_ct_equiv.
+    rewrite conditional_subtract_if_even_equiv.
     eapply jac_eq_refl.
   Qed.
 
@@ -2270,7 +2270,7 @@ Section ECEqProof.
 
   Qed.
 
-  Theorem select_point_ct_gen_nth_equiv_h : forall ls n a,
+  Theorem select_point_gen_nth_equiv_h : forall ls n a,
     (Z.of_nat (List.length ls) < 2^64 )%Z ->
      (Z.of_nat n < 2^64 )%Z ->
     List.fold_left
@@ -2344,15 +2344,15 @@ Section ECEqProof.
 
   Qed.
 
-  Theorem select_point_ct_gen_nth_equiv : forall x ls,
+  Theorem select_point_gen_nth_equiv : forall x ls,
     (Z.of_nat (Datatypes.length ls) < 2 ^ 64)%Z ->
     (Z.of_nat (bvToNat 64%nat x) < 2 ^ 64)%Z ->
-    select_point_ct_gen x ls = List.nth (bvToNat _ x) ls (cons _ Fzero _ (cons _ Fzero _ (cons _ Fzero _ (nil _)))).
+    select_point_gen x ls = List.nth (bvToNat _ x) ls (cons _ Fzero _ (cons _ Fzero _ (cons _ Fzero _ (nil _)))).
 
     intros.
     rewrite <- (bvNat_bvToNat_id _ x) at 1.
-    unfold select_point_ct_gen.
-    specialize (select_point_ct_gen_nth_equiv_h ls (bvToNat 64 x) 0); intros.
+    unfold select_point_gen.
+    specialize (select_point_gen_nth_equiv_h ls (bvToNat 64 x) 0); intros.
     rewrite map_bvAdd_0 in H1.
     apply H1.
     trivial.
@@ -2773,7 +2773,7 @@ Section ECEqProof.
     intros.
     unfold double_add_body_gen.
 
-    rewrite select_point_ct_gen_nth_equiv.
+    rewrite select_point_gen_nth_equiv.
     unfold groupMul_signedWindows_fold_body.
     unfold groupAdd_signedWindow.
     match goal with
@@ -3009,7 +3009,7 @@ Section ECEqProof.
                 (prodToSeq (fromPoint p))))
           (skipn 1
              (List.rev (mul_scalar_rwnaf_gen wsize numWindows n)))
-          (select_point_ct_gen
+          (select_point_gen
              (sign_extend_16_64
                 (bvSShr 15
                    (List.nth (S (S numWindows))
@@ -3058,7 +3058,7 @@ Section ECEqProof.
     replace (bvNat 16 0%nat) with (intToBv 16 0%Z).
     rewrite map_nth.
 
-    rewrite select_point_ct_gen_nth_equiv.
+    rewrite select_point_gen_nth_equiv.
     unfold groupMul_signedWindows_fold_body.
     unfold groupAdd_signedWindow.
     match goal with
@@ -3312,7 +3312,7 @@ Section ECEqProof.
 
     eapply jac_eq_symm.
     eapply jac_eq_trans.
-    eapply conditional_subtract_if_even_ct_jac_eq_ite.
+    eapply conditional_subtract_if_even_jac_eq_ite.
 
     case_eq (Nat.even (bvToNat _ n)); intros.
 

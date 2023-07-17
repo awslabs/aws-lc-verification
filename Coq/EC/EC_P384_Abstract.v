@@ -190,7 +190,7 @@ Theorem mul_scalar_rwnaf_equiv : forall s,
 
 Qed.
 
-Definition select_point_ct_gen x t :=
+Definition select_point_gen x t :=
   fold_left
   (fun acc p =>
    select_point_loop_body x acc (fst p) (snd p))
@@ -209,11 +209,11 @@ Theorem to_list_length : forall (A : Type)(n : nat)(x : Vector.t A n),
 Qed.
 
 
-Theorem select_point_ct_gen_equiv : forall x t,
-  select_point_ct x t = select_point_ct_gen x (to_list t).
+Theorem select_point_gen_equiv : forall x t,
+  select_point x t = select_point_gen x (to_list t).
 
   intros.
-  unfold select_point_ct, select_point_ct_gen.
+  unfold select_point, select_point_gen.
   removeCoerce.
   rewrite ecFoldl_foldl_equiv.
   rewrite toList_zip_equiv. 
@@ -246,18 +246,18 @@ Section PointMul.
 
   Definition point_mul := point_mul felem_sqr felem_mul felem_sub felem_add field_opp.
  
-  Definition conditional_subtract_if_even_ct := 
-    conditional_subtract_if_even_ct felem_sqr felem_mul felem_sub felem_add field_opp.
+  Definition conditional_subtract_if_even := 
+    conditional_subtract_if_even felem_sqr felem_mul felem_sub felem_add field_opp.
 
   Definition point_add := 
     point_add felem_sqr felem_mul felem_sub felem_add.
 
-  Theorem conditional_subtract_if_even_ct_equiv : forall (p1 : point) n (p2 : point),
-    conditional_subtract_if_even_ct p1 n p2 = 
+  Theorem conditional_subtract_if_even_equiv : forall (p1 : point) n (p2 : point),
+    conditional_subtract_if_even p1 n p2 = 
     if (even (bvToNat _ n)) then (point_add false p1 (point_opp p2)) else p1.
 
     intros.
-    unfold conditional_subtract_if_even_ct, EC_P384_5.conditional_subtract_if_even_ct.
+    unfold conditional_subtract_if_even, EC_P384_5.conditional_subtract_if_even.
     unfold felem_cmovznz.
     simpl.
     match goal with
@@ -384,7 +384,7 @@ Section PointMul.
   (conditional_point_opp
      (point_id_to_limb
         (shiftR 16 bool false id 15))
-     (select_point_ct_gen
+     (select_point_gen
         (sign_extend_16_64
            (bvSShr 15%nat
               (bvAdd 16
@@ -405,7 +405,7 @@ Section PointMul.
 
     replace (to_list (ecFromTo 0%nat 4%nat Integer PLiteralInteger))
       with (toN_int 4%nat).
-    repeat rewrite select_point_ct_gen_equiv.
+    repeat rewrite select_point_gen_equiv.
     reflexivity.
 
     symmetry.
@@ -414,12 +414,12 @@ Section PointMul.
   Qed.
 
   Definition point_mul_gen wsize nw pred_tsize p s : point := 
-    EC_P384_5.conditional_subtract_if_even_ct felem_sqr felem_mul
+    EC_P384_5.conditional_subtract_if_even felem_sqr felem_mul
   felem_sub felem_add field_opp
   (fold_left
      (double_add_body_gen (pred wsize) (pre_comp_table_gen pred_tsize p))
      (skipn 1 (rev (mul_scalar_rwnaf_gen wsize nw s)))
-     (select_point_ct_gen
+     (select_point_gen
         (sign_extend_16_64
            (bvSShr 15
               (nth (S (S nw)) (mul_scalar_rwnaf_gen wsize nw s)
@@ -447,7 +447,7 @@ Section PointMul.
     rewrite toList_reverse_equiv.
     rewrite mul_scalar_rwnaf_equiv.
 
-    rewrite select_point_ct_gen_equiv.
+    rewrite select_point_gen_equiv.
     rewrite pre_comp_table_gen_equiv.
 
     unfold point_mul_gen.
