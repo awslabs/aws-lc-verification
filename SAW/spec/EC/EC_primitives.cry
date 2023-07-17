@@ -81,6 +81,12 @@ point_double p = p'
 testForDouble : felem -> felem -> felem -> felem -> Bit
 testForDouble p1z p2z h r = ((h==zero) && (r==zero) && (p1z != zero) && (p2z != zero))
 
+/* 
+point_add takes two points p1 p2 and returns p1 + p2. The point p1 can either be
+in Jacobian or affine coordinates, and p2 is always in Jacobian coordinates.
+When p1 is affine, this is "mixed" arithmetic indicated by setting the first
+parameter to true. In this case, the third coordinate of p1 will be ignored. 
+*/
 point_add : Bit -> point -> point -> point
 point_add mixed p1 p2 = p
   where
