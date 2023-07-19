@@ -116,25 +116,6 @@ Definition mul_scalar_rwnaf_odd_abstract wsize numWindows s :=
 
 Local Open Scope Z_scope.
 
-Definition recode_rwnaf_odd_scanl_fix_body wsize n :=
-      let k_i := (n mod (Z.double (twoToWsize wsize))) - (twoToWsize wsize) in
-      let n' := (n - k_i) / (twoToWsize wsize) in
-      (k_i, n').
-
-Theorem recode_rwnaf_odd_scanl_equiv : forall wsize nw (n : Z),
-  recode_rwnaf_odd wsize (S nw) n = 
-  scanl_fix 
-    (fun p => recode_rwnaf_odd_scanl_fix_body wsize (snd p))
-    (fun p => fst p)
-    (fun p => snd p)
-    (S nw) (recode_rwnaf_odd_scanl_fix_body wsize n).
-
-  induction nw; intros; simpl in *.
-  reflexivity.
-  rewrite IHnw.
-  reflexivity.
-Qed.
-
 Require Import Coq.ZArith.Zdigits.
 
 Theorem mul_scalar_rwnaf_odd_abstract_equiv : forall s,
@@ -245,17 +226,17 @@ Section PointMul.
   Definition point := Vector.t felem 3.
   Variable felem_sqr : felem -> felem.
   Variable felem_mul felem_sub felem_add : felem -> felem -> felem.
-  Variable field_opp : felem -> felem.
+  Variable felem_opp : felem -> felem.
 
   Definition point_opp (p : point) : point :=
     Vector.cons (sawAt _ _ p 0%nat) 
-      (Vector.cons (field_opp (sawAt _ _ p 1%nat) ) 
+      (Vector.cons (felem_opp (sawAt _ _ p 1%nat) ) 
         (Vector.cons (sawAt _ _ p 2%nat)  (Vector.nil felem))).
 
-  Definition point_mul := point_mul felem_sqr felem_mul felem_sub felem_add field_opp.
+  Definition point_mul := point_mul felem_sqr felem_mul felem_sub felem_add felem_opp.
  
   Definition conditional_subtract_if_even := 
-    conditional_subtract_if_even felem_sqr felem_mul felem_sub felem_add field_opp.
+    conditional_subtract_if_even felem_sqr felem_mul felem_sub felem_add felem_opp.
 
   Definition point_add := 
     point_add felem_sqr felem_mul felem_sub felem_add.
@@ -372,11 +353,11 @@ Section PointMul.
 
   
   Definition double_add_body := 
-    double_add_body felem_sqr felem_mul felem_sub felem_add field_opp.
+    double_add_body felem_sqr felem_mul felem_sub felem_add felem_opp.
   
 
   Definition conditional_point_opp (t : bitvector 64) (p : point): point :=
-    Vector.cons (sawAt _ _ p 0%nat) (Vector.cons (felem_cmovznz t (sawAt _ _ p 1%nat) (field_opp (sawAt _ _ p 1%nat))) (Vector.cons (sawAt _ _ p 2%nat) (Vector.nil _))).
+    Vector.cons (sawAt _ _ p 0%nat) (Vector.cons (felem_cmovznz t (sawAt _ _ p 1%nat) (felem_opp (sawAt _ _ p 1%nat))) (Vector.cons (sawAt _ _ p 2%nat) (Vector.nil _))).
 
   Definition double_add_body_abstract pred_wsize t p id :=
     EC_P384_5.point_add felem_sqr felem_mul felem_sub
@@ -423,7 +404,7 @@ Section PointMul.
 
   Definition point_mul_abstract wsize nw pred_tsize p s : point := 
     EC_P384_5.conditional_subtract_if_even felem_sqr felem_mul
-  felem_sub felem_add field_opp
+  felem_sub felem_add felem_opp
   (fold_left
      (double_add_body_abstract (pred wsize) (pre_comp_table_abstract pred_tsize p))
      (skipn 1 (rev (mul_scalar_rwnaf_abstract wsize nw s)))

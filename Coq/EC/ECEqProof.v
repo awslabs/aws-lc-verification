@@ -149,6 +149,9 @@ Section ECEqProof.
   Qed.
   Existing Instance Fchar_3.
 
+  (* The spec of the scalar recoding function extracted from Cryptol uses scanl because that is what the Cryptol extraction supports.
+  But a more natural way to write this spec in Coq is with a Fixpoint. Below, we write this function using a Fixpoint and prove it
+  equal to the scanl form of the function. *)
   Fixpoint recode_rwnaf_odd_bv (wsize : nat)(nw : nat)(n : bitvector 384) :=
     match nw with
     | 0%nat => (drop _ 368 16 n) :: List.nil
@@ -486,7 +489,7 @@ Section ECEqProof.
   (* Assume that squaring satisifes its spec. *)
   Hypothesis felem_sqr_spec : forall (x : F), Fsquare x = Fmul x x.
 
-  (* Assume that the curve paramFrometer a = -3, as it does for P-384. *)
+  (* Assume that the curve parameter a = -3, as it is for P-384 and other curves in the same family *)
   Hypothesis a_is_minus_3 : a = Fopp (1 + 1 + 1).
 
   (* Now, we can prove that the extracted Cryptol code computes the
@@ -1263,9 +1266,6 @@ Section ECEqProof.
 
   Definition seqToList(A : Type)(n : nat)(s : seq n A) : list A :=
     to_list s.
-
-  Definition windowsSeqToList (n : nat)(s : seq n (seq 16 Bool)) : list SignedWindow := 
-    List.map (toSignedInteger 16) (seqToList s).
 
   Fixpoint preCompTable_fix (p : point) n prev :=
     match n with
