@@ -57,31 +57,6 @@ let p384_point_mul_spec = do {
     {{ point_mul_generic p scalar }};
 };
 
-
-let p384_pre_comp_table_spec = do {
-  
-  table_ptr <- crucible_alloc (llvm_array tsize (llvm_array 3 (llvm_array p384_felem_limbs (llvm_int limb_length))));
-  p <- crucible_fresh_var "p" (llvm_array 3 (llvm_array p384_felem_limbs (llvm_int limb_length)));
-  crucible_points_to (crucible_elem table_ptr 0) (crucible_term p);
-  tmp_ptr <- crucible_alloc (llvm_array 3 (llvm_array p384_felem_limbs (llvm_int limb_length)));
-
-  crucible_execute_func [table_ptr, tmp_ptr];
-
-  crucible_points_to table_ptr (crucible_term {{pre_comp_table p}});
-};
-
-let conditional_subtract_if_even_ct_spec = do {
-  
-  (res, res_ptr) <- ptr_to_fresh "res" (llvm_array 3 (llvm_array p384_felem_limbs (llvm_int limb_length)));
-  (p, p_ptr) <- ptr_to_fresh_readonly "p" (llvm_array 3 (llvm_array p384_felem_limbs (llvm_int limb_length)));
-  tmp_ptr <- crucible_alloc (llvm_array 3 (llvm_array p384_felem_limbs (llvm_int limb_length)));
-  (scalar, scalar_ptr) <- ptr_to_fresh_readonly "p_scalar" i384;
-
-  crucible_execute_func [res_ptr, p_ptr, scalar_ptr, tmp_ptr];
-
-  crucible_points_to res_ptr (crucible_term {{conditional_subtract_if_even_ct res scalar p}});
-};
-
 p384_select_point_ov <- llvm_verify m
   "p384_select_point" [p384_felem_cmovznz_same_r_ov] true
   p384_select_point_spec (w4_unint_z3 []);

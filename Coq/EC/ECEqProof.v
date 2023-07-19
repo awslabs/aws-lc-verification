@@ -89,9 +89,7 @@ Section ECEqProof.
   Hypothesis F_Field : @field F Feq Fzero Fone Fopp Fadd Fsub Fmul Finv Fdiv.
   Existing Instance F_Field.
 
-  (* Now we assume that equality is decidable. This, we could implement relatively easily.
-   *)
-
+  (* Now we prove that equality is decidable.*)
   Theorem Vector_eq_dec : forall (A : Type)(n : nat)(v1 v2 : VectorDef.t A n),
     (forall (a1 a2 : A), {a1 = a2} + {a1 <> a2}) ->
     {v1 = v2} + {v1 <> v2}.
@@ -116,7 +114,7 @@ Section ECEqProof.
 
   Qed.
 
-  Theorem Feq_dec : DecidableRel (@eq F).
+  Theorem Feq_dec : DecidableRel Feq.
 
     unfold Decidable.
     intros.
@@ -129,11 +127,11 @@ Section ECEqProof.
   Existing Instance Feq_dec.
 
   (* Assume the field has characteristic at least 28. This enables a simple proof that the discriminant is nonzero. *)
-  Hypothesis Fchar_28 : @Ring.char_ge F (@eq F) Fzero Fone Fopp Fadd Fsub Fmul 28.
+  Hypothesis Fchar_28 : @Ring.char_ge F Feq Fzero Fone Fopp Fadd Fsub Fmul 28.
   Existing Instance Fchar_28.
 
   (* The field must have characteristic at least 12 in order for the base point to generate a group. *)
-  Theorem Fchar_12 : @Ring.char_ge F (@eq F) Fzero Fone Fopp Fadd Fsub Fmul 12.
+  Theorem Fchar_12 : @Ring.char_ge F Feq Fzero Fone Fopp Fadd Fsub Fmul 12.
     eapply char_ge_weaken.
     eauto.
     lia.
@@ -142,7 +140,7 @@ Section ECEqProof.
   Existing Instance Fchar_12.
 
   (* Point addition requires the field to have characteristic at least 3. *)
-  Theorem Fchar_3 : @Ring.char_ge F (@eq F) Fzero Fone Fopp Fadd Fsub Fmul 3.
+  Theorem Fchar_3 : @Ring.char_ge F Feq Fzero Fone Fopp Fadd Fsub Fmul 3.
 
     eapply char_ge_weaken.
     eauto.
@@ -150,32 +148,6 @@ Section ECEqProof.
 
   Qed.
   Existing Instance Fchar_3.
-
-  Lemma zero_squared_zero : 0^2 = 0.
-    nsatz.
-  Qed.
-
-  Lemma mul_zero_r: forall x, x * 0 = 0.
-    intros.
-    nsatz.
-  Qed.
-
-  Lemma mul_zero_l: forall x, 0 * x = 0.
-    intros.
-    nsatz.
-  Qed.
-
-  Lemma minus_zero_r : forall x, x - 0 = x.
-
-    intros.
-    nsatz.
-
-  Qed.
-
-  Lemma plus_zero_r : forall x, x + 0 = x.
-    intros.
-    nsatz.
-  Qed.
 
   Fixpoint recode_rwnaf_odd_bv (wsize : nat)(nw : nat)(n : bitvector 384) :=
     match nw with
@@ -307,7 +279,7 @@ Section ECEqProof.
   Qed.
 
 
-  Theorem jac_eq_refl_gen : forall p1 p2,
+  Theorem jac_eq_refl_abstract : forall p1 p2,
     p1 = p2 ->
     jac_eq p1 p2.
 
@@ -603,13 +575,13 @@ Section ECEqProof.
       rewrite seqToProd_inv.
 
       eapply jac_eq_trans; [idtac | apply jacobian_eq_jac_eq; apply Jacobian.double_minus_3_eq_double].
-      apply jac_eq_refl_gen.
+      apply jac_eq_refl_abstract.
    
       unfold Jacobian.double, fromPoint; simpl.
       reflexivity.
       trivial.
 
-      apply jac_eq_refl_gen.
+      apply jac_eq_refl_abstract.
       unfold Feq, seqToProd, nth_order, nth. simpl.
       destruct (dec (zb = 0)); subst.
       rewrite felem_nz_eq_0.
@@ -1452,7 +1424,7 @@ Section ECEqProof.
   
   Qed.
 
-  Theorem bound_gen : forall x1 x2 y1 y2 z,
+  Theorem bound_abstract : forall x1 x2 y1 y2 z,
     (x1 <= z < y1 ->
     x2 <= x1 ->
     y1 <= y2 ->
@@ -1557,7 +1529,7 @@ Section ECEqProof.
     rewrite Znat.Nat2Z.inj_add.
     rewrite Z.pow_add_r.
     rewrite Z.mul_comm.
-    eapply bound_gen.
+    eapply bound_abstract.
     apply Z.mod_pos_bound.
     apply Z.mul_pos_pos; try lia;
     apply Z.pow_pos_nonneg; lia.
@@ -1734,7 +1706,7 @@ Section ECEqProof.
       | [|- (_ ^ _ <= _ ^ _)%Z] =>
         apply Z.pow_le_mono
       | [|- (_ <= _ mod _ < _)%Z] =>
-        eapply bound_gen; [apply Z.mod_pos_bound | idtac | idtac]
+        eapply bound_abstract; [apply Z.mod_pos_bound | idtac | idtac]
       | [|- Z.le (Z.opp _) _] =>
         apply Z.opp_nonpos_nonneg 
       | [|- (0 <= _ ^ _)%Z] =>
@@ -2022,21 +1994,21 @@ Section ECEqProof.
 
   Theorem recode_rwnaf_odd_bv_scanl_fix_body_fiat_equiv : forall wsize z, 
     recode_rwnaf_odd_bv_scanl_fix_body wsize z = 
-    mul_scalar_rwnaf_odd_loop_body_gen wsize z.
+    mul_scalar_rwnaf_odd_loop_body_abstract wsize z.
 
     intros. 
     unfold recode_rwnaf_odd_bv_scanl_fix_body.
-    unfold mul_scalar_rwnaf_odd_loop_body_gen.
+    unfold mul_scalar_rwnaf_odd_loop_body_abstract.
     reflexivity.
 
   Qed.
 
-  Theorem mul_scalar_rwnaf_odd_gen_equiv : forall nw wsize z,
+  Theorem mul_scalar_rwnaf_odd_abstract_equiv : forall nw wsize z,
     0 < wsize < 16 ->
     (bvToInt 384%nat z < 2 ^ Z.of_nat (S (S (S nw)) * wsize))%Z ->
     List.Forall2 (fun (x : Z) (y : bitvector 16) => x = (sbvToInt _ y))
   (recode_rwnaf_odd wsize (S (S nw)) (bvToInt _ z))
-  (mul_scalar_rwnaf_odd_gen wsize nw z).
+  (mul_scalar_rwnaf_odd_abstract wsize nw z).
 
     intros.
     eapply (@forall2_trans  _ _ _ _ (eq)).
@@ -2048,18 +2020,18 @@ Section ECEqProof.
     intros; subst; trivial.
     apply forall2_eq.
 
-    unfold mul_scalar_rwnaf_odd_gen.
+    unfold mul_scalar_rwnaf_odd_abstract.
   
     rewrite (@scanl_fix_equiv (bitvector 16 * bitvector 384) Integer (bitvector 16) (inhabitant
             (Inhabited_prod (bitvector 16)
                (bitvector 384)))
       (fun p =>
-         mul_scalar_rwnaf_odd_loop_body_gen wsize (snd p))
+         mul_scalar_rwnaf_odd_loop_body_abstract wsize (snd p))
       (toN_int nw)
       (S nw)
       (fun (p : bitvector 16 * bitvector 384) => fst p) 
       (fun p => drop _ 368 16 (snd p))
-      (mul_scalar_rwnaf_odd_loop_body_gen wsize z)); intros.
+      (mul_scalar_rwnaf_odd_loop_body_abstract wsize z)); intros.
 
     rewrite recode_rwnaf_odd_bv_scanl_equiv.
     reflexivity.
@@ -2069,18 +2041,18 @@ Section ECEqProof.
     
   Qed.
 
-  Theorem mul_scalar_rwnaf_gen_equiv : forall nw wsize z,
+  Theorem mul_scalar_rwnaf_abstract_equiv : forall nw wsize z,
     0 < wsize < 16 ->
     (bvToInt 384%nat z < 2 ^ Z.of_nat (S (S (S nw)) * wsize))%Z ->
     List.Forall2 (fun x (y : bitvector 16) => x = (sbvToInt _ y))
     (recode_rwnaf wsize (S (S (S nw))) (bvToInt _ z)) 
-    (mul_scalar_rwnaf_gen wsize nw z).
+    (mul_scalar_rwnaf_abstract wsize nw z).
 
     intros. 
-    unfold recode_rwnaf, mul_scalar_rwnaf_gen.
+    unfold recode_rwnaf, mul_scalar_rwnaf_abstract.
     replace (BinInt.Z.lor (bvToInt 384 z) 1) with
       (bvToInt _ (bvOr 384 z (intToBv 384 1))).
-    apply mul_scalar_rwnaf_odd_gen_equiv.
+    apply mul_scalar_rwnaf_odd_abstract_equiv.
     lia.
   
     rewrite bvOr_bvToInt_equiv.
@@ -2270,7 +2242,7 @@ Section ECEqProof.
 
   Qed.
 
-  Theorem select_point_gen_nth_equiv_h : forall ls n a,
+  Theorem select_point_abstract_nth_equiv_h : forall ls n a,
     (Z.of_nat (List.length ls) < 2^64 )%Z ->
      (Z.of_nat n < 2^64 )%Z ->
     List.fold_left
@@ -2344,15 +2316,15 @@ Section ECEqProof.
 
   Qed.
 
-  Theorem select_point_gen_nth_equiv : forall x ls,
+  Theorem select_point_abstract_nth_equiv : forall x ls,
     (Z.of_nat (Datatypes.length ls) < 2 ^ 64)%Z ->
     (Z.of_nat (bvToNat 64%nat x) < 2 ^ 64)%Z ->
-    select_point_gen x ls = List.nth (bvToNat _ x) ls (cons _ Fzero _ (cons _ Fzero _ (cons _ Fzero _ (nil _)))).
+    select_point_abstract x ls = List.nth (bvToNat _ x) ls (cons _ Fzero _ (cons _ Fzero _ (cons _ Fzero _ (nil _)))).
 
     intros.
     rewrite <- (bvNat_bvToNat_id _ x) at 1.
-    unfold select_point_gen.
-    specialize (select_point_gen_nth_equiv_h ls (bvToNat 64 x) 0); intros.
+    unfold select_point_abstract.
+    specialize (select_point_abstract_nth_equiv_h ls (bvToNat 64 x) 0); intros.
     rewrite map_bvAdd_0 in H1.
     apply H1.
     trivial.
@@ -2372,7 +2344,7 @@ Section ECEqProof.
     reflexivity.
   Qed.
 
-  Definition pre_comp_table_gen := pre_comp_table_gen Fsquare Fmul Fsub Fadd.
+  Definition pre_comp_table_abstract := pre_comp_table_abstract Fsquare Fmul Fsub Fadd.
 
   Theorem preCompTable_equiv_h : forall ls1 ls2 p1 p2,
     List.length ls1 = List.length ls2 ->
@@ -2427,10 +2399,10 @@ Section ECEqProof.
     (tableSize w) > 1 ->
     List.Forall2 (fun a b => jac_eq (fromPoint a) (seqToProd b))
       (preCompTable Jacobian.add zero_point Jacobian.double w p)
-      (pre_comp_table_gen (Nat.pred (Nat.pred (tableSize w))) (prodToSeq (fromPoint p))).
+      (pre_comp_table_abstract (Nat.pred (Nat.pred (tableSize w))) (prodToSeq (fromPoint p))).
 
     intros.
-    unfold preCompTable, preCompTable_h, pre_comp_table_gen, EC_P384_Abstract.pre_comp_table_gen.
+    unfold preCompTable, preCompTable_h, pre_comp_table_abstract, EC_P384_Abstract.pre_comp_table_abstract.
     rewrite (@fold_left_scanl_equiv _ _ _ (fun a b => (Jacobian.add (Jacobian.double p) a))).
     eapply preCompTable_equiv_h.
     rewrite forNats_length.
@@ -2535,7 +2507,7 @@ Section ECEqProof.
     apply Jacobian.Proper_double.
     eapply jac_eq_jacobian_eq.
     eapply jac_eq_trans; eauto.
-    eapply jac_eq_refl_gen.
+    eapply jac_eq_refl_abstract.
     trivial.
 
     eapply Jacobian.double_minus_3_eq_double.
@@ -2610,7 +2582,7 @@ Section ECEqProof.
     eapply jac_eq_trans.
     eapply jac_eq_opp; eauto.
     eapply jac_eq_symm.
-    eapply jac_eq_refl_gen.
+    eapply jac_eq_refl_abstract.
     unfold seqToProd, point_opp; simpl.
     
     repeat match goal with 
@@ -2765,15 +2737,15 @@ Section ECEqProof.
                 (preCompTable Jacobian.add zero_point Jacobian.double
                    (S pred_wsize) p) zero_point) a1 b1))
       (seqToProd
-         (double_add_body_gen Fsquare Fmul Fsub Fadd Fopp pred_wsize
-            (EC_P384_Abstract.pre_comp_table_gen Fsquare Fmul Fsub
+         (double_add_body_abstract Fsquare Fmul Fsub Fadd Fopp pred_wsize
+            (EC_P384_Abstract.pre_comp_table_abstract Fsquare Fmul Fsub
                Fadd (Nat.pred (Nat.pred (tableSize (S pred_wsize))))
                (prodToSeq (fromPoint p))) a2 b2)).
 
     intros.
-    unfold double_add_body_gen.
+    unfold double_add_body_abstract.
 
-    rewrite select_point_gen_nth_equiv.
+    rewrite select_point_abstract_nth_equiv.
     unfold groupMul_signedWindows_fold_body.
     unfold groupAdd_signedWindow.
     match goal with
@@ -2971,19 +2943,19 @@ Section ECEqProof.
   Qed.
 
 
-  Theorem pre_comp_table_gen_nth_0  : forall wsize p def,
-    List.nth 0 (EC_P384_Abstract.pre_comp_table_gen Fsquare Fmul
+  Theorem pre_comp_table_abstract_nth_0  : forall wsize p def,
+    List.nth 0 (EC_P384_Abstract.pre_comp_table_abstract Fsquare Fmul
               Fsub Fadd (Nat.pred (Nat.pred (tableSize wsize)))
               p) def = p.
   
     intros.
-    unfold EC_P384_Abstract.pre_comp_table_gen.
+    unfold EC_P384_Abstract.pre_comp_table_abstract.
     rewrite nth_0_hd_equiv.
     apply scanl_head.
 
   Qed.
 
-  Definition point_mul_gen := point_mul_gen Fsquare Fmul Fsub Fadd Fopp.
+  Definition point_mul_abstract := point_mul_abstract Fsquare Fmul Fsub Fadd Fopp.
 
   Theorem In_tl : forall (A : Type)(ls : list A) a,
     List.In a (List.tl ls) ->
@@ -2996,26 +2968,26 @@ Section ECEqProof.
 
   Qed.
 
-  Theorem point_mul_gen_signedRegular_cases : forall wsize numWindows n p,
+  Theorem point_mul_abstract_signedRegular_cases : forall wsize numWindows n p,
     1 < wsize < 16 ->
     (BinInt.Z.of_nat (bvToNat 384%nat n) <
    BinInt.Z.shiftl 1 (BinInt.Z.of_nat (S (S (S numWindows)) * wsize)))%Z->
       jac_eq
     (seqToProd
        (List.fold_left
-          (double_add_body_gen Fsquare Fmul Fsub Fadd Fopp (Nat.pred wsize)
-             (EC_P384_Abstract.pre_comp_table_gen Fsquare Fmul
+          (double_add_body_abstract Fsquare Fmul Fsub Fadd Fopp (Nat.pred wsize)
+             (EC_P384_Abstract.pre_comp_table_abstract Fsquare Fmul
                 Fsub Fadd (Nat.pred (Nat.pred (tableSize wsize)))
                 (prodToSeq (fromPoint p))))
           (skipn 1
-             (List.rev (mul_scalar_rwnaf_gen wsize numWindows n)))
-          (select_point_gen
+             (List.rev (mul_scalar_rwnaf_abstract wsize numWindows n)))
+          (select_point_abstract
              (sign_extend_16_64
                 (bvSShr 15
                    (List.nth (S (S numWindows))
-                      (mul_scalar_rwnaf_gen wsize numWindows n)
+                      (mul_scalar_rwnaf_abstract wsize numWindows n)
                       (bvNat 16 0%nat)) 1))
-             (EC_P384_Abstract.pre_comp_table_gen Fsquare Fmul
+             (EC_P384_Abstract.pre_comp_table_abstract Fsquare Fmul
                 Fsub Fadd (Nat.pred (Nat.pred (tableSize wsize)))
                 (prodToSeq (fromPoint p))))))
     (fromPoint
@@ -3048,7 +3020,7 @@ Section ECEqProof.
     erewrite (@forall2_map_eq _ _
       (intToBv 16)
       
-      (mul_scalar_rwnaf_gen
+      (mul_scalar_rwnaf_abstract
                     wsize numWindows n)
       (recode_rwnaf wsize
                  (S (S (S numWindows)))
@@ -3058,7 +3030,7 @@ Section ECEqProof.
     replace (bvNat 16 0%nat) with (intToBv 16 0%Z).
     rewrite map_nth.
 
-    rewrite select_point_gen_nth_equiv.
+    rewrite select_point_abstract_nth_equiv.
     unfold groupMul_signedWindows_fold_body.
     unfold groupAdd_signedWindow.
     match goal with
@@ -3244,7 +3216,7 @@ Section ECEqProof.
     rewrite bvToNat_toZ_equiv.
     apply forall2_symm.
     eapply forall2_trans.
-    apply mul_scalar_rwnaf_gen_equiv.
+    apply mul_scalar_rwnaf_abstract_equiv.
     lia.
     rewrite <- bvToNat_toZ_equiv.
     rewrite <- Z.shiftl_1_l.
@@ -3265,7 +3237,7 @@ Section ECEqProof.
     eapply Forall2_tl.
     eapply Forall2_rev.
     rewrite bvToNat_toZ_equiv.
-    eapply mul_scalar_rwnaf_gen_equiv.
+    eapply mul_scalar_rwnaf_abstract_equiv.
     lia.
     rewrite <- Z.shiftl_1_l.
     rewrite <- bvToNat_toZ_equiv.
@@ -3291,7 +3263,7 @@ Section ECEqProof.
   Qed.
 
 
-  Theorem point_mul_gen_signedRegular_equiv : forall wsize numWindows n p,
+  Theorem point_mul_abstract_signedRegular_equiv : forall wsize numWindows n p,
     1 < wsize < 16 ->
     (BinInt.Z.of_nat (bvToNat 384%nat n) <
  BinInt.Z.shiftl 1 (BinInt.Z.of_nat (S (S (S numWindows)) * wsize)))%Z->
@@ -3301,11 +3273,11 @@ Section ECEqProof.
           Jacobian.double Jacobian.opp wsize (S (S (S numWindows))) p
           (bvToNat _ n)))
     (seqToProd
-       (point_mul_gen wsize numWindows (Nat.pred (Nat.pred (tableSize wsize))) (prodToSeq (fromPoint p))
+       (point_mul_abstract wsize numWindows (Nat.pred (Nat.pred (tableSize wsize))) (prodToSeq (fromPoint p))
           n)).
 
     intros.
-    unfold point_mul_gen.
+    unfold point_mul_abstract.
     unfold groupMul_signedRegular_table, groupMul_signed_table.
 
     unfold groupMul_signedRegular, groupMul_signedRegularWindows.
@@ -3319,19 +3291,19 @@ Section ECEqProof.
     eapply jac_eq_symm.
     eapply point_add_jac_eq.
     eapply jac_eq_symm.
-    eapply point_mul_gen_signedRegular_cases.
+    eapply point_mul_abstract_signedRegular_cases.
     trivial.
     trivial.
 
-    rewrite pre_comp_table_gen_nth_0.
-    apply jac_eq_refl_gen.
+    rewrite pre_comp_table_abstract_nth_0.
+    apply jac_eq_refl_abstract.
     unfold point_opp, prodToSeq, seqToProd.
     simpl.
     destruct p. simpl. destruct x. destruct p. simpl.
     unfold nth_order. simpl.
     reflexivity.
 
-    apply point_mul_gen_signedRegular_cases; trivial.
+    apply point_mul_abstract_signedRegular_cases; trivial.
 
   Qed.
 
@@ -3341,8 +3313,8 @@ Section ECEqProof.
 
     intros.
     unfold point_mul.
-    rewrite point_mul_gen_equiv.
-    eapply jac_eq_trans; [idtac | eapply point_mul_gen_signedRegular_equiv].
+    rewrite point_mul_abstract_equiv.
+    eapply jac_eq_trans; [idtac | eapply point_mul_abstract_signedRegular_equiv].
     unfold groupMul.
     eapply jacobian_eq_jac_eq.
 
@@ -3522,7 +3494,7 @@ Section ECEqProof.
       unfold point_mul.
       unfold fst, snd.
       unfold F.
-      eapply jac_eq_refl_gen.
+      eapply jac_eq_refl_abstract.
       reflexivity.
   Qed.
 
