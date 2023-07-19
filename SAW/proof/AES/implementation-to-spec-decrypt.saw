@@ -1,0 +1,295 @@
+print "Starting update_dec_array...";
+let update_dec_array_tactic = do {
+  i <- goal_intro "i";
+  n <- goal_intro "n";
+  key <- goal_intro "key";
+  iv <- goal_intro "iv";
+  inp <- goal_intro "inp";
+  Xi <- goal_intro "Xi";
+  goal_intro_hyp;
+
+  focus_hyp 0;
+  goal_specialize_hyp [ {{ i + 96 }}, n, key, iv, inp];
+  delete_hyps [0];
+
+  // split the goal into the two convenient cases
+  unfocus;
+  goal_insert_and_specialize split_lemma [i, n];
+  simpl;
+  focus_hyp 1;
+  split_goal;
+  unfocus;
+
+  // base case
+  focus_concl 0;
+  delete_hyps [0, 1];
+
+  // pull preconditions into hypotheses
+  unfolding ["==>", "/\\"];
+  rw ite_bool_implies_lemma;
+  rw ite_bool_and_lemma;
+  normalize_sequent;
+  focus_hyp 1;
+  unfolding ["EqTrue"];
+  simpl;
+  focus_hyp 3;
+  unfolding ["EqTrue"];
+  simpl;
+  unfocus;
+
+  // unfold cipher_update_array_helper until one of the ite conditions is i + 16 < n
+  unfolding ["cipher_update_array"];
+  simpl;
+  for (eval_list {{ [1..18] : [18][8] }}) (\i -> do {
+    rw cipher_update_array_helper_unfolding_lemma;
+    unfolding ["cipher_update_array_helper_unfold"];
+    simpl;
+  });
+  rw bvAdd_assoc_right_lemma;
+  
+  // eliminate update_postbulk_decrypt ite
+  focus_concl 0;
+  rwh 0;
+  rw ite_const_false_lemma;
+  unfolding ["update_dec_array"];
+  simpl;
+  unfolding ["update_postbulk_decrypt"];
+  simpl;
+  unfolding ["update_bulk_decrypt"];
+  simpl;
+  rw ite_tuple_lemma;
+  rw ghash_6x_unfolding_lemma2;
+  unfolding ["gcm_ghash_array_6x_unfold"];
+  simpl;
+
+  goal_cut {{ n_div n i }};
+  unfocus;
+  unfolding ["n_div"];
+  simpl;
+  rw bvSub_identity_zero_lemma;
+  rw bvAdd_right_identity_zero_lemma;
+  focus_concl 0;
+  rwh 5;
+  rw ite_const_false_vec128_lemma;
+  simpl;
+
+  w4_unint_z3 ["arrayLookup", "gcm_ghash_array", "cipher_update_array_ctx", "gcm_init_Htable", "gcm_init_H", "aes_hw_encrypt"];
+  delete_concl [0];
+  w4; // discharge the {{ n_div n i }} cut
+
+  // inductive case
+
+  // pull preconditions out of conclusion
+  unfocus;
+  unfolding ["==>", "/\\"];
+  rw ite_bool_implies_lemma;
+  rw ite_bool_and_lemma;
+  normalize_sequent;
+  delete_concl [0];
+
+  // simplify inductive hypothesis
+  focus_hyp 2;
+  unfolding ["EqTrue"];
+  simpl;
+  focus_hyp 3;
+  unfolding ["EqTrue"];
+  simpl;
+  focus_hyp 0;
+  rwh 2;
+  rwh 3;
+  goal_cut {{ (n - (i + 96)) < (n - i) }};
+  focus_hyp 6;
+  simpl;
+  unfolding ["EqTrue"];
+  simpl;
+  focus_hyp 0;
+  rwh 6;
+  goal_specialize_hyp
+    [ {{ cipher_update_array_ctx_16 0 ctx (i + 80) inp
+         (cipher_update_array_ctx_16 0 ctx (i + 64) inp
+         (cipher_update_array_ctx_16 0 ctx (i + 48) inp
+         (cipher_update_array_ctx_16 0 ctx (i + 32) inp
+         (cipher_update_array_ctx_16 0 ctx (i + 16) inp
+         (cipher_update_array_ctx_16 0 ctx i inp
+         Xi)))))
+      where
+        ctx = {key = key, iv = iv, Xi = Xi, len = 0}
+      }}
+    , parse_core "Refl Bool True"
+    ];
+  goal_cut {{ (i + 96 <= n) /\ ((i + 96) % 96 == 0) }};
+  delete_hyps [0];
+  focus_hyp 7;
+  simpl;
+  unfolding ["/\\"];
+  simpl;
+  rw ite_bool_and_lemma;
+  unfolding ["EqTrue"];
+  simpl;
+  focus_hyp 6;
+  rwh 7;
+  rw and_true_lemma;
+  rw not_true_lemma;
+  rw or_false_lemma;
+  recover_eqtrue;
+  unfocus;
+
+  // work the conclusion until the induction hypothesis matches
+  unfocus;
+  unfolding ["cipher_update_array"];
+  simpl;
+  focus_concl 0;
+  goal_insert_and_specialize cipher_update_array_helper_unfold_16x6_lemma [i, n];
+  goal_cut {{ ((n <= (2^^32)) /\ (i <= n) /\ (i + 95 < n)) }};
+  focus_hyp 9;
+  simpl;
+  unfolding ["EqTrue"];
+  simpl;
+  focus_hyp 8;
+  rwh 9;
+  rw ite_const_true_bool_lemma;
+  recover_eqtrue;
+  focus_concl 0;
+  rwh 8;
+  rwh 6;
+  delete_hyps [6, 8];
+
+  unfolding ["update_dec_array"];
+  simpl;
+  unfolding ["update_bulk_decrypt", "update_postbulk_decrypt"];
+  simpl;
+  rw ite_tuple_lemma;
+
+  rw gcm_ghash_6x_to_1x_lemma;
+  goal_insert_and_specialize gcm_ghash_array_internal_lemma [ {{ 0 : [64] }} ];
+  focus_hyp 8;
+  simpl;
+  rw bvule_zero_lemma;
+  rw ite_const_true_bool_lemma;
+  recover_eqtrue;
+  focus_concl 0;
+  rwh 8;
+  delete_hyps [8];
+  rw join_split_lemma;
+  unfolding ["get_H"];
+  simpl;
+
+  let eliminate_ctx_16 i_tm = do {
+    goal_insert_and_specialize cipher_update_ctx_decrypt_lemma [i_tm];
+    goal_cut {{ (i_tm % 16 == 0) == True }};
+    focus_hyp 9;
+    unfolding ["ecEq"];
+    simpl;
+    focus_hyp 8;
+    simpl;
+    rwh 9;
+    rw ite_const_true_bool_lemma;
+    recover_eqtrue;
+    focus_concl 0;
+    rwh 8;
+    rw join_split_lemma;
+    unfolding ["get_H"];
+    rw join_split_vec2_lemma;
+    unfocus;
+    rw bvAdd_right_identity_zero_lemma;
+    goal_cut {{ (i_tm / 16 + 1) == ((i_tm + 16) / 16) }};
+    simpl;
+    focus_concl 0;
+    rwh 10;
+    delete_hyps [8, 9, 10];
+    rw bvAdd_assoc_right_lemma;
+    rw join_split_vec2_lemma;
+    simpl;
+  };
+
+  let compose_ghash low mid high = do {
+    goal_insert_and_specialize gcm_ghash_array_compose_lemma
+      [ {{ low / 16 }}
+      , {{ mid / 16 }}
+      , {{ high / 16 }}
+      ];
+    goal_cut {{ ((low / 16) <= (mid / 16) /\ (mid / 16) <= (high / 16)) == True }};
+    focus_hyp 8;
+    rwh 9;
+    rw ite_const_true_bool_lemma;
+    simpl;
+    recover_eqtrue;
+    focus_concl 0;
+    rwh 8;
+    delete_hyps [8, 9];
+  };
+
+  eliminate_ctx_16 i;
+  eliminate_ctx_16 {{ i + 16 }};
+  compose_ghash i {{ i + 16 }} {{ i + 32 }};
+  eliminate_ctx_16 {{ i + 32 }};
+  compose_ghash i {{ i + 32 }} {{ i + 48 }};
+  eliminate_ctx_16 {{ i + 48 }};
+  compose_ghash i {{ i + 48 }} {{ i + 64 }};
+  eliminate_ctx_16 {{ i + 64 }};
+  compose_ghash i {{ i + 64 }} {{ i + 80 }};
+  eliminate_ctx_16 {{ i + 80 }};
+  compose_ghash i {{ i + 80 }} {{ i + 96 }};
+
+  goal_cut {{
+    ((x2 / 16) - (((x2 / 16) - ((i + 96) / 16)) % 6)) == (n / 16)
+      where
+        x2 = zext (((drop`{32} n) / x3) * x3)
+        x3 = max x4 (((drop`{32} n) / x4) * x4)
+        x4 = 96
+  }};
+  unfocus;
+  rw bvSub_identity_zero_lemma;
+  simpl;
+  focus_concl 0;
+  rwh 8;
+  delete_hyps [8];
+  compose_ghash i {{ i + 96 }} n;
+
+  goal_cut {{
+    ((x2 / 16) - (((x2 / 16) - (i / 16)) % 6)) == (n / 16)
+      where
+        x2 = zext (((drop`{32} n) / x3) * x3)
+        x3 = max x4 (((drop`{32} n) / x4) * x4)
+        x4 = 96
+  }};
+  unfocus;
+  simpl;
+  focus_concl 0;
+  rwh 8;
+  delete_hyps [8];
+
+  w4_unint_z3 ["gcm_ghash_array_internal", "aes_hw_encrypt"];
+  delete_concl [0]; w4;
+  delete_hyps [8]; delete_concl [0]; w4;
+  delete_concl [0]; w4;
+  delete_hyps [8]; delete_concl [0]; w4;
+  delete_hyps [8, 9]; delete_concl [0]; w4;
+  delete_hyps [8]; delete_concl [0]; w4;
+  delete_hyps [8, 9]; delete_concl [0]; w4;
+  delete_hyps [8]; delete_concl [0]; w4;
+  delete_hyps [8]; delete_concl [0]; w4;
+  delete_hyps [8, 9]; delete_concl [0]; w4;
+  delete_hyps [8]; delete_concl [0]; w4;
+  delete_hyps [8]; delete_concl [0]; w4;
+  delete_hyps [8, 9]; delete_concl [0]; w4;
+  delete_hyps [8]; delete_concl [0]; w4;
+  delete_hyps [8]; delete_concl [0]; w4;
+  delete_hyps [8, 9]; delete_concl [0]; w4;
+  delete_hyps [8]; delete_concl [0]; w4;
+  delete_hyps [8]; delete_concl [0]; w4;
+  delete_hyps [8, 9]; delete_concl [0]; w4;
+  delete_hyps [8]; delete_concl [0]; w4;
+  delete_hyps [6, 8]; delete_concl [0]; w4;
+  delete_hyps [0, 7]; delete_concl [0]; w4;
+  delete_hyps [0]; delete_concl [0]; w4;
+};
+
+prove_by_bv_induction update_dec_array_tactic {{ \(i : [64]) (n : [64]) (key : [32][8]) (iv : [12][8]) (inp : Array [64] [8]) (Xi : [16][8]) ->
+  ( n - i
+  , ((n <= 2^^32) /\ (n % 96 == 0) /\ (i <= n) /\ (i % 96 == 0)) ==>
+     cipher_update_array 0 st inp i n == (update_dec_array inp st zeroByteArray i n).1
+    where
+      st = {key = key, iv = iv, Xi = Xi, len = 0}
+  )
+}};

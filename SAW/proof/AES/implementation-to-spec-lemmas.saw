@@ -1,0 +1,508 @@
+load_sawcore_from_file "implementation-to-spec.sawcore";
+
+let pg = print_goal;
+let simpl = do {
+  simplify (cryptol_ss ());
+  beta_reduce_goal;
+};
+let rw lemma = simplify (addsimp lemma empty_ss);
+let rwh hyp = simplify_local [hyp] empty_ss;
+
+recover_EqTrue_lemma <- prove_extcore (admit "recover_EqTrue")
+  (parse_core "(x : Bool) -> Eq Prop (Eq Bool x True) (EqTrue x)");
+let recover_eqtrue = rw recover_EqTrue_lemma;
+
+ite_const_true_lemma <- prove_print w4
+  {{ \(x : [16][8]) (y : [16][8]) -> (if True then x else y) == x }};
+ite_const_false_lemma <- prove_print w4
+  {{ \(x : [16][8]) (y : [16][8]) -> (if False then x else y) == y }};
+ite_const_true_bool_lemma <- prove_print w4
+  {{ \(x : Bit) (y : Bit) -> (if True then x else y) == x }};
+ite_const_false_vec8_lemma <- prove_print w4
+  {{ \(x : [8]) (y : [8]) -> (if False then x else y) == y }};
+ite_const_true_vec32_lemma <- prove_print w4
+  {{ \(x : [32]) (y : [32]) -> (if True then x else y) == x }};
+ite_const_false_vec128_lemma <- prove_print w4
+  {{ \(x : [128]) (y : [128]) -> (if False then x else y) == y }};
+ite_const_true_ctx_lemma <- prove_print w4
+  {{ \(x : AES_GCM_Ctx) y -> (if True then x else y) == x }};
+ite_const_false_ctx_lemma <- prove_print w4
+  {{ \(x : AES_GCM_Ctx) y -> (if False then x else y) == y }};
+ite_const_true_Xi_lemma <- prove_print w4
+  {{ \(x : [16][8]) (y : [16][8]) -> (if True then x else y) == x }};
+ite_const_false_tuple_lemma <- prove_print w4
+  {{ \(x : ([64], AES_GCM_Ctx, Array [64] [8])) y -> (if False then x else y).1 == y.1 }};
+ite_const_true_arrayLookup_lemma <- prove_print w4
+  {{ \(x : Array [64] [8]) (y : Array [64][8]) (idx : [64]) -> arrayLookup (if True then x else y) idx == arrayLookup x idx }};
+ecEq_elim_lemma <- prove_extcore w4
+  (parse_core "EqTrue (boolEq (ecEq (Vec 64 Bool) (PEqWord 64) (bvNat 64 16) (bvNat 64 0)) False)");
+intLe_refl_lemma <- prove_extcore w4
+  (parse_core "(x : Integer) -> EqTrue (boolEq (intLe x x) True)");
+intToNat_natToInt_lemma <- prove_extcore w4
+  (parse_core "EqTrue (boolEq (at 32 Bool (reverse 32 Bool (bvNat 32 0)) (intToNat (natToInt 0))) False)");
+recover_vecEq_lemma <- prove_extcore w4 (beta_reduce_term (unfold_term ["recover_vecEq"] (parse_core_mod "test" "recover_vecEq")));
+recover_vecEq2_lemma <- prove_extcore w4 (beta_reduce_term (unfold_term ["recover_vecEq2"] (parse_core_mod "test" "recover_vecEq2")));
+upd_collapse_lemma <- prove_extcore w4 (beta_reduce_term (unfold_term ["updxor"] (unfold_term ["upd_collapse"] (parse_core_mod "test" "upd_collapse"))));
+arrayRangeLookup_arrayLookup_lemma <- prove_extcore w4 (beta_reduce_term (unfold_term ["arrayRangeLookup_arrayLookup"] (parse_core_mod "test" "arrayRangeLookup_arrayLookup")));
+split_join_lemma <- prove_extcore w4
+  (parse_core "(a : Vec 16 (Vec 8 Bool)) -> EqTrue (vecEq 16 (Vec 8 Bool) (bvEq 8) (split 16 8 Bool (join 16 8 Bool a)) a)");
+join_split_lemma <- prove_extcore w4
+  (parse_core "(a : Vec 128 Bool) -> EqTrue (bvEq 128 (join 16 8 Bool (split 16 8 Bool a)) a)");
+join_split_vec2_lemma <- prove_extcore w4
+  (parse_core "(a : Vec 128 Bool) -> EqTrue (bvEq 128 (join 2 64 Bool (split 2 64 Bool a)) a)");
+join_split_vec4_lemma <- prove_extcore w4
+  (parse_core "(a : Vec 32 Bool) -> EqTrue (bvEq 32 (join 4 8 Bool (split 4 8 Bool a)) a)");
+drop_append_lemma <- prove_extcore w4
+  (parse_core "(a : Vec 4 (Vec 8 Bool)) -> (b : Vec 12 (Vec 8 Bool)) -> EqTrue (vecEq 4 (Vec 8 Bool) (bvEq 8) (drop (Vec 8 Bool) 12 4 (append 12 4 (Vec 8 Bool) b a)) a)");
+take_append_lemma <- prove_extcore w4
+  (parse_core "(a : Vec 12 (Vec 8 Bool)) -> (b : Vec 4 (Vec 8 Bool)) -> EqTrue (vecEq 12 (Vec 8 Bool) (bvEq 8) (take (Vec 8 Bool) 12 4 (append 12 4 (Vec 8 Bool) a b)) a)");
+bvEq_byte_refl_lemma <- prove_extcore w4
+  (parse_core "(x : Vec 8 Bool) -> EqTrue (boolEq (bvEq 8 x x) True)");
+bvult_64_refl_false_lemma <- prove_extcore w4
+  (parse_core "(x : Vec 64 Bool) -> EqTrue (boolEq (bvult 64 x x) False)");
+ite_tuple_lemma <- prove_extcore w4 (beta_reduce_term (unfold_term ["key_type", "iv_type", "Xi_type"] (unfold_term ["ctx_type"] (unfold_term ["ite_tuple"] (parse_core_mod "test" "ite_tuple")))));
+ecEq_ctx_sym_lemma <- prove_extcore w4 (beta_reduce_term (unfold_term ["key_type", "iv_type", "Xi_type"] (unfold_term ["ctx_type"] (unfold_term ["ecEq_ctx_sym"] (parse_core_mod "test" "ecEq_ctx_sym")))));
+bvSub_refl_zero_lemma <- prove_extcore w4
+  (parse_core "(x : Vec 64 Bool) -> EqTrue (bvEq 64 (bvSub 64 x x) (bvNat 64 0))");
+bvult_bvule_bvSub_lemma <- prove_extcore w4
+  (parse_core "(x : Vec 64 Bool) -> (y : Vec 64 Bool) -> EqTrue (bvule 64 x y) -> EqTrue (boolEq (bvule 64 (bvNat 64 1) (bvSub 64 y x)) (bvult 64 x y))");
+ite_bool_implies_lemma <- prove_extcore w4
+  (parse_core "(h : Bool) -> (c : Bool) -> EqTrue (boolEq (ite Bool h c True) (implies h c))");
+ite_bool_and_lemma <- prove_extcore w4
+  (parse_core "(h : Bool) -> (c : Bool) -> EqTrue (boolEq (ite Bool h c False) (and h c))");
+vecEq_refl_lemma <- prove_extcore w4
+  (parse_core "(x : Vec 16 (Vec 8 Bool)) -> EqTrue (boolEq (vecEq 16 (Vec 8 Bool) (bvEq 8) x x) True)");
+bvule_zero_lemma <- prove_extcore w4
+  (parse_core "(x : Vec 64 Bool) -> EqTrue (boolEq (bvule 64 (bvNat 64 0) x) True)");
+bvAdd_identity_zero_lemma <- prove_extcore w4
+  (parse_core "(x : Vec 64 Bool) -> EqTrue (bvEq 64 (bvAdd 64 (bvNat 64 0) x) x)");
+bvAdd_right_identity_zero_lemma <- prove_extcore w4
+  (parse_core "(x : Vec 64 Bool) -> EqTrue (bvEq 64 (bvAdd 64 x (bvNat 64 0)) x)");
+bvAdd_assoc_right_lemma <- prove_extcore w4
+  (parse_core "(x : Vec 64 Bool) -> (y : Vec 64 Bool) -> (z : Vec 64 Bool) -> EqTrue (bvEq 64 (bvAdd 64 (bvAdd 64 x y) z) (bvAdd 64 x (bvAdd 64 y z)))");
+bvSub_identity_zero_lemma <- prove_extcore w4
+  (parse_core "(x : Vec 64 Bool) -> EqTrue (bvEq 64 (bvSub 64 x (bvNat 64 0)) x)");
+at_zero_false_lemma <- prove_extcore w4
+  (parse_core "EqTrue (boolEq (at 32 Bool (reverse 32 Bool (bvNat 32 0)) (intToNat (natToInt 0))) False)");
+and_true_lemma <- prove_extcore w4
+  (parse_core "(x : Bool) -> EqTrue (boolEq (and True x) x)");
+or_false_lemma <- prove_extcore w4
+  (parse_core "(x : Bool) -> EqTrue (boolEq (or False x) x)");
+not_true_lemma <- prove_extcore w4
+  (parse_core "EqTrue (boolEq (not True) False)");
+
+n_sub_lemma <-
+  prove_print
+  w4
+  {{
+    \(n : [64]) ->
+      (
+        ((n <= (2^^32)) /\ (n % 96 == 0)) ==> ((n - x2) && 18446744073709551600) == 0
+          where
+            x2 = zext (((drop`{32} n) / x3) * x3)
+            x3 = max x4 (((drop`{32} n) / x4) * x4)
+            x4 = 96
+      )
+  }};
+
+let {{
+  n_div : [64] -> [64] -> Bit
+  n_div n i = 
+    (6 <= ((x2 / 16) - (i / 16))) == False
+      where
+        x2 = zext (((drop`{32} n) / x3) * x3)
+        x3 = max x4 (((drop`{32} n) / x4) * x4)
+        x4 = 96
+}};
+
+print "Starting cipher_update_array_helper_unfolding_lemma...";
+cipher_update_array_helper_unfolding_lemma <-
+  prove_print
+    do {
+      unfolding ["ecEq","cipher_update_array_helper"];
+      simplify (addsimp_shallow (core_thm "fix_unfold") empty_ss);
+      simplify (cryptol_ss ());
+      unfolding ["cipher_update_array_helper_unfold","cipher_update_array_helper"];
+      simpl;
+      unfolding ["ecEq"];
+      simpl;
+      rw vecEq_refl_lemma;
+      trivial;
+    }
+    (rewrite (cryptol_ss ()) (unfold_term ["ecEq"]
+      {{ \i enc ctx in len Xi ->
+        cipher_update_array_helper enc ctx in i len Xi ==
+        cipher_update_array_helper_unfold enc ctx in i len Xi
+      }}
+    ));
+
+let {{
+  cipher_update_array_ctx_16 : [32] -> AES_GCM_Ctx -> [64] -> Array [64] [8] -> [16][8] -> [16][8]
+  cipher_update_array_ctx_16 enc ctx i inp Xi0 = Xi16
+    where
+      Xi1  = cipher_update_array_ctx enc ctx (i +  0) (arrayLookup inp (i +  0))  Xi0
+      Xi2  = cipher_update_array_ctx enc ctx (i +  1) (arrayLookup inp (i +  1))  Xi1
+      Xi3  = cipher_update_array_ctx enc ctx (i +  2) (arrayLookup inp (i +  2))  Xi2
+      Xi4  = cipher_update_array_ctx enc ctx (i +  3) (arrayLookup inp (i +  3))  Xi3
+      Xi5  = cipher_update_array_ctx enc ctx (i +  4) (arrayLookup inp (i +  4))  Xi4
+      Xi6  = cipher_update_array_ctx enc ctx (i +  5) (arrayLookup inp (i +  5))  Xi5
+      Xi7  = cipher_update_array_ctx enc ctx (i +  6) (arrayLookup inp (i +  6))  Xi6
+      Xi8  = cipher_update_array_ctx enc ctx (i +  7) (arrayLookup inp (i +  7))  Xi7
+      Xi9  = cipher_update_array_ctx enc ctx (i +  8) (arrayLookup inp (i +  8))  Xi8
+      Xi10 = cipher_update_array_ctx enc ctx (i +  9) (arrayLookup inp (i +  9))  Xi9
+      Xi11 = cipher_update_array_ctx enc ctx (i + 10) (arrayLookup inp (i + 10)) Xi10
+      Xi12 = cipher_update_array_ctx enc ctx (i + 11) (arrayLookup inp (i + 11)) Xi11
+      Xi13 = cipher_update_array_ctx enc ctx (i + 12) (arrayLookup inp (i + 12)) Xi12
+      Xi14 = cipher_update_array_ctx enc ctx (i + 13) (arrayLookup inp (i + 13)) Xi13
+      Xi15 = cipher_update_array_ctx enc ctx (i + 14) (arrayLookup inp (i + 14)) Xi14
+      Xi16 = cipher_update_array_ctx enc ctx (i + 15) (arrayLookup inp (i + 15)) Xi15 
+}};
+
+print "Starting lt_lemma...";
+lt_lemma <- prove_print w4 {{ \(i : [64]) (n : [64]) -> (i == n) \/ (n - (i + 1) < n - i) }};
+
+print "Starting cipher_update_array_ctx_ctx_lemma...";
+cipher_update_array_ctx_ctx_lemma <-
+  prove_print
+    do {
+      unfolding ["cipher_update_array_ctx"];
+      simpl;
+      unfolding ["get_H"];
+      simpl;
+      unfolding ["EKij"];
+      simpl;
+      unfolding ["EKi"];
+      simpl;
+      rw vecEq_refl_lemma;
+      trivial;
+    }
+    (rewrite (cryptol_ss ()) (unfold_term ["ecEq"]
+      {{ \i enc key iv ctxXi ctxXi' byte Xi -> (
+        cipher_update_array_ctx enc ctx i byte Xi ==
+        cipher_update_array_ctx enc ctx' i byte Xi
+          where
+            ctx = {key = key, iv = iv, Xi = ctxXi, len = 0}
+            ctx' = {key = key, iv = iv, Xi = ctxXi', len = 0}
+      )}}
+    ));
+
+print "Starting cipher_update_array_ctx_16_ctx_lemma...";
+cipher_update_array_ctx_16_ctx_lemma <-
+  prove_by_bv_induction
+    do {
+      i <- goal_intro "i";
+      len <- goal_intro "len";
+      enc <- goal_intro "enc";
+      key <- goal_intro "key";
+      iv <- goal_intro "iv";
+      ctxXi <- goal_intro "ctxXi";
+      ctxXi' <- goal_intro "ctxXi'";
+      Xi <- goal_intro "Xi";
+      inp <- goal_intro "inp";
+      normalize_sequent;
+      unfolding ["/\\"];
+      simpl;
+      focus_concl 0;
+      rw ite_bool_and_lemma;
+      rw ite_bool_implies_lemma;
+      normalize_sequent;
+
+      unfocus;
+      goal_insert_and_specialize lt_lemma [i, len];
+      simpl;
+      focus_hyp 3;
+      split_goal;
+      unfocus;
+
+      focus_concl 0;
+      rwh 4;
+      rw cipher_update_array_helper_unfolding_lemma;
+      unfolding ["cipher_update_array_helper_unfold"];
+      simpl;
+
+      rw bvult_64_refl_false_lemma;
+      rw ite_const_false_lemma;
+      rw vecEq_refl_lemma;
+      trivial;
+
+      focus_concl 0;
+      rw cipher_update_array_helper_unfolding_lemma;
+      unfolding ["cipher_update_array_helper_unfold"];
+      simpl;
+      focus_hyp 0;
+      goal_specialize_hyp [ {{ i + 1 }}, len ];
+      delete_hyps [0];
+
+      goal_cut {{ i + 1 <= len }};
+
+      focus_hyp 5;
+      unfolding ["EqTrue"];
+      simpl;
+      focus_hyp 0;
+      unfolding ["EqTrue"];
+      simpl;
+      focus_hyp 4;
+      rwh 5;
+      rwh 0;
+      rw ite_bool_and_lemma;
+      rw and_true_lemma;
+      rw ite_const_true_bool_lemma;
+
+      unfocus;
+      simpl;
+      focus_hyp 2;
+      unfolding ["EqTrue"];
+      simpl;
+      focus_hyp 4;
+      rwh 2;
+      goal_specialize_hyp
+        [ enc
+        , key
+        , iv
+        , ctxXi, ctxXi'
+        , {{ cipher_update_array_ctx enc {key = key, iv = iv, Xi = ctxXi, len = 0} i (arrayLookup inp i) Xi }}
+        , inp
+        , parse_core "Refl Bool True"
+        ];
+
+      focus_hyp 6;
+      rwh 5;
+      rw ite_const_true_bool_lemma;
+      recover_eqtrue;
+      rw recover_vecEq_lemma;
+      unfocus;
+      simpl;
+      focus_concl 0;
+      rwh 6;
+
+      goal_insert_and_specialize cipher_update_array_ctx_ctx_lemma
+        [ i
+        , enc
+        , key
+        , iv
+        , ctxXi
+        , ctxXi'
+        , {{ arrayLookup inp i }}
+        , Xi
+        ];
+      focus_hyp 7;
+      recover_eqtrue;
+      rw recover_vecEq_lemma;
+      simpl;
+
+      focus_concl 0;
+      rwh 7;
+      rw vecEq_refl_lemma;
+      trivial;
+
+      delete_concl [0];
+      delete_hyps [4];
+      w4;
+    }
+    (rewrite (cryptol_ss ()) (unfold_term ["ecEq"]
+      {{ \i len enc key iv ctxXi ctxXi' Xi inp ->
+        ( len - i
+        , ((len <= (2^^32)) /\ (i <= len)) ==>
+            cipher_update_array_helper enc ctx inp i len Xi
+            == cipher_update_array_helper enc ctx' inp i len Xi
+            where
+              ctx = {key = key, iv = iv, Xi = ctxXi, len = 0}
+              ctx' = {key = key, iv = iv, Xi = ctxXi', len = 0}
+        )
+      }}
+    ));
+
+print "Starting cipher_update_array_helper_unfold_16_lemma...";
+cipher_update_array_helper_unfold_16_lemma <-
+  prove_print
+    do {
+      i <- goal_intro "i";
+      len <- goal_intro "len";
+      key <- goal_intro "key";
+      iv <- goal_intro "iv";
+      ctxXi <- goal_intro "ctxXi";
+      Xi <- goal_intro "Xi";
+      enc <- goal_intro "enc";
+      inp <- goal_intro "inp";
+
+      unfolding ["==>", "/\\"];
+      simpl;
+      rw ite_bool_and_lemma;
+      rw ite_bool_implies_lemma;
+      normalize_sequent;
+      goal_cut {{ i + 16 <= len }};
+      unfocus;
+      simpl;
+
+      goal_insert_and_specialize cipher_update_array_ctx_16_ctx_lemma
+        [ {{ i + 16 }}
+        , len
+        , enc
+        , key
+        , iv
+        , ctxXi
+        , ctxXi
+        , {{ cipher_update_array_ctx_16 enc {key = key, iv = iv, Xi = ctxXi, len = 0} i inp Xi }}
+        , inp
+        ];
+      unfocus;
+      simpl;
+      focus_hyp 0;
+      unfolding ["EqTrue"];
+      simpl;
+      focus_hyp 3;
+      unfolding ["EqTrue"];
+      simpl;
+      focus_hyp 4;
+      rwh 0;
+      rwh 3;
+      unfolding ["/\\"];
+      simpl;
+      rw ite_const_true_bool_lemma;
+      recover_eqtrue;
+      focus_concl 0;
+      rwh 4;
+      delete_hyps [4];
+
+      let unfold_where_i i_tm = do {
+        goal_insert_and_specialize cipher_update_array_helper_unfolding_lemma [i_tm];
+        focus_hyp 4;
+        rw recover_vecEq_lemma;
+        recover_eqtrue;
+        simpl;
+        focus_concl 0;
+        rw bvAdd_assoc_right_lemma;
+        simpl;
+        rwh 4;
+        unfolding ["cipher_update_array_helper_unfold"];
+        simpl;
+        delete_hyps [4];
+      };
+
+      unfold_where_i i;
+      unfold_where_i {{ i + 1 }};
+      unfold_where_i {{ i + 2 }};
+      unfold_where_i {{ i + 3 }};
+      unfold_where_i {{ i + 4 }};
+      unfold_where_i {{ i + 5 }};
+      unfold_where_i {{ i + 6 }};
+      unfold_where_i {{ i + 7 }};
+      unfold_where_i {{ i + 8 }};
+      unfold_where_i {{ i + 9 }};
+      unfold_where_i {{ i + 10 }};
+      unfold_where_i {{ i + 11 }};
+      unfold_where_i {{ i + 12 }};
+      unfold_where_i {{ i + 13 }};
+      unfold_where_i {{ i + 14 }};
+      unfold_where_i {{ i + 15 }};
+
+      unfolding ["cipher_update_array_ctx_16"];
+      simpl;
+      rw bvAdd_assoc_right_lemma;
+      w4_unint_z3 ["cipher_update_array_helper", "cipher_update_array_ctx"];
+
+      delete_concl [0];
+      w4;
+    }
+    (rewrite (cryptol_ss ()) (unfold_term ["ecEq"]
+      {{ \i len key iv ctxXi Xi enc inp -> (
+        ((len <= (2^^32)) /\ (i <= len) /\ (i + 15 < len)) ==>
+          cipher_update_array_helper enc ctx inp i len Xi
+          == cipher_update_array_helper enc ctx inp (i + 16) len Xi'
+          where
+            ctx = {key = key, iv = iv, Xi = ctxXi, len = 0}
+            Xi' = cipher_update_array_ctx_16 enc ctx i inp Xi
+      )}}
+    ));
+
+ite_const_false_array_lemma <- prove_print w4
+  (rewrite (cryptol_ss ()) (unfold_term ["ecEq"]
+    {{ \(x : Array [64] [8]) (y : Array [64] [8]) (z : Array [64] [8]) (c : Bool) (idx : [64]) ->
+      arrayLookup (if c then (if False then x else y) else z) idx == arrayLookup (if c then y else z) idx
+    }}
+  ));
+
+print "Starting gcm_ghash_array_unfolding_lemma...";
+gcm_ghash_array_unfolding_lemma <-
+  prove_print
+    do {
+      unfolding ["ecEq","gcm_ghash_array"];
+      simplify (addsimp_shallow (core_thm "fix_unfold") empty_ss);
+      simplify (cryptol_ss ());
+      unfolding ["gcm_ghash_array_unfold","gcm_ghash_array"];
+      simpl;
+      rw vecEq_refl_lemma;
+      trivial;
+    }
+    (rewrite (cryptol_ss ()) (unfold_term ["ecEq"]
+      {{ \H Xi inp i blocks ->
+        gcm_ghash_array H Xi inp i blocks ==
+        gcm_ghash_array_unfold H Xi inp i blocks
+      }}
+    ));
+
+print "Starting gcm_ghash_array_internal_lemma...";
+gcm_ghash_array_internal_lemma <-
+  prove_by_bv_induction
+  do {
+    i <- goal_intro "i";
+    blocks <- goal_intro "blocks";
+    H <- goal_intro "H";
+    Xi <- goal_intro "Xi";
+    inp <- goal_intro "inp";
+    goal_intro_hyp;
+    rw gcm_ghash_array_internal_unfolding_lemma2;
+    rw gcm_ghash_array_unfolding_lemma;
+    unfolding ["gcm_ghash_array_unfold", "gcm_ghash_array_internal_unfold"];
+    simpl;
+
+    unfocus;
+    goal_insert_and_specialize lt_lemma [i, blocks];
+    simpl;
+    focus_hyp 1;
+    split_goal;
+    unfocus;
+
+    rwh 2;
+    rw bvult_64_refl_false_lemma;
+    rw ite_const_false_vec128_lemma;
+    rw ite_const_false_lemma;
+    simpl;
+    rw bvSub_refl_zero_lemma;
+    rw ite_const_false_vec128_lemma;
+    simpl;
+    delete_hyps [0, 1, 2];
+    w4;
+
+    focus_hyp 0;
+    goal_specialize_hyp
+      [ {{ i + 1 }}
+      , blocks
+      , H
+      , {{ gcm_ghash_block (gcm_init_H H) Xi (arrayRangeLookup inp (i * 16) : [16][8]) }}
+      , inp
+      ];
+    delete_hyps [0, 2];
+    focus_hyp 0;
+    unfolding ["EqTrue"];
+    simpl;
+    focus_hyp 1;
+    simpl;
+    rwh 0;
+    goal_specialize_hyp [parse_core "Refl Bool True"];
+    delete_hyps [0, 1];
+    focus_hyp 0;
+    rw recover_vecEq_lemma;
+    unfolding ["ecMul"];
+    simpl;
+    w4_unint_yices ["gcm_ghash_array", "gcm_ghash_array_internal"];
+  }
+  {{ \(i : [64]) (blocks : [64]) (H : [128]) (Xi : [16][8]) (inp : Array [64] [8]) ->
+    ( blocks - i
+    , (i <= blocks) ==>
+      gcm_ghash_array (gcm_init_H H) Xi inp i blocks == split (gcm_ghash_array_internal H (join Xi) inp i blocks)
+    )
+  }};
+
+print "Starting split_lemma...";
+split_lemma <- prove_print w4 {{ \(i : [64]) (n : [64]) -> ((i + 15 < n) == False) \/ (i + 15 < n) }};

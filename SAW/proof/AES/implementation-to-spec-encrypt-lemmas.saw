@@ -1,0 +1,357 @@
+print "Starting cipher_update_array_helper_unfold_16x6_noXi_lemma...";
+cipher_update_array_helper_unfold_16x6_noXi_lemma <-
+  prove_print
+    do {
+      i <- goal_intro "i";
+      len <- goal_intro "len";
+      key <- goal_intro "key";
+      iv <- goal_intro "iv";
+      Xi <- goal_intro "Xi";
+      inp <- goal_intro "inp";
+      enc <- goal_intro "enc";
+
+      unfolding ["==>", "/\\"];
+      simpl;
+      rw ite_bool_and_lemma;
+      rw ite_bool_implies_lemma;
+      normalize_sequent;
+
+      focus_hyp 0;
+      unfolding ["EqTrue"];
+      simpl;
+      focus_hyp 1;
+      unfolding ["EqTrue"];
+      simpl;
+      unfocus;
+
+      let unfold_block off_tm = do {
+        goal_insert_and_specialize cipher_update_array_helper_unfold_16_lemma [{{ i + off_tm }}, len];
+        goal_cut {{ i + (off_tm + 15) < len }};
+        focus_hyp 4;
+        unfolding ["EqTrue"];
+        simpl;
+        goal_cut {{ i + off_tm <= len }};
+        focus_hyp 5;
+        unfolding ["EqTrue"];
+        simpl;
+        focus_hyp 3;
+        simpl;
+        recover_eqtrue;
+        rw bvAdd_assoc_right_lemma;
+        rw bvAdd_right_identity_zero_lemma;
+        rwh 0;
+        rwh 1;
+        rwh 4;
+        rwh 5;
+        unfolding ["/\\"];
+        rw ite_const_true_bool_lemma;
+        simpl;
+        focus_concl 0;
+        rwh 3;
+        delete_hyps [3, 4, 5];
+      };
+
+      unfold_block {{ 0 }};
+      unfold_block {{ 16 }};
+      unfold_block {{ 32 }};
+      unfold_block {{ 48 }};
+      unfold_block {{ 64 }};
+      unfold_block {{ 80 }};
+
+      unfocus;
+      goal_insert_and_specialize cipher_update_array_ctx_16_ctx_lemma
+        [ {{ i + 96 }}
+        , len
+        , enc
+        , key
+        , iv
+        , {{ cipher_update_array_ctx_16 enc ctx (i + 80) inp
+             (cipher_update_array_ctx_16 enc ctx (i + 64) inp
+             (cipher_update_array_ctx_16 enc ctx (i + 48) inp
+             (cipher_update_array_ctx_16 enc ctx (i + 32) inp
+             (cipher_update_array_ctx_16 enc ctx (i + 16) inp
+             (cipher_update_array_ctx_16 enc ctx i inp
+             Xi)))))
+          where
+            ctx = {key = key, iv = iv, Xi = Xi, len = 0}
+          }}
+        , Xi
+        ];
+      goal_cut {{ i + 96 <= len }};
+      focus_hyp 4;
+      unfolding ["EqTrue"];
+      simpl;
+      focus_hyp 3;
+      simpl;
+      rwh 0;
+      rwh 4;
+      unfolding ["/\\"];
+      simpl;
+      rw ite_const_true_bool_lemma;
+      recover_eqtrue;
+      focus_concl 0;
+      rwh 3;
+      rw vecEq_refl_lemma;
+      trivial;
+
+      let solve_easy = do {
+        delete_hyps [3];
+        delete_concl [0];
+        w4;
+      };
+
+      solve_easy;
+      solve_easy;
+      solve_easy;
+      solve_easy;
+      solve_easy;
+      solve_easy;
+      solve_easy;
+      solve_easy;
+      solve_easy;
+      solve_easy;
+      solve_easy;
+      solve_easy;
+      solve_easy;
+    }
+    (rewrite (cryptol_ss ()) (unfold_term ["ecEq"]
+      {{ \i len key iv Xi inp enc -> (
+        ((len <= (2^^32)) /\ (i <= len) /\ (i + 95 < len)) ==>
+          cipher_update_array_helper enc ctx inp i len Xi
+          == cipher_update_array_helper enc ctx inp (i + 96) len Xi'
+          where
+            ctx = {key = key, iv = iv, Xi = Xi, len = 0}
+            Xi' = cipher_update_array_ctx_16 enc ctx (i + 80) inp
+                 (cipher_update_array_ctx_16 enc ctx (i + 64) inp
+                 (cipher_update_array_ctx_16 enc ctx (i + 48) inp
+                 (cipher_update_array_ctx_16 enc ctx (i + 32) inp
+                 (cipher_update_array_ctx_16 enc ctx (i + 16) inp
+                 (cipher_update_array_ctx_16 enc ctx i inp
+                 Xi)))))
+      )}}
+    ));
+
+lookup_aesenc_lemma <-
+  prove_print
+    do {
+      i <- goal_intro "i";
+      j <- goal_intro "j";
+      inp <- goal_intro "inp";
+      ctx <- goal_intro "ctx";
+
+      rw aes_hw_ctr32_encrypt_blocks_array_unfold_lemma2;
+      unfolding ["aes_hw_ctr32_encrypt_blocks_array_unfold"];
+      simpl;
+      rw aes_hw_ctr32_encrypt_blocks_array_unfold_lemma2;
+      unfolding ["aes_hw_ctr32_encrypt_blocks_array_unfold"];
+      simpl;
+      rw bvult_64_refl_false_lemma;
+      rw ite_const_false_array_lemma;
+
+      unfolding ["EKij"];
+      unfolding ["EKi"];
+      simpl;
+
+      unfolding ["==>", "/\\"];
+      rw ite_bool_implies_lemma;
+      rw ite_bool_and_lemma;
+      normalize_sequent;
+
+      unfolding ["get_Yi"];
+      unfolding ["get_i"];
+      unfolding ["splitAt"];
+      simpl;
+
+      rw drop_append_lemma;
+      rw join_split_vec4_lemma;
+      rw take_append_lemma;
+
+      w4_unint_z3 ["aes_hw_encrypt"];
+    }
+    (rewrite (cryptol_ss ()) (unfold_term ["ecEq"]
+      {{ \i j inp ctx -> (
+        ((i < 2^^32) && (j < 16)) ==>
+          arrayLookup (aes_hw_ctr32_encrypt_blocks_array inp ctx.key (get_Yi ctx) i (i + 1) zeroByteArray) ((i * 16) + j)
+          == (arrayLookup inp ((i * 16) + j) ^ (EKij ctx (get_i ctx + 1 + drop`{32} i) (drop`{60} j)))
+      )}}
+    ));
+
+print "Starting cipher_update_ctx_encrypt_lemma...";
+cipher_update_ctx_encrypt_lemma <-
+  prove_print
+    do {
+      i <- goal_intro "i";
+      key <- goal_intro "key";
+      iv <- goal_intro "iv";
+      ctxXi <- goal_intro "ctxXi";
+      Xi <- goal_intro "Xi";
+      inp <- goal_intro "inp";
+      unfolding ["cipher_update_array_ctx_16"];
+      simpl;
+      unfolding ["cipher_update_array_ctx"];
+      simpl;
+      rw gcm_ghash_array_internal_unfolding_lemma2;
+      unfolding ["gcm_ghash_array_internal_unfold"];
+      simpl;
+      rw gcm_ghash_array_internal_unfolding_lemma2;
+      unfolding ["gcm_ghash_array_internal_unfold"];
+      simpl;
+      rw bvSub_refl_zero_lemma;
+      rw ite_const_false_vec128_lemma;
+      unfolding ["arrayRangeLookup"];
+      simpl;
+      unfolding ["generate"];
+      simpl;
+      rw arrayRangeLookup_arrayLookup_lemma;
+      goal_insert_and_specialize lookup_aesenc_lemma [ {{ (i / 16) }}, {{ 0 : [64] }}, inp, {{ {key = key, iv = iv, Xi = ctxXi, len = (0 : [64]) } }} ];
+      goal_insert_and_specialize lookup_aesenc_lemma [ {{ (i / 16) }}, {{ 1 : [64] }}, inp, {{ {key = key, iv = iv, Xi = ctxXi, len = (0 : [64]) } }} ];
+      goal_insert_and_specialize lookup_aesenc_lemma [ {{ (i / 16) }}, {{ 2 : [64] }}, inp, {{ {key = key, iv = iv, Xi = ctxXi, len = (0 : [64]) } }} ];
+      goal_insert_and_specialize lookup_aesenc_lemma [ {{ (i / 16) }}, {{ 3 : [64] }}, inp, {{ {key = key, iv = iv, Xi = ctxXi, len = (0 : [64]) } }} ];
+      goal_insert_and_specialize lookup_aesenc_lemma [ {{ (i / 16) }}, {{ 4 : [64] }}, inp, {{ {key = key, iv = iv, Xi = ctxXi, len = (0 : [64]) } }} ];
+      goal_insert_and_specialize lookup_aesenc_lemma [ {{ (i / 16) }}, {{ 5 : [64] }}, inp, {{ {key = key, iv = iv, Xi = ctxXi, len = (0 : [64]) } }} ];
+      goal_insert_and_specialize lookup_aesenc_lemma [ {{ (i / 16) }}, {{ 6 : [64] }}, inp, {{ {key = key, iv = iv, Xi = ctxXi, len = (0 : [64]) } }} ];
+      goal_insert_and_specialize lookup_aesenc_lemma [ {{ (i / 16) }}, {{ 7 : [64] }}, inp, {{ {key = key, iv = iv, Xi = ctxXi, len = (0 : [64]) } }} ];
+      goal_insert_and_specialize lookup_aesenc_lemma [ {{ (i / 16) }}, {{ 8 : [64] }}, inp, {{ {key = key, iv = iv, Xi = ctxXi, len = (0 : [64]) } }} ];
+      goal_insert_and_specialize lookup_aesenc_lemma [ {{ (i / 16) }}, {{ 9 : [64] }}, inp, {{ {key = key, iv = iv, Xi = ctxXi, len = (0 : [64]) } }} ];
+      goal_insert_and_specialize lookup_aesenc_lemma [ {{ (i / 16) }}, {{ 10 : [64] }}, inp, {{ {key = key, iv = iv, Xi = ctxXi, len = (0 : [64]) } }} ];
+      goal_insert_and_specialize lookup_aesenc_lemma [ {{ (i / 16) }}, {{ 11 : [64] }}, inp, {{ {key = key, iv = iv, Xi = ctxXi, len = (0 : [64]) } }} ];
+      goal_insert_and_specialize lookup_aesenc_lemma [ {{ (i / 16) }}, {{ 12 : [64] }}, inp, {{ {key = key, iv = iv, Xi = ctxXi, len = (0 : [64]) } }} ];
+      goal_insert_and_specialize lookup_aesenc_lemma [ {{ (i / 16) }}, {{ 13 : [64] }}, inp, {{ {key = key, iv = iv, Xi = ctxXi, len = (0 : [64]) } }} ];
+      goal_insert_and_specialize lookup_aesenc_lemma [ {{ (i / 16) }}, {{ 14 : [64] }}, inp, {{ {key = key, iv = iv, Xi = ctxXi, len = (0 : [64]) } }} ];
+      goal_insert_and_specialize lookup_aesenc_lemma [ {{ (i / 16) }}, {{ 15 : [64] }}, inp, {{ {key = key, iv = iv, Xi = ctxXi, len = (0 : [64]) } }} ];
+      unfocus;
+      simpl;
+      admit "cipher_update_ctx_encrypt_lemma";
+      // w4_unint_z3 ["gcm_polyval", "gcm_init_H", "aes_hw_encrypt", "aes_hw_ctr32_encrypt_blocks_array"];
+      // w4_unint_yices ["gcm_polyval", "gcm_init_H", "aes_hw_encrypt"];
+    }
+    (rewrite (cryptol_ss ()) (unfold_term ["ecEq"]
+      {{ \i key iv ctxXi Xi inp -> (
+        ((i % 16 == 0) && (i < 2^^32)) ==>
+          cipher_update_array_ctx_16 1 ctx i inp Xi
+          == split (gcm_ghash_array_internal (join (get_H ctx)) (join Xi) ciphertext (i / 16) ((i / 16) + 1))
+          where
+            ctx = {key = key, iv = iv, Xi = ctxXi, len = 0}
+            ciphertext = 
+              (aes_hw_ctr32_encrypt_blocks_array
+                inp
+                key
+                (get_Yi ctx)
+                (i / 16)
+                ((i / 16) + 1)
+                zeroByteArray)
+      )}}
+    ));
+
+print "Starting ghash_compose_encrypt_lemma...";
+ghash_compose_encrypt_lemma <-
+  prove_by_bv_induction
+  do {
+    // x <- goal_intro "x";
+    // y <- goal_intro "y";
+    // z <- goal_intro "z";
+    // H <- goal_intro "H";
+    // Xi <- goal_intro "Xi";
+    // key <- goal_intro "key";
+    // iv <- goal_intro "iv";
+    // inp <- goal_intro "inp";
+    // goal_intro_hyp;
+
+    // goal_cut
+    //   {{ gcm_ghash_array_internal H Xi inp x y ==
+    //      gcm_ghash_array_internal_unfold H Xi inp x y }};
+    // goal_cut
+    //   {{ gcm_ghash_array_internal H Xi inp x z ==
+    //      gcm_ghash_array_internal_unfold H Xi inp x z }};
+
+    // focus_hyp 0;
+    // goal_specialize_hyp
+    //   [ {{x+1}}, y, z
+    //   , H, {{ gcm_polyval (gcm_init_H H) (Xi ^ (join (arrayRangeLookup inp (x*16)))) }}
+    //   , key, iv
+    //   , inp
+    //   ];
+    // delete_hyps [0];
+    admit "ghash_compose_encrypt_lemma";
+  }
+  {{ \x y z H Xi key iv inp ->
+       ( y - x
+       , x <= y /\ y <= z ==>
+         gcm_ghash_array_internal H
+           (gcm_ghash_array_internal H Xi
+             (aes_hw_ctr32_encrypt_blocks_array inp key iv x y zeroByteArray)
+             x y)
+           (aes_hw_ctr32_encrypt_blocks_array inp key iv y z zeroByteArray)
+           y z
+         ==
+         gcm_ghash_array_internal H Xi
+           (aes_hw_ctr32_encrypt_blocks_array inp key iv x z zeroByteArray)
+           x z
+       )
+  }};
+
+print "Starting ghash_compose_enc_blocks_6x_lemma ...";
+ghash_compose_enc_blocks_6x_lemma <-
+  prove_by_bv_induction
+  do {
+    admit "ghash_compose_enc_blocks_6x_lemma";
+  }
+  {{ \x z H Xi key iv inp ->
+       ( z - x
+       , gcm_ghash_array_6x_enc_final H
+           (gcm_ghash_array_internal H Xi
+             (gcm_enc_blocks_6x inp iv 2 (aes_round_keys key) zeroByteArray x (x + 6))
+             x (x + 6))
+           (gcm_enc_blocks_6x inp iv 2 (aes_round_keys key) zeroByteArray (x + 6) z)
+           (x + 6) z
+         ==
+         gcm_ghash_array_6x_enc_final H Xi
+           (gcm_enc_blocks_6x inp iv 2 (aes_round_keys key) zeroByteArray x z)
+           x z
+       )
+  }};
+
+print "Starting aes_hw_ctr32_encrypt_blocks_array_to_gcm_enc_blocks_lemma...";
+aes_hw_ctr32_encrypt_blocks_array_to_gcm_enc_blocks_lemma <-
+  prove_print
+  do {
+    i <- goal_intro "i";
+    inp <- goal_intro "inp";
+    key <- goal_intro "key";
+    buf <- goal_intro "buf";
+    iv <- goal_intro "iv";
+    ctr <- goal_intro "ctr";
+    H <- goal_intro "H";
+    Xi <- goal_intro "Xi";
+
+    simpl;
+    goal_insert_and_specialize gcm_enc_blocks_eq_lemma
+      [ inp, key, {{ iv # split ctr }}, i, {{ i + 6 }}, buf
+      ];
+    goal_insert_and_specialize gcm_enc_6x_to_1x_lemma
+      [ inp, iv, {{ ctr + drop i }}, {{ aes_round_keys key }}, buf, i, {{ i + 6 }}
+      ];
+    unfocus;
+    simpl;
+
+    admit "aes_hw_ctr32_encrypt_blocks_array_to_gcm_enc_blocks_lemma";
+    // w4_unint_z3 ["gcm_enc_blocks", "gcm_enc_blocks_6x", "gcm_ghash_array_internal", "aes_hw_ctr32_encrypt_blocks_array", "aes_round_keys"];
+  }
+  {{ \i inp key buf iv ctr H Xi ->
+       (i < i + 6) ==>
+         (gcm_ghash_array_internal H Xi
+             (aes_hw_ctr32_encrypt_blocks_array inp key
+               (iv # split ctr)
+               i (i + 6)
+               buf)
+             i (i + 6)
+           ==
+           gcm_ghash_array_internal H Xi
+             (gcm_enc_blocks_6x inp
+               iv (ctr + drop i)
+               (aes_round_keys key)
+               buf
+               i (i + 6))
+             i (i + 6)
+         )
+  }};
