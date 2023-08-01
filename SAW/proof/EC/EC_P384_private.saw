@@ -44,16 +44,16 @@ let p384_point_mul_spec = do {
   global_alloc_init "OPENSSL_ia32cap_P" {{ ia32cap }};
 
   group_ptr <- crucible_alloc_readonly (llvm_struct "struct.ec_group_st");
-  r_ptr <- crucible_alloc (llvm_struct "struct.EC_RAW_POINT");
-  p_ptr <- crucible_alloc_readonly (llvm_struct "struct.EC_RAW_POINT");
-  p <- points_to_fresh_EC_RAW_POINT p_ptr;
+  r_ptr <- crucible_alloc (llvm_struct "struct.EC_JACOBIAN");
+  p_ptr <- crucible_alloc_readonly (llvm_struct "struct.EC_JACOBIAN");
+  p <- points_to_fresh_EC_JACOBIAN p_ptr;
   (scalar, scalar_ptr) <- ptr_to_fresh_readonly "p_scalar" i384;
 
   crucible_execute_func [group_ptr, r_ptr, p_ptr, scalar_ptr];
 
   global_points_to "OPENSSL_ia32cap_P" {{ ia32cap }};
 
-  points_to_EC_RAW_POINT r_ptr 
+  points_to_EC_JACOBIAN r_ptr 
     {{ point_mul_generic p scalar }};
 };
 

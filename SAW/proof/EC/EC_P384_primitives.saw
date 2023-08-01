@@ -383,13 +383,13 @@ let p384_point_add_same_l_spec mixed = do {
   points_to_point x1_ptr y1_ptr z1_ptr {{ point_add (`mixed != zero) [x1, y1, z1] [x2, y2, z2] }};
 };
 
-let points_to_EC_RAW_POINT ptr point = do {
+let points_to_EC_JACOBIAN ptr point = do {
   crucible_points_to_untyped (crucible_field ptr "X") (crucible_term {{ point.X }});
   crucible_points_to_untyped (crucible_field ptr "Y") (crucible_term {{ point.Y }});
   crucible_points_to_untyped (crucible_field ptr "Z") (crucible_term {{ point.Z }});
 };
 
-let points_to_fresh_EC_RAW_POINT ptr = do {
+let points_to_fresh_EC_JACOBIAN ptr = do {
   X <- crucible_fresh_var "raw.X" i384;
   crucible_points_to_untyped (crucible_field ptr "X") (crucible_term X);
   Y <- crucible_fresh_var "raw.Y" i384;
