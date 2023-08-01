@@ -77,34 +77,13 @@ Ltac removeCoerce :=
     replace (coerce t1 t2 p a) with a; [idtac | reflexivity]
   end.
 
-Theorem Vec_0_nil : forall (A : Type)(v : Vec O A),
-  v = @Vector.nil A.
-
-  intros.
-  eapply (@case0 _ (fun v => v = Vector.nil A)).
-  reflexivity.
-
-Qed.
-
-Theorem Vec_S_cons : forall (A : Type) n (v : Vec (S n) A),
-  exists x y, v = @Vector.cons A x n y.
-
-  intros.
-  eapply (@VectorDef.caseS' _ _ _ (fun v => exists x y, v = Vector.cons A x n y)).
-  intros.
-  econstructor.
-  econstructor.
-  reflexivity.
-
-Qed.
-
 
 Theorem vec_0_eq : forall (A : Type)(v1 v2 : Vector.t A 0%nat),
   v1 = v2.
 
   intros.
-  specialize (Vec_0_nil v1); intros.
-  specialize (Vec_0_nil v2); intros.
+  specialize (Vec_0_nil _ v1); intros.
+  specialize (Vec_0_nil _ v2); intros.
   subst.
   reflexivity.
 
@@ -117,37 +96,13 @@ Theorem eq_if_to_list_eq : forall (A : Type) n (v1 v2 : Vector.t A n),
 
   induction n; intros; simpl in *.
   eapply vec_0_eq.
-  destruct (Vec_S_cons v1). destruct H0. subst.
-  destruct (Vec_S_cons v2). destruct H0. subst.
+  destruct (Vec_S_cons _  _ v1). destruct H0. subst.
+  destruct (Vec_S_cons _ _ v2). destruct H0. subst.
   repeat rewrite to_list_cons in H.
   inversion H; clear H; subst.
   f_equal.
   eapply IHn.
   eauto.
-
-Qed.
-
-Theorem empty_Vec_eq : forall (A : Type)(v1 v2 : Vec O A),
-  v1 = v2.
-
-  intros.
-  rewrite (@Vec_0_nil _ v1).
-  rewrite (@Vec_0_nil _ v2).
-  reflexivity.
-Qed.
-
-
-Theorem ecScanl_vec_ext : forall t1 t2 (f1 f2 : t1 -> t2 -> t1) n (ls : Vec n t2) x,
-  (forall x y, f1 x y = f2 x y) ->
-  (ecScanl n t1 t2 f1 x ls) = (ecScanl n t1 t2 f2 x ls).
-
-  induction ls; intros.
-  reflexivity.
-
-  simpl.
-  rewrite H.
-  f_equal.
-  eapply IHls; eauto.
 
 Qed.
 
@@ -170,14 +125,6 @@ Fixpoint toN_excl_bv s n :=
 Definition toN_bv s n :=
   (toN_excl_bv s n) ++ ((bvNat s n) :: List.nil).
 
-
-Theorem toList_cons : forall A n (v : Vec n A) a,
-  to_list (Vector.cons A a n v) = List.cons a (to_list v).
-
-  intros.
-  reflexivity.
-
-Qed.
 
 Fixpoint fromN_excl_bv (s n1 count : nat) : list (Vec s bool) :=
   match count with
@@ -240,7 +187,7 @@ Theorem fromN_excl_bv_eq_gen : forall s n1 n2,
   induction n1; intros; simpl in *.
   reflexivity.
   rewrite IHn1.
-  rewrite toList_cons.
+  rewrite to_list_cons.
   f_equal.
   f_equal.
   apply gen_domain_eq.
@@ -261,7 +208,7 @@ Theorem ecFromTo_0_n_bv_equiv : forall (s : nat) n,
   unfold ecFromTo.
   rewrite toN_bv_fromToN_bv_eq.
   simpl.
-  rewrite toList_cons.
+  rewrite to_list_cons.
   unfold fromToN_bv.
   f_equal.
   rewrite PeanoNat.Nat.sub_0_r.
@@ -294,7 +241,7 @@ Theorem toList_map_equiv : forall A (inh : Inhabited A) B n (v : Vec n A) (f : A
   induction v; intros.
   reflexivity.
 
-  rewrite toList_cons.
+  rewrite to_list_cons.
   simpl.
   match goal with
   | [|- to_list (map ?A ?B ?f (S ?n) (VectorDef.cons ?A ?h ?n ?v)) = _] =>
@@ -302,7 +249,7 @@ Theorem toList_map_equiv : forall A (inh : Inhabited A) B n (v : Vec n A) (f : A
   end.
   reflexivity.
   rewrite H.
-  rewrite toList_cons.
+  rewrite to_list_cons.
   f_equal.
   eauto.
 
@@ -323,7 +270,7 @@ Theorem toList_scanl_equiv : forall (A B : Type)(f : A -> B -> A) n (v : Vec n B
   simpl. reflexivity.
 
   simpl.
-  rewrite toList_cons.
+  rewrite to_list_cons.
   f_equal.
   eapply IHv.
 
@@ -411,51 +358,6 @@ Theorem sawAt_nth_equiv : forall (A : Type)(inh : Inhabited A)(n1 : nat)(ls : Ve
   reflexivity.
   lia.
 Qed.
-
-Theorem to_list_cons : forall (A : Type)(n : Nat)(ls : Vec n A) x,
-  to_list (VectorDef.cons _ x _ ls) = List.cons x (to_list ls).
-
-  intros.
-  reflexivity.
-
-Qed.
-
-Section NatPlusInd.
-
-  Variable P : nat -> Prop.
-  Hypothesis base : P O.
-  Hypothesis step : forall n, P n -> P (n + 1)%nat.
-
-  Theorem nat_plus_ind : forall n, P n.
-    induction n; intros; simpl in *; trivial.
-    specialize (@step n).
-    replace (S n )%nat with (n + 1)%nat.
-    eauto.
-    lia.
-  Qed.
-
-End NatPlusInd.
-
-Theorem Vec_plus_app : forall (A : Type) n m (v : Vec (n + m)%nat A),
-  exists (v1 : (Vec n A))(v2 : (Vec m A)),
-    v = Vector.append v1 v2.
-
-  induction n; intros; simpl in *.
-  exists (Vector.nil A).
-  exists v.
-  reflexivity.
-
-  destruct (Vec_S_cons v).
-  destruct H.
-  subst.
-  destruct (IHn _ x0). destruct H. subst.
-  exists (Vector.cons A x _ x1).
-  exists x2.
-  simpl.
-  reflexivity.
-
-Qed.
-
 
 Fixpoint gen_ls (n : nat)(A : Type)(f : nat -> A) : list A :=
   match n with
@@ -548,17 +450,6 @@ Theorem gen_ls_reverse_subNat_equiv : forall (A : Type)(inh : Inhabited A) n (ls
 Qed.
 
 
-Theorem to_list_length : forall (A : Type) n (ls : Vec n A),
-  List.length (to_list ls) = n.
-
-  induction ls; intros.
-  trivial.
-  rewrite to_list_cons.
-  simpl.
-  f_equal; eauto.
-
-Qed.
-
 Theorem toList_reverse_equiv : forall (A : Type)(inh : Inhabited A) n (ls : Vec n A),
   to_list (SAWCorePrelude.reverse _ _ ls) = rev (to_list ls).
 
@@ -566,7 +457,7 @@ Theorem toList_reverse_equiv : forall (A : Type)(inh : Inhabited A) n (ls : Vec 
   unfold reverse.
   rewrite to_list_gen_sawAt_eq.
   apply gen_ls_reverse_subNat_equiv.
-  apply to_list_length.
+  apply length_to_list.
   intros.
   repeat rewrite subNat_sub.
   lia.
@@ -592,15 +483,6 @@ Theorem scanl_ext : forall (A B : Type)(f1 f2 : A -> B -> A) ls a,
 
 Qed.
 
-
-Theorem toList_ecReverse_equiv : forall (A : Type)(inh : Inhabited A) n (ls : Vec n A),
-  to_list (ecReverse (TCNum n) _ ls) = rev (to_list ls).
-    
-  intros.
-  simpl.
-  apply toList_reverse_equiv.
-Qed.
-
 (* zip is in the generated code. It is reproduced here to allow us to reason about it without importing
 generated code. *)
 
@@ -624,7 +506,7 @@ Theorem toList_zip_equiv : forall (A B : Type)(inha : Inhabited A)(inhb: Inhabit
   rewrite (@Vec_0_nil _ lsb0).
   simpl.
   reflexivity.
-  destruct (Vec_S_cons lsb0).
+  destruct (Vec_S_cons _ _  lsb0).
   destruct H. subst.
   rewrite zip_cons_equiv.
   repeat rewrite to_list_cons.
@@ -663,7 +545,7 @@ Theorem toList_drop_equiv : forall A (inh : Inhabited A) n1 n2 ls,
   simpl.
   reflexivity.
 
-  destruct (Vec_S_cons ls). destruct H.
+  destruct (Vec_S_cons _ _ ls). destruct H.
   subst.
   rewrite drop_cons_eq.
   rewrite IHn1.
@@ -717,7 +599,7 @@ Theorem lsb_0_even_h : forall n (v : Vec n _) acc (pf : (pred n < n)%nat),
   lia.
 
   unfold bvToNat in *.
-  destruct (Vec_S_cons v).
+  destruct (Vec_S_cons _ _ v).
   destruct H0.
   subst.
   simpl.
@@ -757,7 +639,7 @@ Theorem lsb_1_not_even_h : forall n (v : Vec n _) acc (pf : (pred n < n)%nat),
   lia.
 
   unfold bvToNat in *.
-  destruct (Vec_S_cons v).
+  destruct (Vec_S_cons _ _ v).
   destruct H0.
   subst.
   simpl.
@@ -790,15 +672,6 @@ Theorem lsb_1_not_even : forall n (v : Vec n _) (pf : (pred n < n)%nat),
 Qed.
 
 
-Theorem addNat_equiv : forall n1 n2,
-  (n1 + n2)%nat = addNat n1 n2.
-
-  induction n1; intros; simpl in *; trivial.
-  rewrite IHn1.
-  reflexivity.
-Qed.
-
-
 Theorem append_nil_eq : forall (A : Type)(inh : Inhabited A) n (v : Vec n A),
   SAWCorePrelude.append _ _ _ (@Vector.nil A) v = v.
 
@@ -827,7 +700,6 @@ Local Arguments bvSub [n] _ _.
 Local Arguments SAWCorePrelude.map [a]%type_scope {Inh_a} [b]%type_scope f%function_scope _ _.
 
 
-
 Theorem bvZipWith_append : forall f n1 n2 (v1a v1b : Vec n1 _) (v2a v2b : Vec n2 _),
   bvZipWith f _ (append v1a v2a) (append v1b v2b) = 
   append (bvZipWith f _ v1a v1b) (bvZipWith f _ v2a v2b).
@@ -838,9 +710,9 @@ Theorem bvZipWith_append : forall f n1 n2 (v1a v1b : Vec n1 _) (v2a v2b : Vec n2
   repeat rewrite append_nil_eq.
   reflexivity.
 
-  destruct (Vec_S_cons v1a).
+  destruct (Vec_S_cons _ _ v1a).
   destruct H.
-  destruct (Vec_S_cons v1b).
+  destruct (Vec_S_cons _ _ v1b).
   destruct H0.
   subst.
   repeat rewrite SAWCorePrelude_proofs.append_cons.
@@ -851,13 +723,6 @@ Theorem bvZipWith_append : forall f n1 n2 (v1a v1b : Vec n1 _) (v2a v2b : Vec n2
   reflexivity.
 Qed.
 
-Theorem bvAnd_append : forall n1 n2 (v1a v1b : Vec n1 _) (v2a v2b : Vec n2 _),
-  bvAnd (append v1a v2a) (append v1b v2b) = 
-  append (bvAnd v1a v1b) (bvAnd v2a v2b).
-
-  intros.
-  apply bvZipWith_append.
-Qed.
 
 Theorem bvZipWith_append' : forall f n1 n2 (v1a v1b : Vec n1 _) (v2a v2b : Vec n2 _),
   bvZipWith f _ (Vector.append v1a v2a) (Vector.append v1b v2b) = 
@@ -868,9 +733,9 @@ Theorem bvZipWith_append' : forall f n1 n2 (v1a v1b : Vec n1 _) (v2a v2b : Vec n
   rewrite (@Vec_0_nil _ v1b).
   reflexivity.
 
-  destruct (Vec_S_cons v1a).
+  destruct (Vec_S_cons _ _ v1a).
   destruct H.
-  destruct (Vec_S_cons v1b).
+  destruct (Vec_S_cons _ _ v1b).
   destruct H0.
   subst.
   simpl.
@@ -879,69 +744,6 @@ Theorem bvZipWith_append' : forall f n1 n2 (v1a v1b : Vec n1 _) (v2a v2b : Vec n
   reflexivity.
 
 Qed.
-
-Theorem bvAnd_append' : forall n1 n2 (v1a v1b : Vec n1 _) (v2a v2b : Vec n2 _),
-  bvAnd (Vector.append v1a v2a) (Vector.append v1b v2b) = 
-  Vector.append (bvAnd v1a v1b) (bvAnd v2a v2b).
-
-  intros.
-  apply bvZipWith_append'.
-
-Qed.
-
-
-Theorem Vec_addNat_append : forall (A : Type)(inh : Inhabited A) n1 n2 (v : Vec (addNat n1 n2) A),
-  exists v1 v2,
-  v = append v1 v2.
-
-  induction n1; intros; simpl in *.
-  exists (@Vector.nil A).
-  exists v.
-  symmetry.
-  apply append_nil_eq.
-  destruct (Vec_S_cons v).
-  destruct H.
-  subst.
-  destruct (IHn1 _ x0).
-  destruct H.
-  subst.
-  exists (Vector.cons x x1).
-  exists x2.
-  rewrite SAWCorePrelude_proofs.append_cons.
-  reflexivity.
-
-Qed.
-
-
-Theorem drop_S_cons : forall (A : Type)(inh : Inhabited A) a n1 n2 (v : Vec (addNat n1 n2) A),
-  drop _ (S n1) n2 (Vector.cons a v) = drop _ n1 n2 v.
-
-  intros.
-  reflexivity.
-
-Qed.
-
-
-Theorem nth_order_ext : forall (A : Type) n1 n2 (v : Vec n1 A)(lt1 lt2 : (n2 < n1)%nat),
-  nth_order v lt1 = nth_order v lt2.
-
-  intros.
-  unfold nth_order.
-  f_equal.
-  apply Fin.of_nat_ext.
-Qed.
-
-
-Theorem ne_false_impl_true : forall a,
-  a <> false ->   
-  a = true.
-
-  intros.
-  destruct a; trivial.
-  intuition idtac.
-
-Qed.
-
 
 Theorem ecEq_bv_true : forall n v,  
   ecEq (bitvector n) (PEqWord n) v v = true.
@@ -988,34 +790,6 @@ Fixpoint bv64Nats_h (n : nat) v :=
 
 Definition bv64Nats n := bv64Nats_h n 0.
 
-Theorem gen_nat_seq_eq_h : forall n v,
-  (to_list
-      (gen n (bitvector 64)
-         (fun i : nat => intToBv 64%nat (Z.of_nat (addNat i v%nat)))))
-  = bv64Nats_h n v.
-
-  induction n; intuition; simpl in *.
-  rewrite to_list_cons.
-  f_equal.
-  rewrite <- IHn.
-  f_equal.  
-  eapply gen_domain_eq.
-  intros.
-  rewrite (eqNatAddComm _ (S v)).
-  simpl.
-  rewrite eqNatAddComm.
-  trivial.
-Qed.
-
-Theorem gen_nat_seq_eq : forall n,
-  (to_list
-      (gen n (bitvector 64)
-         (fun i : nat => intToBv 64%nat (Z.of_nat (addNat i 0%nat)))))
-  = bv64Nats n.
-
-  intros.
-  apply gen_nat_seq_eq_h.    
-Qed.
 
 Fixpoint nats_h n v :=
   match n with
@@ -1048,40 +822,6 @@ Theorem toN_int_length : forall n,
   lia.
 
 Qed.
-
-Theorem scanl_fix_convert : forall (A1 A2 B1 B2: Type)
-  (conva : A2 -> A1)(convb : B2 -> B1)
-  (f1 : A1 -> A1)(f2 : A2 -> A2)
-  (fb1 : A1 -> B1)(fb2 : A2 -> B2)
-  (fc1 : A1 -> B1)(fc2 : A2 -> B2),
-  (forall a, fb1 (conva a) = convb (fb2 a)) ->
-  (forall a, (exists b, a = (f2 b)) -> fc1 (conva a) = convb (fc2 a)) ->
-  (forall a, (exists b, a = (f2 b)) -> f1 (conva a) = conva (f2 a)) ->
-  forall n a1 a2,
-  (exists b, a2 = (f2 b)) ->
-  a1 = (conva a2) ->
-  List.Forall2 (fun b1 b2 => b1 = convb b2)
-  (scanl_fix f1 fb1 fc1 n a1)
-  (scanl_fix f2 fb2 fc2 n a2).
-
-  induction n; intros; simpl in *; subst.
-  econstructor.
-
-  destruct n.
-  econstructor.
-  eauto.
-  econstructor.
-  eauto.
-  econstructor.
-
-  econstructor.
-  eauto.
-  eapply IHn.
-  eauto.
-  eauto.
-
-Qed.
-
 
 Theorem shiftL1_shiftL : forall (A : Type) n (b : A) v n1,
   (shiftL1 n _ b (shiftL n _ b v n1)) = shiftL n _ b v (S n1).
@@ -1262,19 +1002,6 @@ Theorem Forall2_I : forall (A B : Type)(ls1 : list A)(ls2 : list B),
 
 Qed.
 
-Theorem Forall2_nth : forall (A B : Type)(P : A -> B -> Prop) lsa lsb,
-  List.Forall2 P lsa lsb ->
-  forall n defA defB,
-  P defA defB ->
-  P (List.nth n lsa defA) (List.nth n lsb defB).
-
-  induction 1; intros; simpl in *.
-  destruct n; trivial.
-  destruct n; trivial.
-  eapply IHForall2; trivial.
-
-Qed.
-
 Theorem Forall2_nth_lt : forall (A B : Type)(P : A -> B -> Prop) lsa lsb,
   List.Forall2 P lsa lsb ->
   forall n defA defB,
@@ -1332,13 +1059,6 @@ Theorem bvXor_cons : forall n x y u v,
 
 Qed.
 
-Theorem bvEq_cons : forall n x y u v,
-  bvEq (S n) (Vector.cons u x) (Vector.cons v y) = 
-  andb (Bool.eqb u v) (bvEq _ x y).
-
-  intros.
-  reflexivity.
-Qed.
 
 Theorem replicate_S_cons : forall (A : Type) n (a : A),
   replicate (S n) _ a = Vector.cons a (replicate n _ a).
@@ -1348,35 +1068,12 @@ Theorem replicate_S_cons : forall (A : Type) n (a : A),
 
 Qed.
 
-Theorem xorB_cons : forall n (v1 v2 : spec.BITS n) b1 b2,
-  xorB (spec.consB b1 v1) (spec.consB b2 v2) = spec.consB (xorb b1 b2) (xorB v1 v2).
-
-  intros.
-  apply liftBinOpCons.
-Qed.
-
 
 Theorem addb_same_l : forall n (x y1 y2 : spec.BITS n),
   y1 = y2 ->
   addB x y1 = addB x y2.
 
   intros. subst. trivial.
-Qed.
-
-Theorem addb_same_l_if : forall n (x y1 y2 : spec.BITS n),
-  (addB x y1) = (addB x y2) ->
-  y1 = y2.
-
-  intros.
-  apply (@addb_same_l n (negB x)) in H.
-  repeat rewrite addBA in H.
-  repeat rewrite addBN in H.
-  rewrite addBC in H.
-  rewrite addB0 in H.
-  rewrite addBC in H.
-  rewrite addB0 in H.
-  trivial.
-
 Qed.
 
 Theorem zipWith_cons : forall (A B C: Type)(inha : Inhabited A)(inhb : Inhabited B) f n (v1 : Vec n A)(v2 : Vec n B) a b,
@@ -1395,23 +1092,13 @@ Theorem zipWith_comm : forall (A B : Type)(inha : Inhabited A) (f : A -> A -> B)
   induction n; intros; simpl in *.
   apply vec_0_eq.
 
-  destruct (Vec_S_cons v1).
+  destruct (Vec_S_cons _ _  v1).
   destruct H0.
-  destruct (Vec_S_cons v2).
+  destruct (Vec_S_cons _ _ v2).
   destruct H1.  
   subst.
   repeat rewrite zipWith_cons.
   f_equal; eauto.
-
-Qed.
-
-Theorem bvAnd_comm : forall n v1 v2,
-    @bvAnd n v1 v2 = bvAnd v2 v1.
-
-  intros.
-  apply zipWith_comm.
-  intros.
-  destruct a1; destruct a2; reflexivity.
 
 Qed.
 
@@ -1585,12 +1272,12 @@ Theorem zipWith_ls_eq : forall (A B C : Type)(inha : Inhabited A)(inhb : Inhabit
 
   induction lsa; intros.
   simpl in *.
-  specialize (Vec_0_nil lsb0); intros.
+  specialize (Vec_0_nil _ lsb0); intros.
   subst.
   rewrite zipWith_nil.
   trivial.
 
-  destruct (Vec_S_cons lsb0).
+  destruct (Vec_S_cons _ _ lsb0).
   destruct H.
   subst.
  repeat  rewrite to_list_cons.
@@ -1708,87 +1395,23 @@ Theorem tuple_tval_length : forall (A : Type) n  (t : tuple.tuple_of n A),
 
 Qed.
 
-Theorem bvAnd_bitsToBv_eq : forall n v1 v2,
-  bvAnd (@bitsToBv n v1) (@bitsToBv n v2) = bitsToBv (andB v1 v2).
-
-  intros.
-  eapply eq_if_to_list_eq.
-  unfold bvAnd, bvZipWith.
-  rewrite zipWith_ls_eq.
-  repeat rewrite <- bitsToBv_ls_eq.
-  unfold andB.
-  unfold liftBinOp.
-  rewrite tuple_map_eq.
-  rewrite tuple_zip_eq.
-  unfold bitsToBv_ls.
-  rewrite <- map_rev.
-  rewrite zipWith_ls_eq_map.
-  f_equal.
-  symmetry.
-  apply combine_rev_eq.
-  repeat rewrite tuple_tval_length.
-  reflexivity.
-  repeat rewrite rev_length.
-  repeat rewrite tuple_tval_length.
-  reflexivity.
-  
-Qed.
-
-
-Theorem bvAnd_replicate_1 : forall n v,
-  bvAnd (replicate n _ true) v = v.
-
-  induction v; intros; simpl in *.
-  apply vec_0_eq.
-  rewrite replicate_S_cons.
-  unfold bvAnd, bvZipWith.
-  rewrite zipWith_cons.
-  simpl.
-  f_equal.
-  eapply IHv.
-Qed.
-
-
-Theorem nth_order_eq_impl_eq : forall (A : Type) n (v1 v2 : Vec n A),
-  (forall n1 (n1lt : (n1 < n)%nat), nth_order v1 n1lt = nth_order v2 n1lt) ->
-  v1 = v2.
-
-  intros.
-  apply Vector.eq_nth_iff.
-  intros.
-  subst.
-  unfold nth_order in *.
-  rewrite <- (@Fin.of_nat_to_nat_inv _ p2).
-  eapply H.
-Qed.
-
 Theorem toList_append_equiv : forall A (inh : Inhabited A) n m (v1 : Vec n A)(v2 : Vec m A),
   to_list (SAWCorePrelude.append v1 v2) = 
   List.app (to_list v1) (to_list v2).
 
   induction n; intros; simpl in *.
   
-  rewrite (Vec_0_nil v1).
+  rewrite (Vec_0_nil _ v1).
   simpl.
   rewrite append_nil_eq.
   reflexivity.
 
-  destruct (Vec_S_cons v1). destruct H. subst.
+  destruct (Vec_S_cons _ _ v1). destruct H. subst.
   rewrite append_cons.
   repeat rewrite to_list_cons.
   rewrite IHn.
   simpl.
   reflexivity.
-
-Qed.
-
-
-Theorem to_list_ecCAt_equiv : forall (s1 s2 : nat) t (inh : Inhabited t)(a : Vec s1 t) (b : Vec s2 t),
-  (to_list (ecCat (TCNum s1) (TCNum s2) t a b)) = (List.app (to_list a) (to_list b)).
-
-  intros.
-  rewrite ecCat_equiv.
-  apply toList_append_equiv.
 
 Qed.
 
@@ -1823,35 +1446,11 @@ Theorem shiftR_false_0 : forall n2 n1,
 
 Qed.
 
-
-Theorem toNegZ_nonneg : 
-  forall n (b : spec.BITS n),
-  0 <= spec.toNegZ b.
-
-  induction n; intros; simpl in *.
-  destruct b.
-  destruct tval.
-  unfold spec.toNegZ.
-  simpl.
-  lia.
-  inversion i.
-
-  destruct (bits_cons_decomp b). destruct H. subst.
-  unfold spec.toNegZ in *.
-  simpl in *.
-  destruct x.
-  specialize (IHn x0).
-  lia.
-  specialize (IHn x0).
-  lia.
-
-Qed.
-
 Theorem replicate_repeat_eq : forall n (A  : Type)(v : A),
   repeat v n = to_list (replicate n A v).
 
   induction n; intros; simpl in *.
-  rewrite (Vec_0_nil (replicate 0%nat A v)).
+  rewrite (Vec_0_nil _ (replicate 0%nat A v)).
   reflexivity.
   rewrite replicate_S_cons.
   rewrite to_list_cons.
@@ -2213,9 +1812,9 @@ Theorem shiftR_all_nonneg : forall n1 v,
   rewrite <- repeat_app.
   rewrite plus_comm.
   trivial.
-  rewrite to_list_length.
+  rewrite length_to_list.
   lia.
-  rewrite to_list_length.
+  rewrite length_to_list.
   lia.
 
 Qed.
@@ -2390,17 +1989,6 @@ Definition shiftL1_ls (A : Type) (a : A) (ls : list A) :=
 
 Definition shiftL_ls (A : Type) (x : A) (v : list A) (i : nat) := ssrnat.iter i (shiftL1_ls x) v.
 
-Theorem to_list_tl_eq : forall (A : Type) n (ls : Vec (S n) A),
-  to_list (Vector.tl ls) = tl (to_list ls).
-
-  intros.
-  destruct (Vec_S_cons ls).
-  destruct H.
-  subst.
-  reflexivity.
-
-Qed.
-
 Theorem shiftin_ls_eq : forall n (A : Type) a (ls : Vec n A),
   to_list (shiftin a ls) = shiftin_ls a (to_list ls).
 
@@ -2423,7 +2011,7 @@ Theorem shiftL1_ls_eq : forall n (A : Type) a (ls : Vec n A),
 
   intros.
   unfold shiftL1, shiftL1_ls.
-  rewrite to_list_tl_eq.
+  rewrite to_list_tl.
   f_equal.
   apply shiftin_ls_eq.
   
@@ -2808,7 +2396,7 @@ Theorem nth_to_list_eq : forall (A : Type) n (f : Fin.t n) (v : Vec n A) a,
   Vector.nth v f = nth (proj1_sig (Fin.to_nat f) ) (to_list v) a.
 
   induction f; intros; simpl in *; subst.
-  destruct (Vec_S_cons v).
+  destruct (Vec_S_cons _ _ v).
   destruct H. 
   subst.
   rewrite to_list_cons.
@@ -2819,7 +2407,7 @@ Theorem nth_to_list_eq : forall (A : Type) n (f : Fin.t n) (v : Vec n A) a,
   destruct z.
   simpl.
   
-  destruct (Vec_S_cons v).
+  destruct (Vec_S_cons _ _ v).
   destruct H. 
   subst.
   rewrite to_list_cons.
@@ -2914,7 +2502,7 @@ Theorem sbvToInt_nz_nth : forall n (v : Vec n _) n' (nlt : (n' < n)%nat),
   assert (In true (to_list v)).
   rewrite <- H.
   apply nth_In.
-  rewrite to_list_length.
+  rewrite length_to_list.
   trivial.
   apply toZ_ls_In_true_nz.
   apply (@in_rev _ (to_list v)).
@@ -2932,7 +2520,7 @@ Theorem sbvToInt_neg_sign_bit_set : forall n  b2 (ltpf : (0 < n)%nat),
   destruct n.
   lia.
   unfold bvToBITS_ls in *.
-  destruct (Vec_S_cons b2).
+  destruct (Vec_S_cons _ _ b2).
   destruct H0.
   subst.
   rewrite to_list_cons in *.
@@ -2961,31 +2549,6 @@ Theorem toZ_ls_repeat_0: forall n : nat,
   rewrite repeat_S_rev.
   rewrite splitmsb_ls_app_eq.
   apply toPosZ_ls_repeat_0.
-
-Qed.
-
-Theorem splitmsb_ls_eq_app_if : forall ls a ls',
-  (ls <> nil) ->
-  splitmsb_ls ls = (a, ls') ->
-  ls = ls' ++ [a].
-
-  intros.
-  destruct ls using rev_ind.
-  intuition idtac.
-
-  rewrite splitmsb_ls_app_eq in H0.
-  inversion H0; clear H0; subst.
-  reflexivity.
-
-Qed.
-
-Theorem Z_div_mul_eq : forall x y,
-  x > 0 ->
-  x * (y / x) = y - (y mod x).
-
-  intros.
-  specialize (Zdiv.Z_div_mod_eq y x); intuition idtac.
-  lia.
 
 Qed.
 
@@ -3361,15 +2924,6 @@ Theorem sbvToInt_intToBv_id : forall n v,
   lia.
 Qed.
 
-Theorem fromNegZ_ls_0_eq: forall n : nat, fromNegZ_ls n 0 = repeat 1%bool n.
-  induction n; intros; simpl in *; trivial.
-
-  unfold joinlsb_ls. simpl.
-  f_equal.
-  eauto.
-
-Qed.
-
 Theorem toPosZ_ls_upper_bound : forall ls,
   toPosZ_ls ls < 2^(Z.of_nat (List.length ls)).
 
@@ -3551,7 +3105,7 @@ Theorem sbvToInt_bvToInt_id : forall n x,
 
   unfold intToBv_ls, bitsToBv_ls.
   unfold bvToBITS_ls.
-  destruct (Vec_S_cons x).
+  destruct (Vec_S_cons _ _ x).
   destruct H0.
   subst.
   rewrite to_list_cons.
@@ -3593,20 +3147,20 @@ Theorem sbvToInt_bvToInt_id : forall n x,
   eapply Z.lt_le_trans.
   apply toNegZ_ls_upper_bound.
   rewrite rev_length.
-  rewrite to_list_length.
+  rewrite length_to_list.
   reflexivity.
   rewrite Z.mod_small.
   rewrite fromNegZ_ls_toNegZ_ls_eq_gen.
   apply rev_involutive.
   rewrite rev_length.
-  rewrite to_list_length.
+  rewrite length_to_list.
   reflexivity.
   intuition idtac.
   apply toNegZ_ls_nonneg.
   eapply Z.lt_le_trans.
   apply toNegZ_ls_upper_bound.
   rewrite rev_length.
-  rewrite to_list_length.
+  rewrite length_to_list.
   reflexivity.
   lia.
 
@@ -3622,7 +3176,7 @@ Theorem sbvToInt_bvToInt_id : forall n x,
    symmetry in Heqz.
   apply toPosZ_ls_0_impl in Heqz.
   rewrite rev_length in *.
-  rewrite to_list_length in *.
+  rewrite length_to_list in *.
   rewrite repeat_S_rev.
   rewrite rev_app_distr.
   simpl.
@@ -3647,20 +3201,20 @@ Theorem sbvToInt_bvToInt_id : forall n x,
   eapply Z.lt_le_trans.
   apply toPosZ_ls_upper_bound.
   rewrite rev_length.
-  rewrite to_list_length.
+  rewrite length_to_list.
   reflexivity.
   rewrite Z.mod_small.
   rewrite fromPosZ_ls_toPosZ_ls_eq_gen.
   apply rev_involutive.
   rewrite rev_length.
-  rewrite to_list_length.
+  rewrite length_to_list.
   reflexivity.
   intuition idtac.
   apply toPosZ_ls_nonneg.
   eapply Z.lt_le_trans.
   apply toPosZ_ls_upper_bound.
   rewrite rev_length.
-  rewrite to_list_length.
+  rewrite length_to_list.
   reflexivity.
   lia.
 
@@ -3684,29 +3238,6 @@ Theorem sbvToInt_ls_to_list_eq : forall n (v : Vec n bool),
   unfold bvToBITS_ls.
   rewrite to_list_cons.
   reflexivity.
-
-Qed.
-
-
-Theorem toZ_ls_0_repeat : forall ls,
-  toZ_ls ls = 0 ->
-  ls = repeat false (length ls).
-
-  intros.
-  unfold toZ_ls in *.
-  destruct ls using rev_ind;
-  simpl in *.
-  reflexivity.
-  rewrite splitmsb_ls_app_eq in *.
-  rewrite app_length.
-  simpl.
-  destruct x.
-  specialize (toNegZ_ls_nonneg ls); intros.
-  lia.
-  rewrite (toPosZ_ls_0_impl ls) at 1.
-  rewrite repeat_app.
-  reflexivity.
-  trivial.
 
 Qed.
 
@@ -4005,11 +3536,11 @@ Theorem sbvToInt_drop_equiv : forall n1 n2 x,
   rewrite toList_drop_equiv.
 
   eapply sbvToInt_drop_equiv_h_gen.
-  rewrite to_list_length.
+  rewrite length_to_list.
   rewrite addNat_add.
   symmetry.
   apply Nat.add_sub.
-  rewrite to_list_length.
+  rewrite length_to_list.
   rewrite addNat_add.
   lia.
   trivial.
@@ -4045,10 +3576,10 @@ Theorem sbvToInt_0_replicate: forall n b2,
   unfold sbvToInt_ls in *.
   rewrite <- replicate_repeat_eq.
   destruct n.
-  rewrite (Vec_0_nil b2).
+  rewrite (Vec_0_nil _ b2).
   reflexivity.
 
-  destruct (Vec_S_cons b2).
+  destruct (Vec_S_cons _ _ b2).
   destruct H0.
   subst.
   rewrite to_list_cons.
@@ -4067,7 +3598,7 @@ Theorem sbvToInt_0_replicate: forall n b2,
   eapply rev_repeat_eq_impl.
   apply toPosZ_ls_0_impl in H.
   rewrite rev_length in *.
-  rewrite to_list_length in *.
+  rewrite length_to_list in *.
   trivial.
 Qed.
 
@@ -4090,27 +3621,14 @@ Theorem sawAt_3_equiv : forall A (inh : Inhabited A) (v : Vector.t A 3),
   = v.
 
   intros.
-  destruct (Vec_S_cons v). destruct H. subst.
-  destruct (Vec_S_cons x0). destruct H. subst.
-  destruct (Vec_S_cons x2). destruct H. subst.
+  destruct (Vec_S_cons _ _ v). destruct H. subst.
+  destruct (Vec_S_cons _ _ x0). destruct H. subst.
+  destruct (Vec_S_cons _ _ x2). destruct H. subst.
   repeat rewrite sawAt_nth_equiv; try lia.
   repeat rewrite to_list_cons.
   simpl.
-  specialize (Vec_0_nil x3); intros; subst.
+  specialize (Vec_0_nil _ x3); intros; subst.
   reflexivity.
-
-Qed.
-
-Theorem sawAt_3_equiv_gen : forall A (inh : Inhabited A) (v1 v2 : Vector.t A 3),
-  v1 = v2 ->
-  Vector.cons (sawAt 3%nat A v1 0%nat)
-    (Vector.cons (sawAt 3%nat A v1 1%nat)
-      (Vector.cons (sawAt 3%nat A v1 2%nat) (Vector.nil A)))
-  = v2.
-  
-  intros.
-  subst.
-  apply sawAt_3_equiv.
 
 Qed.
 
@@ -4152,9 +3670,9 @@ Theorem shiftR_all_neg : forall n1 v,
   end.
  
   erewrite (neg_sign_bit_set _ h); eauto.
-  rewrite to_list_length.
+  rewrite length_to_list.
   lia.
-  rewrite to_list_length.
+  rewrite length_to_list.
   lia.
 
 Qed.
@@ -4183,26 +3701,6 @@ Theorem nth_shiftR1_S : forall (A : Type) (ls : list A) n a,
   lia.
 Qed.
 
-Theorem shiftR1_ls_nil : forall (A : Type) a, 
-  shiftR1_ls a (@nil A) = (@nil A).
-
-  intros.
-  apply length_zero_iff_nil.
-  rewrite shiftR1_ls_length.
-  reflexivity.
-
-Qed.
-
-Theorem shiftR_ls_nil : forall (A : Type) a (n : nat),
-  shiftR_ls a (@nil A) n = (@nil A).
-
-  intros.
-  apply length_zero_iff_nil.
-  rewrite shiftR_ls_length.
-  reflexivity.
-
-Qed.
-
 Theorem nth_shiftR_ls_all_eq : forall (A : Type) n (ls : list A) a,
   (n <  (Datatypes.length ls))%nat ->
   nth n (shiftR_ls a ls n) a = nth 0%nat ls a.
@@ -4228,7 +3726,7 @@ Theorem nth_order_shiftR_all_eq
   repeat rewrite (nth_order_to_list_eq a).
   rewrite shiftR_ls_equiv.
   rewrite nth_shiftR_ls_all_eq; trivial.
-  rewrite to_list_length.
+  rewrite length_to_list.
   trivial.
 
 Qed.
@@ -4353,7 +3851,7 @@ Theorem nth_order_bvAnd_l_eq : forall (n : nat) (v : bitvector n) (n' : nat) (pl
   rewrite nth_intToBv_1_false.
   apply and_False2.
   lia.  
-  rewrite to_list_length.
+  rewrite length_to_list.
   lia.
   rewrite intToBv_ls_length.
   lia.
@@ -4397,9 +3895,9 @@ Theorem nth_order_bvAnd_eq : forall (n : nat) (v : bitvector n) (plt : (Nat.pred
   rewrite nth_intToBv_1_true.
   rewrite and_True2.
   apply nth_indep.
-  rewrite to_list_length.
+  rewrite length_to_list.
   lia.
-  rewrite to_list_length.
+  rewrite length_to_list.
   lia.
   rewrite intToBv_ls_length.
   trivial.
@@ -4415,7 +3913,7 @@ Theorem nth_order_append_l_eq
   rewrite toList_append_equiv.
   rewrite app_nth1.
   reflexivity.
-  rewrite to_list_length.
+  rewrite length_to_list.
   lia.
 
 Qed.
@@ -4428,11 +3926,11 @@ Theorem nth_order_append_eq
   repeat rewrite (nth_order_to_list_eq (inhabitant inh)).
   rewrite toList_append_equiv.
   rewrite app_nth2.
-  repeat rewrite to_list_length.
+  repeat rewrite length_to_list.
   f_equal.
   rewrite addNat_add.
   lia.
-  rewrite to_list_length.
+  rewrite length_to_list.
   repeat rewrite addNat_add in *.
   lia.
 
@@ -4750,7 +4248,7 @@ Theorem ecOr_0_if
   rewrite <- replicate_repeat_eq.
   trivial.
 
-  repeat rewrite to_list_length.
+  repeat rewrite length_to_list.
   reflexivity.
 
 Qed.
@@ -4798,11 +4296,11 @@ Theorem vecEq_correct : forall (A : Type)(inh : Inhabited A) f n (v1 v2 : Vec n 
   v1 = v2.
 
   induction v1; intros; simpl in *.
-  specialize (Vec_0_nil v2); intros.
+  specialize (Vec_0_nil _ v2); intros.
   subst.
   reflexivity.
 
-  destruct (Vec_S_cons v2). destruct H1. subst.
+  destruct (Vec_S_cons _ _ v2). destruct H1. subst.
   unfold vecEq in *.
   simpl in *.
   replace (sawAt (S n) A (VectorDef.cons h v1) 0%nat) with h in *.
@@ -4884,19 +4382,6 @@ Theorem ecNotEq_vec_bv_false : forall (n1 n2 : nat) (v : Vec n1 (bitvector n2)),
 
 Qed.
 
-Theorem bitsToBv_bvToBITS_id : forall (n : nat) (v : bitvector n),
-       bitsToBv (bvToBITS v) = v.
-
-  intros.
-  apply eq_if_to_list_eq.
-  rewrite <- bitsToBv_ls_eq.
-  rewrite bvToBITS_ls_equiv.
-  unfold bvToBITS_ls, bitsToBv_ls.
-  rewrite rev_involutive.
-  reflexivity.
-  
-Qed.
-
 
 Theorem gen_ls_eq:
   forall [A : Type] [n: nat] (f : nat -> A),
@@ -4909,34 +4394,6 @@ Theorem gen_ls_eq:
   rewrite to_list_cons.
   f_equal.
   eapply IHn.
-
-Qed.
-
-Theorem toN_excl_int_rev_h : forall n,
-  toN_excl_int (n + 1)%nat = 0 :: (map (Z.add 1) (toN_excl_int n)).
-
-  induction n; intros; simpl in *; trivial.
-  rewrite map_app.
-  rewrite app_comm_cons.
-  rewrite <- IHn.
-  f_equal.
-  unfold map.
-  rewrite Znat.Nat2Z.inj_add.
-  rewrite Z.add_comm.
-  reflexivity.
-
-Qed.
-
-Theorem toN_excl_int_rev : forall n,
-  (n > 0)%nat ->
-  toN_excl_int n = 0 :: (map (Z.add 1) (toN_excl_int (pred n))).
-
-  intros.
-  destruct n.
-  lia.
-  specialize (toN_excl_int_rev_h n); intros.
-  rewrite plus_comm in *.
-  apply H0.
 
 Qed.
 
@@ -5226,7 +4683,7 @@ Theorem bvToNat_lt_word : forall (n : Nat) (x : bitvector n), (BinInt.Z.of_nat (
   lia.
   unfold bvToBITS_ls.
   rewrite rev_length.
-  rewrite to_list_length.
+  rewrite length_to_list.
   lia.
 
 Qed.
@@ -5294,7 +4751,7 @@ Theorem bvToNat_Z_to_nat_equiv : forall (n : Nat) (x : bitvector n) (z : Z), (0 
   rewrite <- sbvToInt_ls_equiv in *.
   unfold bvToNat_ls, sbvToInt_ls.
   destruct n.
-  specialize (Vec_0_nil x); intros; subst.
+  specialize (Vec_0_nil _ x); intros; subst.
   reflexivity.
 
   unfold bvToBITS_ls.
@@ -5580,7 +5037,7 @@ Theorem bvToInt_sbvToInt_equiv : forall (n : nat) (v : bitvector n), (n > 0)%nat
   eapply toPosZ_ls_toZ_ls_equiv.
   unfold bvToBITS_ls.
   rewrite rev_length.
-  rewrite to_list_length.
+  rewrite length_to_list.
   simpl.
   eauto.
 
@@ -5627,7 +5084,7 @@ Theorem bvToInt_bound : forall (n : Nat) (v : bitvector n), (0 <= bvToInt n v < 
   eapply Z.lt_le_trans.
   eapply toPosZ_ls_upper_bound.
   rewrite rev_length.
-  rewrite to_list_length.
+  rewrite length_to_list.
   reflexivity.
   
 Qed.
@@ -5641,18 +5098,6 @@ Theorem tuple_tval_eq : forall (A : Type) n (t1 t2 : tuple.tuple_of n A),
   inversion H.
   simpl in *.
   trivial.
-
-Qed.
-
-Theorem bvToBits_eq_inv : forall (n : nat) (b1 b2 : bitvector n), bvToBITS b1 = bvToBITS b2 -> b1 = b2.
-
-  intros.
-  eapply eq_if_to_list_eq.
-  eapply tuple_tval_eq in H.
-  repeat rewrite bvToBITS_ls_equiv in *.
-  unfold bvToBITS_ls in *.
-  apply eq_if_rev_eq.
-  eauto.
 
 Qed.
 
@@ -5801,7 +5246,7 @@ Theorem bvSShr_all_nonneg : forall (n1 : nat) (v : bitvector (S n1)), (0 <= sbvT
   rewrite bvToBITS_ls_equiv.
   unfold sbvToInt_ls in *.
   unfold bvToBITS_ls, bitsToBv_ls in *.
-  destruct (Vec_S_cons v).
+  destruct (Vec_S_cons _ _ v).
   destruct H0.
   subst.
   rewrite to_list_cons in *.
@@ -5826,13 +5271,13 @@ Theorem bvSShr_all_nonneg : forall (n1 : nat) (v : bitvector (S n1)), (0 <= sbvT
   rewrite repeat_cons.
   f_equal.
   simpl List.length.
-  rewrite to_list_length.
+  rewrite length_to_list.
   replace (S n1 - n1)%nat with 1%nat.
   simpl.
   reflexivity.
   lia.
   simpl.
-  rewrite to_list_length.
+  rewrite length_to_list.
   lia.
 
 Qed.
@@ -5850,7 +5295,7 @@ Theorem bvSShr_all_neg : forall (n1 : nat) (v : bitvector (S n1)), (sbvToInt (S 
   rewrite bvToBITS_ls_equiv.
   unfold sbvToInt_ls in *.
   unfold bvToBITS_ls, bitsToBv_ls in *.
-  destruct (Vec_S_cons v).
+  destruct (Vec_S_cons _ _ v).
   destruct H0.
   subst.
   rewrite to_list_cons in *.
@@ -5870,40 +5315,19 @@ Theorem bvSShr_all_neg : forall (n1 : nat) (v : bitvector (S n1)), (sbvToInt (S 
   rewrite repeat_cons.
   f_equal.
   simpl List.length.
-  rewrite to_list_length.
+  rewrite length_to_list.
   replace (S n1 - n1)%nat with 1%nat.
   simpl.
   reflexivity.
   lia.
   simpl.
-  rewrite to_list_length.
+  rewrite length_to_list.
   lia.
 
   match goal with
   | [H : toPosZ_ls ?a < 0 |- _] =>
     specialize (toPosZ_ls_nonneg a); intros
   end.
-  lia.
-
-Qed.
-
-Theorem splitmsb_ls_firstn_last : forall ls,
-  (length ls > 0)%nat ->
-  splitmsb_ls ls = (last ls false, firstn (pred (length ls)) ls).
-
-  intros.
-  destruct ls using rev_ind.
-  simpl in *.
-  lia.
-
-  rewrite splitmsb_ls_app_eq.
-  rewrite last_last.
-  rewrite app_length.
-  rewrite plus_comm.
-  simpl.
-  rewrite firstn_app_1.
-  rewrite firstn_all.
-  reflexivity.
   lia.
 
 Qed.
@@ -5928,14 +5352,6 @@ Theorem shiftL1_ls_length : forall (A : Type) ls,
   lia.
   lia.
 
-Qed.
-
-Theorem sshiftL_ls_length : forall (A : Type) n ls,
-  length (sshiftL_ls A ls n) = length ls.
-
-  induction n; intros; simpl in *; trivial.
-  rewrite shiftL1_ls_length.
-  eauto.
 Qed.
 
 Theorem shiftL1_ls_Z_shiftr_equiv : forall ls,
@@ -6072,14 +5488,6 @@ Theorem rev_zipWith_ls_eq : forall (A B C : Type)(f : A -> B -> C) ls1 ls2,
 
 Qed.
 
-Theorem toPosZ_succ_trivial_eq : forall ls,
-  Z.succ (toPosZ_ls (false :: ls)) = toPosZ_ls (true :: ls).
-
-  intros.
-  reflexivity.
-
-Qed.
-
 Theorem bvOr_toPosZ_ls_equiv : forall ls1 ls2,
   length ls1 = length ls2 ->
   toPosZ_ls (zipWith_ls or ls1 ls2) = Z.lor (toPosZ_ls ls1) (toPosZ_ls ls2).
@@ -6114,21 +5522,9 @@ Theorem bvOr_bvToInt_equiv : forall (n : Nat) (x y : bitvector n), bvToInt n (bv
   rewrite bvOr_toPosZ_ls_equiv.
   reflexivity.
   repeat rewrite rev_length.
-  repeat rewrite to_list_length.
+  repeat rewrite length_to_list.
   trivial.
-  repeat rewrite to_list_length.
-  trivial.
-
-Qed.
-
-
-Theorem foldr_ext : forall (A B : Type) f1 f2 n (b : Vec n B)(a : A),
-  (forall a b, f1 a b = f2 a b) ->
-  foldr B A n f1 a b = foldr B A n f2 a b.
-
-  induction b; intros; simpl in *; trivial.
-  rewrite IHb.
-  eauto.
+  repeat rewrite length_to_list.
   trivial.
 
 Qed.
@@ -6138,7 +5534,7 @@ Theorem bvEq_nth_order : forall (n : nat) (v1 v2 : bitvector n), bvEq n v1 v2 = 
   induction v1; intros; simpl in *.
   lia.
 
-  destruct (Vec_S_cons v2).
+  destruct (Vec_S_cons _ _ v2).
   destruct H0.
   subst.
   unfold bvEq, vecEq in *.
@@ -6164,7 +5560,7 @@ Theorem bvEq_false_ne : forall (n : nat) (v1 v2 : bitvector n),
   unfold bvEq, vecEq in *; simpl in *.
   discriminate.
 
-  destruct (Vec_S_cons v2).
+  destruct (Vec_S_cons _ _ v2).
   destruct H0.
   subst.
   unfold bvEq, vecEq in *.
@@ -6869,7 +6265,7 @@ Theorem sbvToInt_bvNeg_equiv : forall n v,
   reflexivity.
   lia.
   rewrite rev_length.
-  rewrite to_list_length.
+  rewrite length_to_list.
   reflexivity.  
   rewrite <-sbvToInt_ls_equiv in *.
   eauto.
@@ -7060,15 +6456,6 @@ Ltac pairInv :=
   | [H: (_, _) = (_, _) |- _] => inversion H; clear H; subst
   end.
 
-Theorem Z_even_testbit : forall z,
-  Z.even z = negb (Z.testbit z 0).
-
-  intros.
-  destruct z; simpl; trivial;
-  destruct p; trivial.
-
-Qed.
-
 Theorem not_even_impl_odd : forall z,
   Z.even z = 0%bool ->
   Z.odd z = 1%bool.
@@ -7090,47 +6477,6 @@ Ltac evenOddCases_1 :=
   try rewrite splitmsb_ls_cons_eq.
 
 Ltac evenOddCases := repeat evenOddCases.
-
-Theorem div_same_eq_1 : forall z,
-  z <> 0 ->
-  z / z  = 1.
-
-  intros.
-  replace z with (0 + 1*z) at 1.
-  rewrite Z.div_add.
-  rewrite Zdiv.Zdiv_0_l.
-  lia.
-  lia.
-  lia.
-
-Qed.
-
-
-Theorem fromZ_ls_plus_eq : forall n1 n2 z,
-  fromZ_ls (n1 + n2) z = (fromZ_ls n1 z) ++ 
-    match z with
-    | 0 => zero_ls n2
-    | Z.pos _ => fromPosZ_ls n2 (Z.shiftr z (Z.of_nat n1))  
-    | Z.neg _ => fromNegZ_ls n2 (Z.shiftr (Z.pred (- z)) (Z.of_nat n1))
-    end.
-
-  intros.
-  unfold fromZ_ls.
-  destruct z.
-
-  unfold zero_ls.
-  apply repeat_app.
-  rewrite fromPosZ_ls_app'.
-  f_equal.
-  rewrite Z.shiftr_div_pow2.
-  reflexivity.
-  lia.
-
-  rewrite fromNegZ_ls_app'.
-  f_equal.
-  rewrite Z.shiftr_div_pow2 in *; try lia.
-  reflexivity.
-Qed.
 
 Theorem fromPosZ_add_eq : forall n a b (c : bool),
   0 <= a ->
@@ -7197,7 +6543,7 @@ Theorem fromPosZ_add_eq : forall n a b (c : bool),
   rewrite Z.add_assoc.
   rewrite Zdiv.Z_div_plus.
   rewrite Zdiv.Z_div_mult.
-  rewrite div_same_eq_1.
+  rewrite Z.div_same.
   lia.
   lia.
   lia.
@@ -7302,19 +6648,6 @@ Theorem fromPosZ_add_eq : forall n a b (c : bool),
   apply adcBmain_length_nz.
   repeat rewrite fromPosZ_ls_length.
   reflexivity.
-Qed.
-
-
-Theorem fromPosZ_ls_fromNegZ_ls_compl : forall n z,
-  fromPosZ_ls n z = map negb (fromNegZ_ls n z).
-
-  induction n; intros; simpl in *.
-  reflexivity.
-  unfold joinlsb_ls.
-  simpl.
-  f_equal.
-  eapply IHn.
-  
 Qed.
 
 
@@ -7549,9 +6882,9 @@ Theorem twos_complement_equiv : forall n v,
   rewrite <- replicate_repeat_eq.
   rewrite zipWith_ls_eq_map.
   apply map_xor_1_eq_negb.
-  rewrite to_list_length.
+  rewrite length_to_list.
   reflexivity.
-  rewrite to_list_length.
+  rewrite length_to_list.
   rewrite repeat_length.
   reflexivity.
   destruct n; trivial; lia.
@@ -7624,10 +6957,10 @@ Theorem bvAdd_same_l_if : forall n x y1 y2,
   apply eq_if_rev_eq.
   eapply adcB_ls_same_l_if; [idtac | idtac | apply eq_if_rev_eq; eauto].
   repeat rewrite rev_length.
-  repeat rewrite to_list_length.
+  repeat rewrite length_to_list.
   reflexivity.
   repeat rewrite rev_length.
-  repeat rewrite to_list_length.
+  repeat rewrite length_to_list.
   reflexivity.
 Qed.
 
@@ -7781,7 +7114,7 @@ Theorem bvMul_2_shiftl_equiv : forall (n : nat) (v : bitvector n),
   rewrite fullmulB_ls_0_eq.
 
   rewrite rev_length.
-  rewrite to_list_length.
+  rewrite length_to_list.
   replace (0%bool :: repeat 0%bool (n + S (S n))) with (repeat 0%bool (S n + S (S n))).
   unfold addB_ls, adcB_ls.
   rewrite adcBmain_ls_zero_eq_gen.
@@ -7795,7 +7128,7 @@ Theorem bvMul_2_shiftl_equiv : forall (n : nat) (v : bitvector n),
   end.
   assert (length z = (S (S n))).
   subst.
-  apply to_list_length.
+  apply length_to_list.
   destruct z using rev_ind.
   simpl in *. lia.
 
@@ -7828,7 +7161,7 @@ Theorem bvMul_2_shiftl_equiv : forall (n : nat) (v : bitvector n),
   rewrite app_length.
   rewrite rev_length.
   repeat rewrite repeat_length.
-  rewrite to_list_length.
+  rewrite length_to_list.
   lia.
 
   reflexivity.
@@ -7905,13 +7238,13 @@ Theorem intToBb_bvToInt_id : forall n x,
   rewrite Heqz.
   rewrite rev_involutive.
   rewrite rev_length.
-  rewrite to_list_length.
+  rewrite length_to_list.
   reflexivity.
   rewrite Heqz.
   erewrite fromPosZ_ls_toPosZ_ls_eq_gen.
   apply rev_involutive.
   rewrite rev_length.
-  rewrite to_list_length.
+  rewrite length_to_list.
   reflexivity.
 
   assert (0 <= Z.neg p).
@@ -8052,13 +7385,13 @@ Theorem intToBv_sbvToInt_id : forall n x,
   listify.
   destruct n.
   simpl.
-  rewrite (Vec_0_nil x).
+  rewrite (Vec_0_nil _ x).
   reflexivity.
   unfold sbvToInt_ls.
   unfold bvToBITS_ls.
   apply fromZ_ls_toZ_ls_id_gen.
   lia.
-  rewrite to_list_length.
+  rewrite length_to_list.
   reflexivity.
 
 Qed.
@@ -8278,7 +7611,7 @@ Theorem sbvToInt_signedModPow_eq : forall n v,
   unfold splitmsb_ls.
   rewrite seq_rev_eq.
   rewrite rev_involutive.
-  destruct (Vec_S_cons v).
+  destruct (Vec_S_cons _ _ v).
   destruct H.
   subst.
   rewrite to_list_cons.
@@ -8287,12 +7620,12 @@ Theorem sbvToInt_signedModPow_eq : forall n v,
   rewrite toPosZ_ls_app.
   simpl.
   rewrite rev_length.
-  rewrite to_list_length.
+  rewrite length_to_list.
   destruct x.
   rewrite Z.mul_1_l.
   rewrite toNegZ_ls_ones_complement.
   rewrite rev_length.
-  rewrite to_list_length.
+  rewrite length_to_list.
   rewrite Z.succ_pred.
   unfold signedModPow.
   destruct (ZArith_dec.Z_ge_lt_dec ((toPosZ_ls (rev (to_list x0)) +  2 ^ Z.of_nat n) mod 2 ^ Z.of_nat (S n)) (2 ^ Z.of_nat n)).
@@ -8312,7 +7645,7 @@ Theorem sbvToInt_signedModPow_eq : forall n v,
   eapply Z.lt_le_trans.
   apply toPosZ_ls_upper_bound.
   rewrite rev_length.
-  rewrite to_list_length.
+  rewrite length_to_list.
   reflexivity.
   lia.
   lia.
@@ -8324,7 +7657,7 @@ Theorem sbvToInt_signedModPow_eq : forall n v,
   eapply Z.lt_le_trans.
   apply toPosZ_ls_upper_bound.
   rewrite rev_length.
-  rewrite to_list_length.
+  rewrite length_to_list.
   reflexivity.
   rewrite Z.mod_small in l.
   lia.  
@@ -8345,7 +7678,7 @@ Theorem sbvToInt_signedModPow_eq : forall n v,
   eapply Z.lt_le_trans.
   apply toPosZ_ls_upper_bound.
   rewrite rev_length.
-  rewrite to_list_length.
+  rewrite length_to_list.
   reflexivity.
 Qed.
 
@@ -8422,11 +7755,11 @@ Theorem sbvToInt_sign_extend_equiv : forall n1 n2 x,
   destruct (sawAt (S n1) Bool x 0).
   unfold bvNot.
   rewrite toList_map_equiv.
-  rewrite (Vec_0_nil (replicate 0 bool 0%bool)).
+  rewrite (Vec_0_nil _ (replicate 0 bool 0%bool)).
   rewrite to_list_nil.
   simpl.
   reflexivity.
-  rewrite (Vec_0_nil (replicate 0 bool 0%bool)).
+  rewrite (Vec_0_nil _ (replicate 0 bool 0%bool)).
   rewrite to_list_nil.
   simpl.
   reflexivity.
@@ -8437,7 +7770,7 @@ Theorem sbvToInt_sign_extend_equiv : forall n1 n2 x,
   simpl.
   unfold bvToBITS_ls.
   rewrite (toList_append_equiv _ (if sawAt (S n1) Bool x 0 then bvNot (S n2) (replicate (S n2) bool 0%bool) else replicate (S n2) bool 0%bool) x).
-  destruct (Vec_S_cons x).
+  destruct (Vec_S_cons _ _ x).
   destruct H0.
   subst.
   rewrite sawAt_nth_equiv; try lia.

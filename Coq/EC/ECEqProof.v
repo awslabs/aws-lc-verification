@@ -22,6 +22,7 @@ Import CryptolPrimitivesForSAWCore.
 From CryptolToCoq Require Import CryptolPrimitivesForSAWCoreExtra.
 From CryptolToCoq Require Import SAWCorePrelude.
 Import SAWCorePrelude.
+From CryptolToCoq Require Import SAWCorePreludeExtra.
 
 From CryptolToCoq Require Import SAWCoreBitvectors.
 
@@ -1273,18 +1274,6 @@ Section ECEqProof.
     | S n' => prev :: (preCompTable_fix p n'(Jacobian.add (Jacobian.double p) prev))
     end.
 
-
-  Theorem preCompTable_h_fix_equiv : forall tsize p1 p2,
-    (preCompTable_h Jacobian.add zero_point tsize [p2] (Jacobian.double p1)) = 
-    (preCompTable_fix p1 tsize p2).
-
-    induction tsize; unfold preCompTable_h in *; intuition; simpl in *.
-    rewrite <- IHtsize.
-    eapply preCompTable_h_cons.
-    intuition.
-    discriminate.
-  Qed.
-
   Theorem seqTolist_cons : forall (A : Type)(n : nat) (x : A) (s : Vector.t A n),
     seqToList (cons _ x _ s) = List.cons x (seqToList s).
 
@@ -1294,50 +1283,7 @@ Section ECEqProof.
 
   Qed.
 
-
-  Theorem preCompTable_fix_equiv : forall pred_pred_tsize p p2 p2',
-    jac_eq (fromPoint p2) (seqToProd p2') ->
-    List.Forall2 (fun x y => jac_eq (fromPoint x) (seqToProd y))
-  (preCompTable_fix p (S pred_pred_tsize) p2)
-(seqToList
-  (scanl Integer (Vec 3 (Vec 6 (bitvector 64)))
-     (S pred_pred_tsize)
-     (fun (z : Vec 3 (Vec 6 (bitvector 64))) (_ : Integer) =>
-      EC_P384_5.point_add Fsquare Fmul Fsub Fadd false
-        (EC_P384_5.point_double Fsquare Fmul Fsub Fadd
-           (prodToSeq (fromPoint p))) z)
-     p2'
-     (ecFromTo 1%nat (S pred_pred_tsize) Integer PLiteralInteger))).
-
-    Local Opaque Jacobian.double Jacobian.add EC_P384_5.point_double EC_P384_5.point_add.
-
-    induction pred_pred_tsize; intuition; simpl in *.
-    rewrite seqTolist_cons.
-    econstructor.
-    trivial.
-    econstructor.
-    apply point_add_jac_eq.
-    rewrite <- double_eq_minus_3_h.
-    apply jacobian_eq_jac_eq.
-    apply Jacobian.double_minus_3_eq_double.
-    trivial.
-    econstructor.
-
-    rewrite seqTolist_cons in *.
-    simpl in *.
-    econstructor.
-    trivial.
-    erewrite scanl_gen_equiv.
-    eapply IHpred_pred_tsize.
-
-    apply point_add_jac_eq.
-    rewrite <- double_eq_minus_3_h.
-    apply jacobian_eq_jac_eq.
-    apply Jacobian.double_minus_3_eq_double.
-    trivial.
-    
-  Qed.
-
+  Local Opaque Jacobian.double Jacobian.add EC_P384_5.point_double EC_P384_5.point_add.
 
   Local Opaque sbvToInt.
 
@@ -1436,14 +1382,38 @@ Section ECEqProof.
 
   Qed.
 
-  Theorem Z_add_nonpos_lt : forall (a b c : Z),
-    (b <= 0 ->
-    a < c ->
-    a + b < c)%Z.
+  Ltac bvIntSimpl_one :=
+    match goal with
+    | [|- ((bvToInt ?x _) < 2^(BinInt.Z.of_nat ?x))%Z] =>
+      apply bvToInt_bound
+    | [|- (0 <= bvToInt _ _)%Z] =>
+      apply bvToInt_nonneg
+    | [|- (- 2^_ <= 2^_)%Z] => eapply Z.le_trans; [apply Z.opp_nonpos_nonneg | idtac]
+    | [|- context[sbvToInt _ (bvURem _ _ _ )]] => 
+      rewrite sbvToInt_bvURem_equiv
+    | [|- context[bvToInt _ (shiftL _ bool false (intToBv _ 1) _ ) ]] =>
+      rewrite bvToInt_shiftL_1_equiv
+    | [|- context[sbvToInt _ (shiftL _ bool false (intToBv _ 1) _ ) ]] =>
+      rewrite sbvToInt_shiftL_1_equiv
+    | [|- context[BinInt.Z.shiftl 1 _]] =>
+      rewrite Z.shiftl_1_l
+    | [|- (0 < _ ^ _)%Z] =>
+      apply Z.pow_pos_nonneg
+    | [|- (2^_ < 2^_)%Z] =>
+      apply Z.pow_lt_mono_r
+    | [|- (_ ^ _ <= _ ^ _)%Z] =>
+      apply Z.pow_le_mono
+    | [|- (_ <= _ mod _ < _)%Z] =>
+      eapply bound_abstract; [apply Z.mod_pos_bound | idtac | idtac]
+    | [|- Z.le (Z.opp _) _] =>
+      apply Z.opp_nonpos_nonneg 
+    | [|- (0 <= _ ^ _)%Z] =>
+      apply Z.pow_nonneg
+    | [|- (_ <= _ < _)%Z] =>
+      split
+    end.
 
-    intros.
-    lia.
-  Qed.
+  Ltac bvIntSimpl := repeat (bvIntSimpl_one; try lia).
 
   Theorem recode_rwnaf_odd_bv_equiv : 
     forall wsize nw n,
@@ -1477,11 +1447,11 @@ Section ECEqProof.
     apply Z.pow_le_mono_r.
     lia.
     lia.
-    rewrite <- addNat_equiv.
+    rewrite addNat_add.
     lia.
     eapply Z.lt_le_trans.
     apply H0.
-     rewrite <- addNat_equiv.
+     rewrite addNat_add.
     apply Z.pow_le_mono; lia.
     econstructor.
 
@@ -1683,39 +1653,6 @@ Section ECEqProof.
     lia.
     lia.
     lia.
-
-    Ltac bvIntSimpl_one :=
-      match goal with
-      | [|- ((bvToInt ?x _) < 2^(BinInt.Z.of_nat ?x))%Z] =>
-        apply bvToInt_bound
-      | [|- (0 <= bvToInt _ _)%Z] =>
-        apply bvToInt_nonneg
-      | [|- (- 2^_ <= 2^_)%Z] => eapply Z.le_trans; [apply Z.opp_nonpos_nonneg | idtac]
-      | [|- context[sbvToInt _ (bvURem _ _ _ )]] => 
-        rewrite sbvToInt_bvURem_equiv
-      | [|- context[bvToInt _ (shiftL _ bool false (intToBv _ 1) _ ) ]] =>
-        rewrite bvToInt_shiftL_1_equiv
-      | [|- context[sbvToInt _ (shiftL _ bool false (intToBv _ 1) _ ) ]] =>
-        rewrite sbvToInt_shiftL_1_equiv
-      | [|- context[BinInt.Z.shiftl 1 _]] =>
-        rewrite Z.shiftl_1_l
-      | [|- (0 < _ ^ _)%Z] =>
-        apply Z.pow_pos_nonneg
-      | [|- (2^_ < 2^_)%Z] =>
-        apply Z.pow_lt_mono_r
-      | [|- (_ ^ _ <= _ ^ _)%Z] =>
-        apply Z.pow_le_mono
-      | [|- (_ <= _ mod _ < _)%Z] =>
-        eapply bound_abstract; [apply Z.mod_pos_bound | idtac | idtac]
-      | [|- Z.le (Z.opp _) _] =>
-        apply Z.opp_nonpos_nonneg 
-      | [|- (0 <= _ ^ _)%Z] =>
-        apply Z.pow_nonneg
-      | [|- (_ <= _ < _)%Z] =>
-        split
-      end.
-
-    Ltac bvIntSimpl := repeat (bvIntSimpl_one; try lia).
     
     bvIntSimpl.
     bvIntSimpl.
@@ -1992,17 +1929,6 @@ Section ECEqProof.
     bvIntSimpl.
   Qed.
 
-  Theorem recode_rwnaf_odd_bv_scanl_fix_body_fiat_equiv : forall wsize z, 
-    recode_rwnaf_odd_bv_scanl_fix_body wsize z = 
-    mul_scalar_rwnaf_odd_loop_body_abstract wsize z.
-
-    intros. 
-    unfold recode_rwnaf_odd_bv_scanl_fix_body.
-    unfold mul_scalar_rwnaf_odd_loop_body_abstract.
-    reflexivity.
-
-  Qed.
-
   Theorem mul_scalar_rwnaf_odd_abstract_equiv : forall nw wsize z,
     0 < wsize < 16 ->
     (bvToInt 384%nat z < 2 ^ Z.of_nat (S (S (S nw)) * wsize))%Z ->
@@ -2090,18 +2016,6 @@ Section ECEqProof.
 
   Qed.
 
-  Theorem fmul_same_l_if:
-    forall [x y z : F],
-    ~ Feq x 0 ->
-    Feq (x * y) (x * z) -> Feq y z.
-
-    intros.
-    eapply fmul_same_r_if; eauto.
-    rewrite commutative.
-    rewrite H0.
-    apply commutative.
-  Qed.
-
   Theorem fmul_same_l:
     forall [x y z : F],
     Feq y z ->
@@ -2164,17 +2078,6 @@ Section ECEqProof.
     f_equal.
     apply bvAdd_id_l.
 
-  Qed.
-
-  Theorem combine_app : forall (A B : Type)(lsa1 lsa2 : list A)(lsb1 lsb2 : list B),
-    List.length lsa1 = List.length lsb1 ->
-    combine (lsa1 ++ lsa2) (lsb1 ++ lsb2) = (combine lsa1 lsb1)++(combine lsa2 lsb2).
-
-    induction lsa1; destruct lsb1; intros; simpl in *; try discriminate.
-    reflexivity.
-    f_equal.
-    apply IHlsa1.
-    lia.
   Qed.
 
   Theorem bvector_eq_dec : forall n (v1 v2 : VectorDef.t bool n),
@@ -2260,7 +2163,7 @@ Section ECEqProof.
     rewrite PeanoNat.Nat.add_1_r.
     simpl.
     rewrite map_app.
-    rewrite combine_app.
+    rewrite combine_app_eq.
     rewrite fold_left_app.
     rewrite IHls.
     simpl.
@@ -2648,33 +2551,6 @@ Section ECEqProof.
     apply (@sbvToInt_sign_extend_equiv 16 48).
     lia.
 
-  Qed.
-
-  Theorem nth_order_shiftout_eq : forall (A : Type)(n : nat)(v : Vec (S n) A) n' (nlt : n' < n)(nlt' :n' < S n),
-    nth_order (shiftout v) nlt = nth_order v nlt'.
-
-    induction n; intros; simpl in *.
-    lia.
-    
-
-    intros.
-    destruct (Vec_S_cons _ _ v).
-    destruct H.
-    subst.
-    
-    destruct n'.
-    reflexivity.
-    
-    assert (n' < S n) by lia.
-    erewrite (@nth_order_S_cons _ _ _ _ _ _ H).
-    replace (shiftout (cons A x _ x0)) with (cons A x _ (shiftout x0)).
-    erewrite (@nth_order_S_cons _ _ _ _ _ _).
-    eapply IHn.
-    reflexivity.
-
-    Unshelve.
-    lia.
-    
   Qed.
 
   Theorem nat_shiftl_gt_base : forall n2 n1,
@@ -3307,6 +3183,10 @@ Section ECEqProof.
 
   Qed.
 
+  (**
+  The main result shows that the point multiplication spec extracted from Cryptol is equivalent to the basic group
+  multiplication operation on points. 
+  *)
   Theorem point_mul_correct : forall (p : point) (n : seq 384 Bool),
       jac_eq (fromPoint (groupMul (bvToNat _ n) p))
       (seqToProd (point_mul (prodToSeq (fromPoint p)) n)).

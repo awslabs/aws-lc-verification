@@ -2,7 +2,7 @@
 SPDX-License-Identifier: Apache-2.0 *)
 
 (* Generalized low-level specification for NIST prime curve arithmetic. These functions
-are equivalent to the functions extracted from Crypto, and the folloing changes are made:
+are equivalent to the functions extracted from Crypto, and the following changes are made:
 * Operations using Cryptol sequences are replaced with equivalent operations on vectors. 
 * Vectors are replaced with lists in situations where a list is more natural (e.g. folding 
   over a list).
@@ -28,6 +28,7 @@ Import CryptolPrimitivesForSAWCore.
 From CryptolToCoq Require Import CryptolPrimitivesForSAWCoreExtra.
 From CryptolToCoq Require Import SAWCorePrelude.
 Import SAWCorePrelude.
+From CryptolToCoq Require Import SAWCorePreludeExtra.
 
 From CryptolToCoq Require Import SAWCoreBitvectors.
 From CryptolToCoq Require Import Everything.
@@ -37,16 +38,8 @@ From EC Require Import CryptolToCoq_equiv.
 From EC Require Import EC_P384_5.
 
 
-Definition append_comm (m n : Nat) (a : Type) (Inh_a : Inhabited a) 
-  (x : Vec m a) (y : Vec n a) :=
-gen (addNat n m) a
-  (fun i : Nat =>
-   if ltNat i m then sawAt m a x i else sawAt n a y (subNat i m)).
-
-
 Local Arguments cons [_] h [_] t.
 Local Arguments append [m] [n] [a]%type_scope {Inh_a} x y.
-Local Arguments append_comm [m] [n] [a]%type_scope {Inh_a} x y.
 Local Arguments bvOr [n] _ _.
 Local Arguments bvAnd [n] _ _.
 Local Arguments reverse [n] [a]%type_scope {Inh_a} _.
@@ -93,7 +86,7 @@ Require Import Arith.
 The function uses scanl to build a list of intermediate results and uses
 hd to get the last result from the head of the list. The form of hd used
 requires a default value that is returned when the list is empty (but the 
-proof will show that the list is never empty). To produce this default valuu,
+proof will show that the list is never empty). To produce this default value,
 we use the Inhabited typeclass instances that proves that certain types are
 inhabited, and the inhabitant function that produces a value from an inhabited 
 type.
@@ -185,19 +178,6 @@ Definition select_point_abstract x t :=
    select_point_loop_body x acc (fst p) (snd p))
   (combine (toN_excl_bv 64%nat (length t)) t) (of_list [zero_felem; zero_felem; zero_felem]).
 
-Theorem to_list_length : forall (A : Type)(n : nat)(x : Vector.t A n),
-  (List.length (to_list x)) = n.
-
-  induction x; intros. 
-  simpl in *; trivial.
-  rewrite to_list_cons.
-  simpl.
-  rewrite IHx.
-  trivial.
-
-Qed.
-
-
 Theorem select_point_abstract_equiv : forall x t,
   select_point x t = select_point_abstract x (to_list t).
 
@@ -212,7 +192,7 @@ Theorem select_point_abstract_equiv : forall x t,
            (PLiteralSeqBool 64%nat))))
   with (toN_excl_bv 64%nat (length (to_list t))).
   reflexivity.
-  rewrite to_list_length.
+  rewrite length_to_list.
   symmetry.
   apply (@ecFromTo_0_n_bv_excl_equiv 64%nat 15%nat).
 Qed.
@@ -288,14 +268,14 @@ Section PointMul.
     intuition idtac.
     assert (exists x', x = addNat x' 56)%nat.
     exists (x - 56)%nat.
-    rewrite <- addNat_equiv.
+    rewrite addNat_add.
     lia.
     destruct H2.
     subst.
 
     assert (x1 < 8)%nat.
     clear H.
-    rewrite <- addNat_equiv in x0.
+    rewrite addNat_add in x0.
     lia.
     erewrite (@nth_order_append_eq _ _ 8%nat _ 56%nat _ _ _ H2) in H. 
     destruct (lt_dec x1 7)%nat. 
@@ -303,12 +283,12 @@ Section PointMul.
     intuition idtac.
     trivial.
     assert (x1 = (pred 8))%nat.
-    rewrite <- addNat_equiv in x0.
+    rewrite addNat_add in x0.
     lia.
     subst.
     erewrite nth_order_bvAnd_eq in H.
     erewrite nth_order_drop_eq in H.
-    apply ne_false_impl_true.
+    apply Bool.not_false_is_true.
     eauto.
 
     (* both odd. *)
@@ -316,7 +296,7 @@ Section PointMul.
     apply sawAt_3_equiv.
 
     Unshelve.
-    rewrite <- addNat_equiv.
+    rewrite addNat_add.
     lia.
     lia.
     trivial.

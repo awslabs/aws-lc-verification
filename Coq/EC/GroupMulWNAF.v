@@ -61,6 +61,8 @@ Theorem shiftl_to_nat_eq : forall n2 n1,
   
 Qed.
 
+(* A simple definition of group multiplication, an optimized multiplication algorithm using 
+windowed non-adjacent form, and a proof of equivalence of the two. *)
 Section GroupMulWNAF.
 
   Variable GroupElem : Type.
@@ -168,7 +170,7 @@ Section GroupMulWNAF.
   Qed.
 
 
-  Theorem groupMul_doubleAdd_equiv : 
+  Theorem groupMul_doubleAdd_correct : 
     forall x e,
     groupMul_doubleAdd x e == groupMul x e.
 
@@ -207,7 +209,7 @@ Section GroupMulWNAF.
     end.
 
 
-  Theorem groupMul_doubleAdd_bits_equiv : 
+  Theorem groupMul_doubleAdd_bits_correct : 
     forall bs e,
     groupMul_doubleAdd_bits bs e == groupMul (natFromBits bs) e.
 
@@ -319,7 +321,7 @@ Section GroupMulWNAF.
 
     intros.
     rewrite groupMul_windows_correct_h.
-    apply groupMul_doubleAdd_bits_equiv.
+    apply groupMul_doubleAdd_bits_correct.
 
   Qed.
 
@@ -896,6 +898,8 @@ Section GroupMulWNAF.
     
   Qed.
 
+  (* In any regular representation of a non-negative number, the last window is non-negative.
+    This fact is used by implementations to skip the sign check on the last window. *)
   Theorem RegularReprOfZ_highWindowNonNeg : forall ws z,
     RegularReprOfZ ws z ->
     0 <= z ->
@@ -1026,49 +1030,6 @@ Section GroupMulWNAF.
     lia.
   Qed.
 
-  (* In any regular representation of a non-negative number, the last window is non-negative.
-    This fact is used by implementations to skip the sign check on the last window. *)
-  Theorem firstWindowNonneg : forall (ws : list Z)(z : Z),
-    RegularReprOfOddZ ws z ->
-    z >= 0 ->
-    (length ws > 0)%nat ->
-    hd 0 (rev ws) >= 0.
-
-    induction ws using rev_ind; intros; simpl in *.
-    lia.
-    rewrite rev_app_distr.
-    unfold RegularReprOfOddZ, RegularWindows in *; simpl in *; intuition idtac.
-    simpl in *.
-    rewrite windowsToZ_app in *.
-    destruct (ZArith_dec.Z_ge_lt_dec x 0); trivial.
-    exfalso.
-    
-    assert (Z.abs (windowsToZ ws) < zDouble_n (length ws * wsize) 1).
-    apply (@windowsToZ_bit_length_small ws).
-    intros.
-    apply H2.
-    apply in_or_app.
-    intuition idtac.
-
-    assert (z < 0).
-    rewrite <- H3.
-    eapply Z.lt_le_trans.
-    eapply Zorder.Zplus_lt_compat_r.
-    apply Z.abs_lt.
-    eauto.
-    assert (x <= -1) by lia.
-    eapply Z.le_trans.
-    eapply Zorder.Zplus_le_compat_l.
-    eapply zDouble_n_le_mono_r.
-    lia.
-    eauto.
-    rewrite <- (@zDouble_n_opp _ 1).
-    rewrite Z.add_opp_diag_r.
-    lia.
-    lia.
-
-  Qed.
-
   Definition twoToWsize := Z.shiftl 1 (Z.of_nat wsize).
   Definition wsize_mask := Z.sub (Z.shiftl twoToWsize 1) 1.
 
@@ -1101,22 +1062,6 @@ Section GroupMulWNAF.
     apply Z.pow_pos_nonneg.
     lia.
     lia.
-    lia.
-  Qed.
-
-  Theorem twoToWsize_nonneg : 
-    0 <= twoToWsize.
-
-    pose proof twoToWsize_pos.
-    lia.
-
-  Qed.
-
-  Theorem double_twoToWsize_pos : 
-    0 < Z.double twoToWsize.
-
-    rewrite Z.double_spec.
-    pose proof twoToWsize_pos.
     lia.
   Qed.
 
@@ -1206,35 +1151,6 @@ Section GroupMulWNAF.
     intuition.
     apply Z.shiftl_0_l.
   Qed.
-
-  Theorem div_zDouble_eq : forall n z,
-    n <> 0%nat ->
-    zDouble_n n z / (Z.shiftl 1 (Z.of_nat n)) = z.
-
-    intuition idtac.
-
-    assert (Z.of_nat n > 0).
-    assert (0 <= Z.of_nat n) by apply Zorder.Zle_0_nat.
-    assert (0 <> Z.of_nat n).
-    intuition idtac.
-    apply H.
-    apply Z_of_nat_0_if.
-    lia.
-    lia.
-
-    unfold zDouble_n.
-    repeat rewrite Z.shiftl_mul_pow2.
-    rewrite Z.mul_1_l.
-    apply Zdiv.Z_div_mult.
-    apply Z.lt_gt.
-    apply Z.pow_pos_nonneg.
-    lia.
-    lia.
-    lia.
-    lia.
-    
-  Qed.
-
   
   Theorem Zdouble_shiftl : forall x y,
     0 <= y ->
@@ -1876,14 +1792,6 @@ Section GroupMulWNAF.
     reflexivity.
     lia.
 
-  Qed.
-
-  Theorem double_shiftl_swap : forall n2 n1,
-    double (shiftl n1 n2) = shiftl (double n1) n2.
-
-    induction n2; intuition; simpl in *.
-    rewrite IHn2.
-    reflexivity.
   Qed.
 
   Theorem div2_shiftr_swap : forall n2 n1,
