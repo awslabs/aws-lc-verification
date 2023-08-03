@@ -117,14 +117,11 @@ p384_felem_one = [0xffffffff00000001, 0x00000000ffffffff,
                   0x0000000000000001, 0x0000000000000000,
                   0x0000000000000000, 0x0000000000000000]
 
-// The precomputed table could not be evaluated because field oprations
-// are abstract. We assume the C function is equivalent to the following
-// undefined specification.
-p384_g_pre_comp : [table_size][subtable_size][2]felem
-p384_g_pre_comp = undefined
+parameter
+  p384_g_pre_comp : [table_size][subtable_size][2]felem
 
 // The following definition is almost the same as the one in EC_primitives.cry
-// TODO: Generalize the one in EC_primitives.cry
+// TODO: Generalize the one in EC_primitives.cry when we start working on the Coq part
 conditional_subtract_if_even_mixed : point -> scalar -> point -> point
 conditional_subtract_if_even_mixed p1 t p2 = r where
   t_limb = (byte_to_limb ((drop`{bit_length-8} t) && 1))
@@ -160,7 +157,7 @@ add_base rnaf p j = res
     neg_is_neg = (d >>$ 15)
     // abs_d = abs(d)
     abs_d = is_neg + (d ^ neg_is_neg)
-    idx = abs_d >> 1
+    idx = abs_d >>$ 1
     tmp = select_point_affine (sign_extend_16_64 idx) (p384_g_pre_comp@(j/4))
     ftmp = felem_opp (tmp@1)
     r = [tmp@0, (felem_cmovznz (point_id_to_limb is_neg) (tmp@1) ftmp), p384_felem_one]
@@ -173,7 +170,7 @@ double_add_base rnaf p i = res
     doubled = if i == ((`(ngroups) - 1):[64])
               then p
               else foldl (\x -> \y -> point_double x) p [0 .. (wsize-1)]
-    // In Cryptol, only type variables can be in the experssion of sequence bounds.
+    // In Cryptol, only type variables can be in the expression of sequence bounds.
     // Therefore, i as a value variable, could not be used in sequence bounds.
     // We enumerate all possible bounds to accomodate this problem.
     res = (if i == ((`(ngroups) - 1):[64])
