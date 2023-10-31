@@ -289,7 +289,7 @@ p384_sub_same_l_ov <- crucible_llvm_unsafe_assume_spec
 
 p384_get_bit_ov <- llvm_verify m "p384_get_bit"
   []
-  false
+  true
   p384_get_bit_spec
   (do {
     (goal_eval_unint []);
@@ -416,12 +416,6 @@ let points_to_EC_JACOBIAN ptr point = do {
   crucible_points_to_untyped (crucible_field ptr "X") (crucible_term {{ point.X }});
   crucible_points_to_untyped (crucible_field ptr "Y") (crucible_term {{ point.Y }});
   crucible_points_to_untyped (crucible_field ptr "Z") (crucible_term {{ point.Z }});
-};
-
-let points_to_conditional_EC_JACOBIAN cond ptr point = do {
-crucible_conditional_points_to_untyped cond (crucible_field ptr "X") (crucible_term {{ point.X }});
-crucible_conditional_points_to_untyped cond (crucible_field ptr "Y") (crucible_term {{ point.Y }});
-crucible_conditional_points_to_untyped cond (crucible_field ptr "Z") (crucible_term {{ point.Z }});
 };
 
 let points_to_fresh_EC_JACOBIAN ptr = do {
