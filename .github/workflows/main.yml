@@ -62,5 +62,5 @@ jobs:
 
     # Runs the formal verification action
     - name: NSym Proofs
-      uses: ./NSym/
+      uses: ./.github/actions/NSym
 
