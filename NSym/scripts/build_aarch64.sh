@@ -6,20 +6,22 @@
 set -ex
 
 BUILD_TYPE=$1
+MICRO_ARCH=$2
+TARGET="aarch64-none-linux-gnu"
 
 mkdir -p build_src/aarch64
 cd build_src/aarch64
 export LDFLAGS="-fuse-ld=lld"
 cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
-      -DKEEP_LOCAL_SYMBOLS=1 \
+      -DKEEP_ASM_LOCAL_SYMBOLS=1 \
       -DBUILD_LIBSSL=OFF \
       -DCMAKE_TOOLCHAIN_FILE=../../scripts/build_aarch64.cmake \
-      -DCMAKE_C_FLAGS="-mcpu=neoverse-n1 -I/usr/aarch64-linux-gnu/include/c++/9/aarch64-linux-gnu" \
-      -DCMAKE_CXX_FLAGS="-mcpu=neoverse-n1 -I/usr/aarch64-linux-gnu/include/c++/9/aarch64-linux-gnu" \
-      -DCMAKE_ASM_FLAGS="-mcpu=neoverse-n1 -I/usr/aarch64-linux-gnu/include/c++/9/aarch64-linux-gnu" \
-      -DCMAKE_C_COMPILER_TARGET="aarch64-none-linux-gnu" \
-      -DCMAKE_CXX_COMPILER_TARGET="aarch64-none-linux-gnu" \
-      -DCMAKE_ASM_COMPILER_TARGET="aarch64-none-linux-gnu" \
+      -DCMAKE_C_FLAGS="-mcpu="$MICRO_ARCH \
+      -DCMAKE_CXX_FLAGS="-mcpu="$MICRO_ARCH \
+      -DCMAKE_ASM_FLAGS="-mcpu="$MICRO_ARCH \
+      -DCMAKE_C_COMPILER_TARGET=$TARGET \
+      -DCMAKE_CXX_COMPILER_TARGET=$TARGET \
+      -DCMAKE_ASM_COMPILER_TARGET=$TARGET \
       ../../../src
 
 NUM_CPU_THREADS=$(grep -c ^processor /proc/cpuinfo)

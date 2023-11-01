@@ -1,0 +1,9 @@
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+name: 'AWS-LC Formal Verification NSym Proofs'
+description: 'Check NSym proofs to validate some specifications used in AWS-LC'
+runs:
+  using: 'docker'
+  image: '../Dockerfile.nsym'
+  entrypoint: 'NSym/scripts/docker_entrypoint.sh'
