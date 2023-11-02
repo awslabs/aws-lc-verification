@@ -14,8 +14,6 @@ export LDFLAGS="-fuse-ld=lld"
 
 export LLVM_COMPILER=clang
 export BINUTILS_TARGET_PREFIX=aarch64-linux-gnu
-export LLVM_COMPILER_PATH=/usr/lib/llvm-14/bin
-wllvm-sanity-checker
 
 cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
       -DKEEP_ASM_LOCAL_SYMBOLS=1 \

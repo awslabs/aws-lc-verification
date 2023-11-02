@@ -1,0 +1,17 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+//  SPDX-License-Identifier: Apache-2.0
+
+:l SHA512recEquiv.cry
+:prove H0_equiv
+:prove K_equiv
+:prove S0_equiv
+:prove S1_equiv
+:prove s0_equiv
+:prove s1_equiv
+:prove Ch_equiv
+:prove Maj_equiv
+:prove messageSchedule_Common_equiv
+:prove compress_Common_equiv
+:prove processBlock_Common_equiv
+
+:l SHA512rec.cry

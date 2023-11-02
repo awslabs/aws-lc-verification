@@ -1,0 +1,125 @@
+// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+//  SPDX-License-Identifier: Apache-2.0
+
+module SHA384recEquiv where
+
+import Primitive::Keyless::Hash::SHA384 as SHA384
+import SHA384rec as SHA384rec
+import Array
+import Common::ByteArray
+
+type WordArray = Array[64][64]
+type w = SHA384rec::w
+type j = SHA384rec::j
+
+// The folloing definition is the version copied from SHA384.cry.
+// We have to do this because this definition is not exported.
+// Manual inspection is required
+K = [ 0x428a2f98d728ae22, 0x7137449123ef65cd, 0xb5c0fbcfec4d3b2f, 0xe9b5dba58189dbbc,
+      0x3956c25bf348b538, 0x59f111f1b605d019, 0x923f82a4af194f9b, 0xab1c5ed5da6d8118,
+      0xd807aa98a3030242, 0x12835b0145706fbe, 0x243185be4ee4b28c, 0x550c7dc3d5ffb4e2,
+      0x72be5d74f27b896f, 0x80deb1fe3b1696b1, 0x9bdc06a725c71235, 0xc19bf174cf692694,
+      0xe49b69c19ef14ad2, 0xefbe4786384f25e3, 0x0fc19dc68b8cd5b5, 0x240ca1cc77ac9c65,
+      0x2de92c6f592b0275, 0x4a7484aa6ea6e483, 0x5cb0a9dcbd41fbd4, 0x76f988da831153b5,
+      0x983e5152ee66dfab, 0xa831c66d2db43210, 0xb00327c898fb213f, 0xbf597fc7beef0ee4,
+      0xc6e00bf33da88fc2, 0xd5a79147930aa725, 0x06ca6351e003826f, 0x142929670a0e6e70,
+      0x27b70a8546d22ffc, 0x2e1b21385c26c926, 0x4d2c6dfc5ac42aed, 0x53380d139d95b3df,
+      0x650a73548baf63de, 0x766a0abb3c77b2a8, 0x81c2c92e47edaee6, 0x92722c851482353b,
+      0xa2bfe8a14cf10364, 0xa81a664bbc423001, 0xc24b8b70d0f89791, 0xc76c51a30654be30,
+      0xd192e819d6ef5218, 0xd69906245565a910, 0xf40e35855771202a, 0x106aa07032bbd1b8,
+      0x19a4c116b8d2d0c8, 0x1e376c085141ab53, 0x2748774cdf8eeb99, 0x34b0bcb5e19b48a8,
+      0x391c0cb3c5c95a63, 0x4ed8aa4ae3418acb, 0x5b9cca4f7763e373, 0x682e6ff3d6b2b8a3,
+      0x748f82ee5defb2fc, 0x78a5636f43172f60, 0x84c87814a1f0ab72, 0x8cc702081a6439ec,
+      0x90befffa23631e28, 0xa4506cebde82bde9, 0xbef9a3f7b2c67915, 0xc67178f2e372532b,
+      0xca273eceea26619c, 0xd186b8c721c0c207, 0xeada7dd6cde0eb1e, 0xf57d4f7fee6ed178,
+      0x06f067aa72176fba, 0x0a637dc5a2c898a6, 0x113f9804bef90dae, 0x1b710b35131c471b,
+      0x28db77f523047d84, 0x32caab7b40c72493, 0x3c9ebe0a15c9bebc, 0x431d67c49c100d4c,
+      0x4cc5d4becb3e42b6, 0x597f299cfc657e2a, 0x5fcb6fab3ad6faec, 0x6c44198c4a475817]
+
+// The folloing definition is the recursive comprehension version copied from SHA384.cry.
+// We have to do this because this definition is not exported.
+// Manual inspection is required
+messageSchedule_Common : [16][w] -> [j][w]
+messageSchedule_Common Mi = take W
+  where 
+  W : [inf][_]
+  W = Mi # [ w1 + SHA384::s0 w2 + w3 + SHA384::s1 w4
+           | w1 <- W
+           | w2 <- drop`{1} W
+           | w3 <- drop`{9} W
+           | w4 <- drop`{14} W
+           ]
+
+// The folloing definition is the recursive comprehension version copied from SHA384.cry.
+// We have to do this because this definition is not exported.
+// Manual inspection is required
+compress_Common : [8][w] -> [j][w] -> [8][w]
+compress_Common H W =
+  // XXX: This whole definitions looks like it might be simplifiable.
+  [ (as ! 0) + (H @ 0),
+    (bs ! 0) + (H @ 1),
+    (cs ! 0) + (H @ 2),
+    (ds ! 0) + (H @ 3),
+    (es ! 0) + (H @ 4),
+    (fs ! 0) + (H @ 5),
+    (gs ! 0) + (H @ 6),
+    (hs ! 0) + (H @ 7)
+  ]
+  where
+    T1 = [h + SHA384::S1 e + SHA384::Ch e f g + k_t + w_t
+              | h <- hs | e <- es | f <- fs | g <- gs | k_t <- SHA384rec::K | w_t <- W]
+    T2 = [ SHA384::S0 a + SHA384::Maj a b c | a <- as | b <- bs | c <- cs]
+    hs = take`{j + 1}([H @ 7] # gs)
+    gs = take`{j + 1}([H @ 6] # fs)
+    fs = take`{j + 1}([H @ 5] # es)
+    es = take`{j + 1}([H @ 4] # [d + t1 | d <- ds | t1 <- T1])
+    ds = take`{j + 1}([H @ 3] # cs)
+    cs = take`{j + 1}([H @ 2] # bs)
+    bs = take`{j + 1}([H @ 1] # as)
+    as = take`{j + 1}([H @ 0] # [t1 + t2 | t1 <- T1 | t2 <- T2])
+
+// define equiv properties
+property H0_equiv =
+  SHA384::SHAH0 == SHA384rec::H0
+
+property K_equiv =
+  K == SHA384rec::K
+
+property S0_equiv (x : [w]) = 
+  SHA384::S0 x == SHA384rec::S0 x
+
+property S1_equiv (x : [w]) = 
+  SHA384::S1 x == SHA384rec::S1 x
+
+property s0_equiv (x : [w]) = 
+  SHA384::s0 x == SHA384rec::s0 x
+
+property s1_equiv (x : [w]) = 
+  SHA384::s1 x == SHA384rec::s1 x
+
+property Ch_equiv (x : [w]) (y : [w]) (z : [w])= 
+  SHA384::Ch x y z == SHA384rec::Ch x y z
+
+property Maj_equiv (x : [w]) (y : [w]) (z : [w])= 
+  SHA384::Maj x y z == SHA384rec::Maj x y z
+
+property messageSchedule_Common_equiv (Mi : [16][w]) =
+  messageSchedule_Common Mi == SHA384rec::messageSchedule_Common_rec Mi
+
+property compress_Common_equiv (H : [8][w]) (W : [j][w]) =
+  compress_Common H W == SHA384rec::compress_Common_rec H W
+
+property processBlock_Common_equiv (H : [8*w]) (Mi : [16][w]) =
+  join (SHA384::processBlock_Common (split H) Mi) == SHA384rec::processBlock_Common_rec H w0 w1 w2 w3 w4 w5 w6 w7 w8 w9 w10 w11 w12 w13 w14 w15
+  where [w0, w1, w2, w3, w4, w5, w6, w7, w8, w9, w10, w11, w12, w13, w14, w15] = Mi
+
+// // This property could not be proved nor checked due to Cryptol's lack of support for Arrays
+// // Manual inspection is required
+// property processBlock_equiv (h : [8][w]) (block : ByteArray) (index : [64]) =
+//   SHA384::processBlock h block index == SHA384rec::processBlock_rec h block index
+
+// This property could not be proved nor checked due to Cryptol's lack of support for loops and Arrays
+// Manual inspection is required
+property processBlocks_equiv (data : ByteArray) (data2 : WordArray) (index : [64]) (n : [64]) = 
+  // TODO: state relationship between data and data2
+  join (SHA384::processBlocks SHA384rec::H0 data 0 n) == SHA384rec::processBlocks_rec n data2

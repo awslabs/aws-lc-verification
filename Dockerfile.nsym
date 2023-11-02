@@ -9,17 +9,24 @@ ARG GO_VERSION=1.20.1
 ARG GO_ARCHIVE="go${GO_VERSION}.linux-amd64.tar.gz"
 RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections
 RUN apt-get update
-RUN apt-get install -y wget unzip git cmake clang llvm python3-pip libncurses5 opam libgmp-dev cabal-install
-RUN apt-get install -y g++-aarch64-linux-gnu lld
+RUN apt-get install -y curl wget unzip git cmake ninja-build clang llvm g++-aarch64-linux-gnu \
+   lld python3-pip file time python3-pkgconfig libgmp-dev opam
 
 RUN wget "https://dl.google.com/go/${GO_ARCHIVE}" && tar -xvf $GO_ARCHIVE && \
    mkdir $GOROOT &&  mv go/* $GOROOT && rm $GO_ARCHIVE
-RUN pip3 install wllvm
-RUN pip3 install psutil
 
-ADD ./SAW/scripts /lc/scripts
+RUN opam init --auto-setup --yes --disable-sandboxing \
+  && opam switch create 4.14.0 \
+  && eval $(opam env --switch=4.14.0) \
+  && opam install -y dune ppxlib ppx_deriving zarith odoc
+
+# Dependencies for Cryptol-Air-Interface
+# ghcup, ghc-8.10.7
+# zlib: libghc-bzlib-dev zlib1g-dev
+
+ADD ./NSym/scripts /lc/scripts
 RUN /lc/scripts/docker_install.sh
-ENV CRYPTOLPATH="../../../cryptol-specs:../../spec"
+ENV CRYPTOLPATH="../../../cryptol-specs:../../spec:./spec:../cryptol-specs"
 
 # This container expects all files in the directory to be mounted or copied. 
 # The GitHub action will mount the workspace and set the working directory of the container.
