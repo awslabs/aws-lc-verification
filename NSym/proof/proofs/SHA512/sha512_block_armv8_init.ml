@@ -86,6 +86,10 @@ open Arm;;
 
 *)
 
+let print_hex (intstr : string) : unit =
+  let hexstr = Z.format "%#x" (Z.of_string intstr) in
+  Format.fprintf Format.std_formatter "@[<1>%s@]@." hexstr;;
+
 assert
   (* Check whether the address of the first instruction of the
      program, with the low 12-bit zeroed out, is the same as that for
@@ -105,8 +109,11 @@ assert
 let adrp_base_int =
   (Int.shift_left (Int.shift_right Sha512_program.sha512_block_armv8_start_address 12)
      12);;
+print_hex (Int.to_string adrp_base_int);;
 let adrp_base = (cb 64 adrp_base_int);;
+print_hex (Int.to_string Sha512_program.k512_start_address);;
 let ktbl_offset_int = (Sha512_program.k512_start_address - adrp_base_int);;
+print_hex (Int.to_string ktbl_offset_int);;
 let (ktbl_pointer : State.mem_tracker) =
   { id = Some adrp_base; offset = (cb 64 ktbl_offset_int) };;
 

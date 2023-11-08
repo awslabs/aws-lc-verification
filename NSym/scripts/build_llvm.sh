@@ -16,7 +16,6 @@ export LLVM_COMPILER=clang
 export BINUTILS_TARGET_PREFIX=aarch64-linux-gnu
 
 cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
-      -DKEEP_ASM_LOCAL_SYMBOLS=1 \
       -DBUILD_LIBSSL=OFF \
       -DCMAKE_TOOLCHAIN_FILE=../../scripts/build_llvm.cmake \
       -DCMAKE_C_COMPILER_TARGET=$TARGET \
@@ -24,6 +23,7 @@ cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
       -DCMAKE_ASM_COMPILER_TARGET=$TARGET \
       ../../../src
 
+# -DKEEP_ASM_LOCAL_SYMBOLS=1 \
 # -DCMAKE_C_FLAGS="-L/usr/lib/gcc-cross/aarch64-linux-gnu/11" \
 # -DCMAKE_CXX_FLAGS="-L/usr/lib/gcc-cross/aarch64-linux-gnu/11" \
 # -DCMAKE_ASM_FLAGS="-L/usr/lib/gcc-cross/aarch64-linux-gnu/11" \

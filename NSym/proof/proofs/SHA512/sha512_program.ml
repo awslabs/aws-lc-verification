@@ -62,7 +62,7 @@ let sha512_block_data_order_bytes =
 (*** Read in the K512 constants from the binary. *)
 
 let (k512_start_address, k512_dump) =
-  Elf.symbol_contents ~section_name:".symtab" ".LK512" elf;;
+  Elf.symbol_contents ~section_name:".symtab" "K512" elf;;
 (* We only care about the first 81 64-bit values (or first 81*2 32-bit
    values) here.*)
 let k512_bytes =
@@ -70,7 +70,7 @@ let k512_bytes =
     (Elf.uint32_list_of_data k512_dump);;
 
 (* Print, in hex, the list of K512 bytes. *)
-(* let _ = List.iter (fun i -> print_hex (Int.to_string i)) k512_bytes;; *)
+let _ = List.iter (fun i -> print_hex (Int.to_string i)) k512_bytes;;
 
 (*** Check that there are 160 32-bit constants, and they are padded by
      64 zeroes at the end. This padding is needed for the termination

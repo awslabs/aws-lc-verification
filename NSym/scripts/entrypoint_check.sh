@@ -5,6 +5,17 @@
 
 set -ex
 
+PATCH=$(realpath ./patch)
+
+apply_patch() {
+    PATCH_NAME=$1
+
+    (cd ../src; patch -p1 -r - --forward < "$PATCH"/"$PATCH_NAME".patch || true)
+}
+
+# Apply some patches
+apply_patch "sha512-armv8"
+
 # ./scripts/build_aarch64.sh "Release" "neoverse-n1"
 # ./scripts/build_llvm.sh "Release"
 # ./scripts/post_build.sh

@@ -13,7 +13,6 @@ mkdir -p build_src/aarch64
 cd build_src/aarch64
 export LDFLAGS="-fuse-ld=lld"
 cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
-      -DKEEP_ASM_LOCAL_SYMBOLS=1 \
       -DBUILD_LIBSSL=OFF \
       -DCMAKE_TOOLCHAIN_FILE=../../scripts/build_aarch64.cmake \
       -DCMAKE_C_FLAGS="-mcpu=${MICRO_ARCH}" \
@@ -23,6 +22,8 @@ cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
       -DCMAKE_CXX_COMPILER_TARGET=$TARGET \
       -DCMAKE_ASM_COMPILER_TARGET=$TARGET \
       ../../../src
+
+# -DKEEP_ASM_LOCAL_SYMBOLS=1 \
 
 NUM_CPU_THREADS=$(grep -c ^processor /proc/cpuinfo)
 make -j $NUM_CPU_THREADS
