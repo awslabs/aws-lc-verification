@@ -14,6 +14,7 @@ cd build_src/aarch64
 export LDFLAGS="-fuse-ld=lld"
 cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
       -DBUILD_LIBSSL=OFF \
+      -DKEEP_ASM_LOCAL_SYMBOLS=1 \
       -DCMAKE_TOOLCHAIN_FILE=../../scripts/build_aarch64.cmake \
       -DCMAKE_C_FLAGS="-mcpu=${MICRO_ARCH}" \
       -DCMAKE_CXX_FLAGS="-mcpu=${MICRO_ARCH}" \

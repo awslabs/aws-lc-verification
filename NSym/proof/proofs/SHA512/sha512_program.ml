@@ -55,14 +55,14 @@ let sha512_block_data_order_bytes =
   (Elf.uint32_list_of_data sha512_block_data_order_dump);;
 
 (* Print, in hex, the list of sha512_block_data_order instructions. *)
-(* let _ =  List.iter (fun i -> print_hex (Int.to_string i)) sha512_block_data_order_bytes;; *)
+let _ =  List.iter (fun i -> print_hex (Int.to_string i)) sha512_block_data_order_bytes;;
 
 (* ---------------------------------------------------------------------- *)
 
 (*** Read in the K512 constants from the binary. *)
 
 let (k512_start_address, k512_dump) =
-  Elf.symbol_contents ~section_name:".symtab" "K512" elf;;
+  Elf.symbol_contents ~section_name:".symtab" ".LK512" elf;;
 (* We only care about the first 81 64-bit values (or first 81*2 32-bit
    values) here.*)
 let k512_bytes =
@@ -99,3 +99,8 @@ let k512_rodata =
 assert (Specs.Sha512.SHA512.k = k512_rodata);;
 
 (* ----------------------------------------------------------------------*)
+
+(*** Read in the OPENSSL_armcap_P constant from the binary. *)
+
+let openssl_armcap_p_start_address =
+  Elf.symbol_address ~section_name:".symtab" "OPENSSL_armcap_P" elf;;

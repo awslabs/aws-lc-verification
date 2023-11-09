@@ -14,7 +14,7 @@ let ctx_base = (sb 64 "ctx_base");;
 let input_base = (sb 64 "input_base");;
 
 let state =
-  Sha512_block_data_order_stable_program.sha512_block_data_order_init_state
+  Sha512_block_data_order_init.sha512_block_data_order_init_state
     ~num_blocks:num_blocks
     ~ctx_base:ctx_base
     ~input_base:input_base
@@ -82,7 +82,7 @@ let impl_digest_rules = Sha512_block_data_order_rules.[
   ];;
 
 let inductive_invariant =
-  let open Sha512_block_data_order_stable_program in
+  let open Sha512_block_data_order_init in
   let open State in
   Assert
     ("sha512_block_data_order_loop_inductive_invariant",
@@ -175,7 +175,7 @@ add_assertion ~loop_id:0 inductive_invariant
   LoopInvariant;;
 
 let loop_measure =
-  let open Sha512_block_data_order_stable_program in
+  let open Sha512_block_data_order_init in
   (*
     Number of blocks to hash decreases.
    *)
@@ -187,7 +187,7 @@ add_assertion ~loop_id:0 loop_measure LoopMeasure;;
 
 let loop_postcondition =
   let open State in
-  let open Sha512_block_data_order_stable_program in
+  let open Sha512_block_data_order_init in
   Assert
     ("sha512_block_data_order_loop_postcondition",
      (fun s ->

@@ -162,12 +162,11 @@ let sha512_block_armv8_init_state
       ~alignment:16
       state
   in
-  let ktbl_size_int = (if ktbl_offset_int >= 0 then (ktbl_offset_int + ((List.length ktbl) * 8)) else (-ktbl_offset_int)) in
   let state =
     State.add_separate_mem_region
       ~name:"ktbl_region" ~aw:64 ~dw:64
       ~base_addr:adrp_base
-      ~size:(cb 64 ktbl_size_int)
+      ~size:(cb 64 (ktbl_offset_int + ((List.length ktbl) * 8)))
       ~alignment:16
       state
   in

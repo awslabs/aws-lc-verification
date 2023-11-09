@@ -17,6 +17,7 @@ export BINUTILS_TARGET_PREFIX=aarch64-linux-gnu
 
 cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
       -DBUILD_LIBSSL=OFF \
+      -DKEEP_ASM_LOCAL_SYMBOLS=1 \
       -DCMAKE_TOOLCHAIN_FILE=../../scripts/build_llvm_aarch64.cmake \
       -DCMAKE_C_COMPILER_TARGET=$TARGET \
       -DCMAKE_CXX_COMPILER_TARGET=$TARGET \

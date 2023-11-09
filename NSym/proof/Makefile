@@ -3,7 +3,7 @@
 
 DEFAULT_OPTIONS?=-vno -q -vnoosi
 
-.PHONY: all clean sha512_spec sha512_grav2 sha512_grav3
+.PHONY: all clean sha512_spec sha384_spec sha512_grav2 sha512_grav3
 
 SHA384_SPEC_FILE := \
   sha384rec_spec

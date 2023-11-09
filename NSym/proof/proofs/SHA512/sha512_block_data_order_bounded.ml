@@ -105,7 +105,7 @@ air_fn_set_uninterpreted_status
 open Arm;;
 
 let state =
-  Sha512_block_data_order_stable_program.sha512_block_data_order_init_state
+  Sha512_block_data_order_init.sha512_block_data_order_init_state
     ~num_blocks:(cb 64 1)
     ~ctx_base:(sb 64 "ctx_base")
     ~input_base:(sb 64 "input_base")
