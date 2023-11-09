@@ -114,8 +114,10 @@ let adrp_base = (cb 64 adrp_base_int);;
 print_hex (Int.to_string Sha512_program.k512_start_address);;
 let ktbl_offset_int = (Sha512_program.k512_start_address - adrp_base_int);;
 print_hex (Int.to_string ktbl_offset_int);;
+let ktbl_offset = (s_cb 64 (Z.format "%#x" (Z.extract (Z.of_int ktbl_offset_int) 0 64)));;
+print_airexp ktbl_offset;;
 let (ktbl_pointer : State.mem_tracker) =
-  { id = Some adrp_base; offset = (cb 64 ktbl_offset_int) };;
+  { id = Some adrp_base; offset = ktbl_offset };;
 
 let digest_size = 512;;
 
@@ -160,11 +162,12 @@ let sha512_block_armv8_init_state
       ~alignment:16
       state
   in
+  let ktbl_size_int = (if ktbl_offset_int >= 0 then (ktbl_offset_int + ((List.length ktbl) * 8)) else (-ktbl_offset_int)) in
   let state =
     State.add_separate_mem_region
       ~name:"ktbl_region" ~aw:64 ~dw:64
       ~base_addr:adrp_base
-      ~size:(cb 64 (ktbl_offset_int + ((List.length ktbl) * 8)))
+      ~size:(cb 64 ktbl_size_int)
       ~alignment:16
       state
   in
