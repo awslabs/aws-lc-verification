@@ -38,7 +38,6 @@ rm -rf build/
 rm -rf build_src/
 
 ./scripts/build_aarch64.sh "Release" "neoverse-512tvb"
-./scripts/build_llvm.sh "Release"
 ./scripts/post_build.sh
 
 cp -r ./build ./proof/
