@@ -14,10 +14,10 @@ Air.air_fn_set_uninterpreted_status
    "arm.inst_sfp_adv_simd_two_reg_misc.rev64";
    "arm.inst_sfp_adv_simd_extract.ext128";
    "arm.inst_sfp_adv_simd_three_same.add_sub_2d";
-    (* Specification functions *)
-   "spec.SHA512rec.air_messageSchedule_Word";
-   "spec.SHA512rec.air_compress_Common_t1";
-   "spec.SHA512rec.air_compress_Common_t2";
+   (* Specification functions *)
+   Autospecs.Sha2.air_messageSchedule_Word_name;
+   Autospecs.Sha2.air_compress_Common_t1_name;
+   Autospecs.Sha2.air_compress_Common_t2_name;
    "specs.common.bv_revbytes64";];;
  
  let message_schedule_rule =
@@ -36,8 +36,8 @@ Air.air_fn_set_uninterpreted_status
    let d0 = (bv_partsel (sb 128 "d") 0 64) in
    let d1 = (bv_partsel (sb 128 "d") 64 64) in
    let rhs = (bvapp
-                (apply (get_air_fn "spec.SHA512rec.air_messageSchedule_Word")  [a0; a1; c0; d0])
-                (apply (get_air_fn "spec.SHA512rec.air_messageSchedule_Word")  [a1; b0; c1; d1])) in
+                (apply (get_air_fn Autospecs.Sha2.air_messageSchedule_Word_name)  [a0; a1; c0; d0])
+                (apply (get_air_fn Autospecs.Sha2.air_messageSchedule_Word_name)  [a1; b0; c1; d1])) in
    (Smtverify.prove_rule ~lhs ~equiv ~rhs name);;
  
  let sha512h2_rule =
@@ -54,10 +54,10 @@ Air.air_fn_set_uninterpreted_status
    let c1 = (bv_partsel (sb 128 "c") 64 64) in
    let rhs = (bvapp
                 (bvadd 64
-                   (apply (get_air_fn "spec.SHA512rec.air_compress_Common_t2")
-                      [(bvadd 64 (apply (get_air_fn "spec.SHA512rec.air_compress_Common_t2") [b0; a0; b1]) c1); b0; b1])
+                   (apply (get_air_fn Autospecs.Sha2.air_compress_Common_t2_name)
+                      [(bvadd 64 (apply (get_air_fn Autospecs.Sha2.air_compress_Common_t2_name) [b0; a0; b1]) c1); b0; b1])
                    c0)
-                (bvadd 64 (apply (get_air_fn "spec.SHA512rec.air_compress_Common_t2") [b0; a0; b1]) c1)) in
+                (bvadd 64 (apply (get_air_fn Autospecs.Sha2.air_compress_Common_t2_name) [b0; a0; b1]) c1)) in
    (let _ =
       Smtverify.air_prove
         ~lhs:lhs ~rhs:rhs
@@ -89,8 +89,8 @@ Air.air_fn_set_uninterpreted_status
    let d1 = (bv_partsel (sb 128 "d") 64 64) in
    let e0 = (bv_partsel (sb 128 "e") 0 64) in
    let e1 = (bv_partsel (sb 128 "e") 64 64) in
-   let hi64_spec = (apply (get_air_fn "spec.SHA512rec.air_compress_Common_t1") [b1; a0; a1; c1; d1; e1]) in
-   let lo64_spec = (apply (get_air_fn "spec.SHA512rec.air_compress_Common_t1")
+   let hi64_spec = (apply (get_air_fn Autospecs.Sha2.air_compress_Common_t1_name) [b1; a0; a1; c1; d1; e1]) in
+   let lo64_spec = (apply (get_air_fn Autospecs.Sha2.air_compress_Common_t1_name)
                       [(* (apply (get_air_fn "spec.SHA512rec.air_compression_Common_e") [b0; hi64_spec]); *)
                         (bvadd 64 b0 hi64_spec);
                         b1; a0; c0; d0; e0]) in
@@ -151,8 +151,8 @@ Air.air_fn_set_uninterpreted_status
    let d1 = (bv_partsel (sb 128 "d") 64 64) in
    let e0 = (bv_partsel (sb 128 "e") 0 64) in
    let e1 = (bv_partsel (sb 128 "e") 64 64) in
-   let hi64_spec = (apply (get_air_fn "spec.SHA512rec.air_compress_Common_t1") [b1; a0; a1; c1; d0; e0]) in
-   let lo64_spec = (apply (get_air_fn "spec.SHA512rec.air_compress_Common_t1")
+   let hi64_spec = (apply (get_air_fn Autospecs.Sha2.air_compress_Common_t1_name) [b1; a0; a1; c1; d0; e0]) in
+   let lo64_spec = (apply (get_air_fn Autospecs.Sha2.air_compress_Common_t1_name)
                       [(* (apply (get_air_fn "spec.SHA512rec.air_compression_Common_e") [b0; hi64_spec]); *)
                         (bvadd 64 b0 hi64_spec);
                         b1; a0; c0; d1; e1])
@@ -234,9 +234,9 @@ let sha512_base_case_rule =
   let open Arm in
   let name = "sha512_base_case_rule" in
   let base_idx = (cb 64 1) in
-  let lhs = (apply Autospecs.SHA512rec.air_processBlocks_rec [base_idx; (smem "input" 64 64)]) in
+  let lhs = (apply Autospecs.Sha2.air_processBlocks_rec [base_idx; (smem "input" 64 64)]) in
   let equiv = Equal in
-  let rec_call = (Cryptol.toAir (Cryptol.join "0x8" "0x40" Cryptol.Bit Autospecs.SHA512rec.lowercase_H0)) in
+  let rec_call = (Cryptol.toAir (Cryptol.join "0x8" "0x40" Cryptol.Bit Autospecs.Sha2.h0)) in
   let input_block =
     (let i = (cb 64 1) in (* i: Number of blocks *)
      let i_1 = (bvsub 64 i (cb 64 1)) in
@@ -260,7 +260,7 @@ let sha512_base_case_rule =
        (fun x -> (apply (get_air_fn "specs.common.bv_revbytes64") [x]))
        [w0; w1; w2; w3; w4; w5; w6; w7; w8; w9; w10; w11; w12; w13; w14; w15])
      ) in
-  let rhs =  (apply Autospecs.SHA512rec.air_processBlock_Common_rec (rec_call :: input_block)) in
+  let rhs =  (apply Autospecs.Sha2.air_processBlock_Common_rec (rec_call :: input_block)) in
   (let _ = Smtverify.air_prove ~lhs:lhs ~rhs:rhs ~theory:[Autospecs.Sha512rec_theorems.sha512_spec_base_theorem; Autospecs.Sha512rec_theorems.sha512_spec_ind_theorem] name in
    (make_rule ~lhs ~equiv ~rhs name));;
 
@@ -269,9 +269,9 @@ let sha512_inductive_case_rule =
   let name = "sha512_inductive_case_rule" in
   let base_idx = (bvsub 64 (sb 64 "var_1") (bvsub 64 (sb 64 "var_2") (cb 64 1))) in
   let hyp = (bvlt 64 (cb 64 0) base_idx) in
-  let lhs = (apply Autospecs.SHA512rec.air_processBlocks_rec [base_idx; (smem "input" 64 64)]) in
+  let lhs = (apply Autospecs.Sha2.air_processBlocks_rec [base_idx; (smem "input" 64 64)]) in
   let equiv = Equal in
-  let rec_call = (apply Autospecs.SHA512rec.air_processBlocks_rec [(bvsub 64 base_idx (cb 64 1)); (smem "input" 64 64)]) in
+  let rec_call = (apply Autospecs.Sha2.air_processBlocks_rec [(bvsub 64 base_idx (cb 64 1)); (smem "input" 64 64)]) in
   let input_block =
     (let i = base_idx in (* i: Number of blocks *)
      let i_1 = (bvsub 64 i (cb 64 1)) in
@@ -295,7 +295,7 @@ let sha512_inductive_case_rule =
        (fun x -> (apply (get_air_fn "specs.common.bv_revbytes64") [x]))
        [w0; w1; w2; w3; w4; w5; w6; w7; w8; w9; w10; w11; w12; w13; w14; w15]))
   in
-  let rhs =  (apply Autospecs.SHA512rec.air_processBlock_Common_rec (rec_call :: input_block)) in
+  let rhs =  (apply Autospecs.Sha2.air_processBlock_Common_rec (rec_call :: input_block)) in
   (let _ = Smtverify.air_prove ~hyp:hyp ~lhs:lhs ~rhs:rhs ~theory:[Autospecs.Sha512rec_theorems.sha512_spec_base_theorem; Autospecs.Sha512rec_theorems.sha512_spec_ind_theorem] name in
    (make_rule ~lhs ~equiv ~rhs name));;
 

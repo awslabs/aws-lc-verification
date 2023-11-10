@@ -31,11 +31,11 @@ air_fn_set_uninterpreted_status
    "arm.inst_sfp_crypto_three_reg_sha512.sigma_big_1";
    "arm.inst_sfp_crypto_three_reg_sha512.ch";
    "arm.inst_sfp_crypto_three_reg_sha512.maj";
-   "spec.SHA512rec.air_s0";
-   "spec.SHA512rec.air_s1";
-   "spec.SHA512rec.air_S0";
-   "spec.SHA512rec.air_S1";
-   "spec.SHA512rec.air_Ch";
+   Autospecs.Sha2.air_s0_name;
+   Autospecs.Sha2.air_s1_name;
+   Autospecs.Sha2.air_S0_name;
+   Autospecs.Sha2.air_S1_name;
+   Autospecs.Sha2.air_Ch_name;
    "specs.common.bv_revbytes64"];;
 
 let state =
@@ -100,7 +100,7 @@ let inductive_invariant =
          let n = Cryptol.CryBV(num_blks_hashed) in 
          let input = Cryptol.CryMem(input_region.memory) in
          let spec_digest = (Cryptol.rev_digest_blocks
-                             (Autospecs.SHA512rec.lowercase_processBlocks_rec n input)) in
+                             (Autospecs.Sha2.processblocks_rec n input)) in
          (* let _ = Printf.printf "spec:\n %s\n" (show_airexp_let spec_digest) in *)
          let spec_digest = uncond_rewrite spec_digest spec_digest_rules in
          let spec_digest =
@@ -194,7 +194,7 @@ let loop_postcondition =
         (let n = Cryptol.CryBV(num_blocks) in 
          let input = Cryptol.CryMem(input_region.memory) in
          let spec_digest = (Cryptol.rev_digest_blocks 
-                             (Autospecs.SHA512rec.lowercase_processBlocks_rec n input)) in
+                             (Autospecs.Sha2.processblocks_rec n input)) in
          let (_, impl_digest) =
            (encapsulate ~name:"SHA512_BLK_IMPL"
               (read_mem_data 64 (State.make_pointer (sb 64 "ctx_base")) s))
@@ -233,14 +233,14 @@ air_fn_set_uninterpreted_status
    "arm.inst_dpi_extract.ror64";
    "arm.inst_dpr_one_src.rev64";
 
-   "spec.SHA512rec.air_s0";
-   "spec.SHA512rec.air_s1";
-   "spec.SHA512rec.air_S0";
-   "spec.SHA512rec.air_S1";
-   "spec.SHA512rec.air_Ch";
+   Autospecs.Sha2.air_s0_name;
+   Autospecs.Sha2.air_s1_name;
+   Autospecs.Sha2.air_S0_name;
+   Autospecs.Sha2.air_S1_name;
+   Autospecs.Sha2.air_Ch_name;
   ];;
 
-air_fn_set_uninterpreted_status false ["spec.SHA512rec.air_processBlock_Common_rec"];;
+air_fn_set_uninterpreted_status false [Autospecs.Sha2.air_processBlock_Common_rec_name];;
 
 let _ = run ~unroll_options:[(1, Full)] state;;
 

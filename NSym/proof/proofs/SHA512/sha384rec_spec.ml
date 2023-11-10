@@ -31,8 +31,6 @@ let message = Cryptol.array_from_seq "0x40" "0x40"
                                    (s_cb wordsize "0x0000000000000018")])
               (Cryptol.symbolic_malloc "message" 64 64);;
 
-print_endline "ok";;
-
 (* Expected digest *)
 let expected_digest = Cryptol.join "0x6" "0x40" Cryptol.Bit
                         (Cryptol.toCry2Dim [(s_cb wordsize "0xCB00753F45A35E8B");

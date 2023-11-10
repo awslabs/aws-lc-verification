@@ -10,15 +10,15 @@ module Cryptol = Cryptol;;
    unbounded proof obligations of sha512_block_armv8 and
    sha512_block_data_order. *)
 
-air_fn_set_uninterpreted_status false ["spec.SHA512rec.air_processBlocks_rec"];;
-air_fn_set_uninterpreted_status true ["spec.SHA512rec.air_processBlock_Common_rec"];;
+air_fn_set_uninterpreted_status false [Sha2.air_processBlocks_rec_name];;
+air_fn_set_uninterpreted_status true [Sha2.air_processBlock_Common_rec_name];;
 
 let sha512_spec_base_theorem =
   (let formula =
     (bveq
         512
-        (apply SHA512rec.air_processBlocks_rec [(cb 64 0); (smem "input" 64 64)])
-        (Cryptol.toAir (Cryptol.join "0x8" "0x40" Cryptol.Bit SHA512rec.lowercase_H0)))
+        (apply Sha2.air_processBlocks_rec [(cb 64 0); (smem "input" 64 64)])
+        (Cryptol.toAir (Cryptol.join "0x8" "0x40" Cryptol.Bit Sha2.h0)))
     in
     let _ =
       Smtverify.air_prove
@@ -59,13 +59,13 @@ let sha512_spec_ind_theorem =
              (fun x -> (apply (get_air_fn "specs.common.bv_revbytes64") [x]))
              [w0; w1; w2; w3; w4; w5; w6; w7; w8; w9; w10; w11; w12; w13; w14; w15]) in
      (* let input_block = [w0; w1; w2; w3; w4; w5; w6; w7; w8; w9; w10; w11; w12; w13; w14; w15] in *)
-     let rec_call = (apply SHA512rec.air_processBlocks_rec [i_1; (smem "input" 64 64)]) in
+     let rec_call = (apply Sha2.air_processBlocks_rec [i_1; (smem "input" 64 64)]) in
      (forall [i]
         (implies (bnot (bveq 64 i (cb 64 0)))
            (bveq
               512
-              (apply SHA512rec.air_processBlocks_rec [i; (smem "input" 64 64)])
-              (apply SHA512rec.air_processBlock_Common_rec (rec_call :: input_block))))
+              (apply Sha2.air_processBlocks_rec [i; (smem "input" 64 64)])
+              (apply Sha2.air_processBlock_Common_rec (rec_call :: input_block))))
         "sha512_spec_ind_theorem"))
   in
   let _ =
@@ -73,5 +73,5 @@ let sha512_spec_ind_theorem =
   formula;;
 (*let _ = print_airexp sha512_spec_ind_theorem;;*)
 
-air_fn_set_uninterpreted_status true ["spec.SHA512rec.air_processBlock_Common_rec"];;
-air_fn_set_uninterpreted_status true ["spec.SHA512rec.air_processBlocks_rec"];;
+air_fn_set_uninterpreted_status true [Sha2.air_processBlock_Common_rec_name];;
+air_fn_set_uninterpreted_status true [Sha2.air_processBlocks_rec_name];;

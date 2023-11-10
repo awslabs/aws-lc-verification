@@ -29,10 +29,10 @@ cp -r ./build ./proof/
 
 # Run SHA512 proof for Graviton2
 export NSYM_SHA2_VERSION=SHA512
-make -C ./proof sha512_grav2
+make -C ./proof sha2_grav2
 # Run SHA384 proof for Graviton2
 export NSYM_SHA2_VERSION=SHA384
-make -C ./proof sha512_grav2
+make -C ./proof sha2_grav2
 
 rm -rf build/
 rm -rf build_src/
@@ -45,7 +45,7 @@ cp -r ./build ./proof/
 
 # Run SHA512 proof for Graviton3
 export NSYM_SHA2_VERSION=SHA512
-make -C ./proof sha512_grav3
+make -C ./proof sha2_grav3
 # Run SHA384 proof for Graviton3
 export NSYM_SHA2_VERSION=SHA384
-make -C ./proof sha512_grav3
+make -C ./proof sha2_grav3

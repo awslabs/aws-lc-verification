@@ -147,7 +147,7 @@ let sha512_block_armv8_init_state
   let ctx_pointer = State.make_pointer ctx_base in
   let input_pointer = State.make_pointer input_base in
   (* ktbl data is in the .rodata section. *)
-  let ktbl = Cryptol.toAir2Dim Autospecs.SHA512rec.lowercase_K in
+  let ktbl = Cryptol.toAir2Dim Autospecs.Sha2.k in
   let state =
     State.add_separate_mem_region
       ~name:"ctx_region" ~aw:64 ~dw:64
@@ -183,7 +183,7 @@ let sha512_block_armv8_init_state
       state
   in
   (* Initial hash value *)
-  let h0 = Cryptol.toAir2Dim Autospecs.SHA512rec.lowercase_H0 in
+  let h0 = Cryptol.toAir2Dim Autospecs.Sha2.h0 in
   let state = write_mem_data (8 * 8) ctx_pointer (bvapp_list h0) state in
   (* Input block *)
   let state =

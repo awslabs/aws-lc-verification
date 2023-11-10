@@ -67,7 +67,7 @@ let inductive_invariant =
          let n = Cryptol.CryBV(num_blocks_hashed) in 
          let input = Cryptol.CryMem(input_region.memory) in
          let spec_digest = (Cryptol.rev_digest_blocks 
-                             (Autospecs.SHA512rec.lowercase_processBlocks_rec n input)) in
+                             (Autospecs.Sha2.processblocks_rec n input)) in
          let spec_digest =
            uncond_rewrite spec_digest Sha512_block_armv8_rules.[sha512_base_case_rule]
          in
@@ -151,7 +151,7 @@ let loop_postcondition =
          let n = Cryptol.CryBV(num_blocks) in 
          let input = Cryptol.CryMem(input_region.memory) in
          let spec_digest = (Cryptol.rev_digest_blocks 
-                              (Autospecs.SHA512rec.lowercase_processBlocks_rec n input)) in
+                              (Autospecs.Sha2.processblocks_rec n input)) in
          (band_list
             [
              (bveq 64 num_blocks_left (cb 64 0));
@@ -181,16 +181,16 @@ Air.air_fn_set_uninterpreted_status
     "arm.inst_sfp_adv_simd_extract.ext128";
     "arm.inst_sfp_adv_simd_three_same.add_sub_2d";
     (* Specification functions *)
-    "spec.SHA512rec.air_messageSchedule_Word";
+    Autospecs.Sha2.air_messageSchedule_Word_name;
+    Autospecs.Sha2.air_s0_name;
+    Autospecs.Sha2.air_s1_name;
+    Autospecs.Sha2.air_S0_name;
+    Autospecs.Sha2.air_S1_name;
+    Autospecs.Sha2.air_Ch_name;
     "specs.common.bv_revbytes64";
-    "spec.SHA512rec.air_s0";
-    "spec.SHA512rec.air_s1";
-    "spec.SHA512rec.air_S0";
-    "spec.SHA512rec.air_S1";
-    "spec.SHA512rec.air_Ch";
   ];;
 
-air_fn_set_uninterpreted_status false ["spec.SHA512rec.air_processBlock_Common_rec"];;
+air_fn_set_uninterpreted_status false [Autospecs.Sha2.air_processBlock_Common_rec_name];;
 
 let _ = run state;;
 
