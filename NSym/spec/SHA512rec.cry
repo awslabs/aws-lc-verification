@@ -115,22 +115,6 @@ processBlock_Common_rec H w0 w1 w2 w3 w4 w5 w6 w7 w8 w9 w10 w11 w12 w13 w14 w15 
   where
     Mi = [w0, w1, w2, w3, w4, w5, w6, w7, w8, w9, w10, w11, w12, w13, w14, w15]
 
-// processBlock_rec : [8][w] -> ByteArray -> [64] -> [8][w]
-// processBlock_rec h block index =
-//   processBlock_Common_rec h (split (join (arrayRangeLookup block index)))
-
-// processBlocks_rec : [8][w] -> ByteArray -> [64] -> [64] -> [8][w]
-// processBlocks_rec [a, b, c, d, e, f, g, h] data index n = processBlock_rec [a', b', c', d', e', f', g', h'] data index'
-//   where
-//     (a', b', c', d', e', f', g', h', index') = processBlocksLoop_rec n data a b c d e f g h index
-
-// processBlocksLoop_rec : [64] -> ByteArray -> [w] -> [w] -> [w] -> [w] -> [w] -> [w] -> [w] -> [w] -> [64] -> ([w], [w], [w], [w], [w], [w], [w], [w], [64])
-// processBlocksLoop_rec num data a b c d e f g h index = if (index + 2 * `w) < (num * 2 * `w)
-//   then processBlocksLoop_rec num data a' b' c' d' e' f' g' h' (index + 2 * `w)
-//   else (a, b, c, d, e, f, g, h, index)
-//   where
-//     [a', b', c', d', e', f', g', h'] = (processBlock_rec [a, b, c, d, e, f, g, h] data index)
-
 processBlocks_rec : [64] -> WordArray -> [8*w]
 processBlocks_rec num data = 
   if num == 0 

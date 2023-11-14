@@ -131,12 +131,6 @@ let sha512_block_data_order_init_state
       let input_length_bytes = (Z.to_int (Sem.Bv.to_z (get_cb_val num_bytes))) in
       write_mem_data input_length_bytes input_pointer (Air.bvapp_list (Option.get input)) state in
   (* 80 SHA512 constants, followed by a 64'0. *)
-  (*
-  let state =
-    write_mem_data ((1 + (List.length ktbl)) * 8)
-      ktbl_pointer (bvapp_list (ktbl @ [(cb 64 0)])) state
-  in
-  *)
   let (_, state) =
     List.fold_left
       (fun (i, s) k ->

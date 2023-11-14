@@ -63,7 +63,6 @@ let inductive_invariant =
                                        rev64_of_rev64_rule;]
          in
          let (_, impl_digest) = (encapsulate ~name:"SHA512_BLK_IMPL" impl_digest) in
-         let _ = print_airexp_let impl_digest in
          let n = Cryptol.CryBV(num_blocks_hashed) in 
          let input = Cryptol.CryMem(input_region.memory) in
          let spec_digest = (Cryptol.rev_digest_blocks 
@@ -74,7 +73,6 @@ let inductive_invariant =
          let spec_digest =
            Smtverify.apply_rewrites (State.path_cond s) spec_digest
              Sha512_block_armv8_rules.[sha512_base_case_rule; sha512_inductive_case_rule] in
-         let _ = print_airexp_let spec_digest in
          let input_in_regs =
            bvapp_list
              [(sfp 128 16 s); (sfp 128 17 s); (sfp 128 18 s); (sfp 128 19 s);

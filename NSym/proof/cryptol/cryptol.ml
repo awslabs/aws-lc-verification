@@ -8,8 +8,6 @@ module A = Air
 module C = Specs.Common
 type airExp = A.airExp
 
-(* TODO : think about what could be dynamically checked in these functions *)
-
 let undefined = fun () -> failwith "undefined"
 let raise err = failwith ("Error: " ^ err)
 
@@ -30,14 +28,6 @@ type cryExp =
 | CryInt of airExp
 | CryBV of airExp
 | CryBool of airExp
-
-(** TODO: Pretty Printers *)
-
-let pp (e : cryExp) = 
-  match e with
-  | CryBV(x) -> A.print_airexp x
-  | CryMem(x) -> A.print_airexp x
-  |_ -> undefined ()
 
 (** {2. Numbers} *)
 
@@ -60,7 +50,7 @@ let mkZero2Dim (k : cryType) (row : int) (col : int) : cryExp =
   | Bit -> CrySeq(List.init row (fun _ -> (mkZero1Dim k col)))
   | _ -> raise "Could not make two dimentional zero"
 
-let zero (k : cryType) : cryExp = 
+let zero (k : cryType) : cryExp =
   match k with
   | Seq(w, Bit) -> mkZero1Dim Bit (int_of_string w)
   | Seq(row, Seq(col, Bit)) -> mkZero2Dim Bit (int_of_string row) (int_of_string col)
@@ -68,7 +58,7 @@ let zero (k : cryType) : cryExp =
 
 let bvnot (k : cryType) (x : cryExp) : cryExp =
   match (k, x) with
-  | (Seq(w, Bit), CryBV xb) -> 
+  | (Seq(w, Bit), CryBV xb) ->
     CryBV(A.bvnot (int_of_string w) xb)
   | _ -> raise "Currently only bvnot of bit-vectors are supported"
 
@@ -84,7 +74,6 @@ let bvand (k : cryType) (x : cryExp) (y : cryExp) : cryExp =
     CryBV(A.bvand (int_of_string w) xb yb)
   | _ -> raise "Currently only bvand of bit-vectors are supported"
 
-(* TODO: add a check that bvsize x == w *)
 let bvror (_ : string) (t1 : cryType) (t2 : cryType) (x : cryExp) (i : cryExp)
       : cryExp =
   match (t1, t2, x, i) with
@@ -397,3 +386,11 @@ let rev_digest_blocks (digest : cryExp) : airExp =
      | CryBV(l) -> l
      | _ -> raise "Malformed flat_digest")
   | _ -> raise "Malformed digest"
+
+(* Pretty Printers *)
+
+let pp (e : cryExp) =
+  match e with
+  | CryBV(x) -> A.print_airexp x
+  | CryMem(x) -> A.print_airexp x
+  |_ -> undefined ()

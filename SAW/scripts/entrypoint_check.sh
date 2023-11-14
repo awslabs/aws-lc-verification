@@ -55,7 +55,6 @@ apply_patch "noinline-EVP_DigestVerifyUpdate"
 
 ./scripts/build_x86.sh  "Release"
 ./scripts/build_llvm_x86.sh "Release"
-# ./scripts/build_llvm_aarch64.sh "Release"
 ./scripts/post_build.sh
 ./scripts/run_checks_release.sh
 

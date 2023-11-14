@@ -58,7 +58,6 @@ let sha512_spec_ind_theorem =
      let input_block = (List.map
              (fun x -> (apply (get_air_fn "specs.common.bv_revbytes64") [x]))
              [w0; w1; w2; w3; w4; w5; w6; w7; w8; w9; w10; w11; w12; w13; w14; w15]) in
-     (* let input_block = [w0; w1; w2; w3; w4; w5; w6; w7; w8; w9; w10; w11; w12; w13; w14; w15] in *)
      let rec_call = (apply Sha2.air_processBlocks_rec [i_1; (smem "input" 64 64)]) in
      (forall [i]
         (implies (bnot (bveq 64 i (cb 64 0)))
@@ -71,6 +70,7 @@ let sha512_spec_ind_theorem =
   let _ =
     Smtverify.air_prove ~formula:formula "sha512_spec_ind_theorem" in
   formula;;
+
 (*let _ = print_airexp sha512_spec_ind_theorem;;*)
 
 air_fn_set_uninterpreted_status true [Sha2.air_processBlock_Common_rec_name];;

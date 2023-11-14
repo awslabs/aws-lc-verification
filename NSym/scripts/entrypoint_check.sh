@@ -16,7 +16,9 @@ OUTFILE=./proof/autospecs/SHA512/SHA384rec.ml
 ASTFILE=./spec/SHA384rec.ast
 cryptol-to-air -i $INFILE -o $OUTFILE -a $ASTFILE -u S0,S1,s0,s1,Ch,Maj,messageSchedule_Word,compress_Common_t1,compress_Common_t2,compress_Common_e,compress_Common_a,processBlock_Common_rec,processBlocks_rec
 
-
+# Run test vector check for auto-generated specification
+make -C ./proof sha384_spec
+make -C ./proof sha512_spec
 
 rm -rf build/
 rm -rf build_src/

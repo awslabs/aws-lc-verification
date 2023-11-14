@@ -24,7 +24,5 @@ cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
       -DCMAKE_ASM_COMPILER_TARGET=$TARGET \
       ../../../src
 
-# -DKEEP_ASM_LOCAL_SYMBOLS=1 \
-
 NUM_CPU_THREADS=$(grep -c ^processor /proc/cpuinfo)
 make -j $NUM_CPU_THREADS

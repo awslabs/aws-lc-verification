@@ -1,6 +1,8 @@
 (* Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
    SPDX-License-Identifier: Apache-2.0  *)
 
+(* Check the automatically generated specification satisfies the test vectors *)
+
 module Cryptol = Cryptol
 open Air
 
@@ -47,8 +49,6 @@ let digest =
    let n = (s_cb 64 "0x1") in
    Autospecs.SHA384rec.lowercase_processBlocks_rec (Cryptol.CryBV(n)) message;;
 
-print_endline "ok2";;
-
 let flat_digest = digest;;
 let cut_digest = Cryptol.take "0x180" "0x80" Cryptol.Bit flat_digest;;
 
@@ -60,13 +60,6 @@ match flat_digest, cut_digest, expected_digest with
      let _ = print_airexp exp in 
      assert (cut_digest = expected_digest)
 | _ -> assert false
-
-(* #use "test/sha384rec_spec.ml";;
-#trace Autospecs.Sha384rec.lowercase_processBlocks;;
-#trace Cryptol.arrayRangeLookup;;
-#trace Cryptol.arrayRangeLookupHelper;;
-#trace Cryptol.arrayLookup;;
-Autospecs.Sha384rec.lowercase_processBlocks Autospecs.Sha384rec.lowercase_H0 message (CryBV((cb 64 0))) (CryBV((cb 64 1)));; *)
 
 (* ---------------------------------------------------------------------- *)
 
