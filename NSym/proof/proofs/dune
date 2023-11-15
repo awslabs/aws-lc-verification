@@ -12,8 +12,10 @@
  (names
 	 sha384rec_spec
 	 sha512rec_spec
-	 sha512_block_armv8_unbounded
-	 sha512_block_data_order_unbounded
+   sha512_block_armv8_bounded
+   sha512_block_armv8_unbounded
+   sha512_block_data_order_bounded
+   sha512_block_data_order_unbounded
  )
  (libraries air arm cryptol specs autospecs nsym_config elf_loader)
  (modes native))

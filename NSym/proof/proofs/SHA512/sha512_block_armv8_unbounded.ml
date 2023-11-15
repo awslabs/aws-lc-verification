@@ -113,9 +113,6 @@ add_assertion ~loop_id:0 inductive_invariant
                     main_check =
                       {Smtverify.SmtSolve.solver_defaults
                        with solvers = [Z3];
-                            (* solvers = [Z3; CVC5]; *)
-                            (* ats = Portfolio; *)
-                            (* ats_account = "shilgoel+ats"; *)
                             timeout = 200}}
   LoopInvariant;;
 
