@@ -155,29 +155,6 @@ let bvchop_bvadd_rule2 =
   (let _ = Smtverify.air_prove ~lhs:lhs ~rhs:rhs name in
    (make_rule ~lhs ~equiv ~rhs name));;
 
-let crock3 =
-  let name = "crock3" in
-  let x0 = (sb 64 "x0") in
-  let x1 = (bv_partsel x0 8 56) in
-  let x2 = (bv_partsel x1 8 48) in
-  let x3 = (bv_partsel x2 8 40) in
-  let x4 = (bv_partsel x3 8 32) in
-  let x5 = (bv_partsel x4 8 24) in
-  let x6 = (bv_partsel x5 8 16)  in
-  let lhs = (bvor 64 (bv_partsel x0 0 8)
-              (bvlsh 64 (bvor 56 (bv_partsel x1 0 8)
-                (bvlsh 56 (bvor 48 (bv_partsel x2 0 8)
-                  (bvlsh 48 (bvor 40 (bv_partsel x3 0 8)
-                    (bvlsh 40 (bvor 32 (bv_partsel x4 0 8)
-                      (bvlsh 32 (bvor 24 (bv_partsel x5 0 8)
-                        (bvlsh 24 (bvor 16 (bv_partsel x6 0 8)
-                          (bvlsh 16 (bv_partsel (bv_partsel x6 8 8) 0 8) (cb 32 8)))
-                            (cb 32 8))) (cb 32 8))) (cb 32 8))) (cb 32 8))) (cb 32 8))) (cb 32 8))) in
-  let equiv = Equal in
-  let rhs = x0 in
-  (let _ = Smtverify.air_prove ~lhs:lhs ~rhs:rhs name in
-   (make_rule ~lhs ~equiv ~rhs name));;
-
 let commutativity_and_associativity_of_bvadd_1 =
   let name = "commutativity_and_associativity_of_bvadd_1" in
   let sigma_big_1 = (get_air_fn Autospecs.Sha2.air_S1_name) in
@@ -323,57 +300,6 @@ let commutativity_and_associativity_of_bvadd_3 =
     let rhs = (apply spec [a;b;c]) in
     (let _ = Smtverify.air_prove ~lhs:lhs ~rhs:rhs name in
       (make_rule ~lhs ~equiv ~rhs name));;
-  
-
-air_fn_set_concrete_exec_status
-  false
-  ["arm.inst_sfp_crypto_three_reg_sha512.sigma_big_1";
-   "arm.inst_sfp_crypto_three_reg_sha512.sigma_big_0";
-   "arm.inst_dpr_logical_shifted_reg.eor64";
-   "arm.inst_dpi_extract.ror64";
-  ];;
-
-(* Note: for crock1 and crock2, we have to turn off concrete execution
-   in Air for all the functions involved in the rules.  Otherwise,
-   given that all the functions here are called on concrete arguments,
-   the LHS and RHS will be evaluated in Air. *)
-let crock1 =
-  let name = "crock1" in
-  let sigma_big_1 = (get_air_fn "arm.inst_sfp_crypto_three_reg_sha512.sigma_big_1") in
-  let eor_i = (get_air_fn "arm.inst_dpr_logical_shifted_reg.eor64") in
-  let ror_i = (get_air_fn "arm.inst_dpi_extract.ror64") in
-  let s0 = 14 in
-  let s1 = 18 in
-  let s2 = 41 in
-  let h0 = Cryptol.toAir2Dim Autospecs.Sha2.h0 in
-  let e = List.nth h0 4 in
-  let e_rot = (bvror (s2-s1) e) in
-  let big_t0 = (apply eor_i [e; e_rot]) in
-  let t0 = (apply ror_i [(cb 32 s0); e; e]) in
-  let lhs = (apply eor_i [t0; (bvror s1 big_t0)]) in
-  let equiv = Equal in
-  let rhs = (apply sigma_big_1 [e]) in
-  (let _ = Smtverify.air_prove ~lhs:lhs ~rhs:rhs name in
-   (make_rule ~lhs ~equiv ~rhs name));;
-
-let crock2 =
-  let name = "crock2" in
-  let sigma_big_0 = (get_air_fn "arm.inst_sfp_crypto_three_reg_sha512.sigma_big_0") in
-  let eor_i = (get_air_fn "arm.inst_dpr_logical_shifted_reg.eor64") in
-  let ror_i = (get_air_fn "arm.inst_dpi_extract.ror64") in
-  let s0 = 28 in
-  let s1 = 34 in
-  let s2 = 39 in
-  let h0 = Cryptol.toAir2Dim Autospecs.Sha2.h0 in
-  let a = List.nth h0 0 in
-  let a_rot = (bvror (s2 - s1) a) in
-  let big_t0 = (apply ror_i [(cb 32 s0); a; a]) in
-  let t1 = (apply eor_i [a; a_rot]) in
-  let lhs = (apply eor_i [big_t0; (bvror s1 t1)]) in
-  let equiv = Equal in
-  let rhs = (apply sigma_big_0 [a]) in
-  (let _ = Smtverify.air_prove ~lhs:lhs ~rhs:rhs name in
-   (make_rule ~lhs ~equiv ~rhs name));;
 
 (* ---------------------------------------------------------------------- *)
 (* Rules needed for unbounded proof *)
@@ -434,9 +360,10 @@ let sha512_base_case_rule =
   let open Arm in
   let name = "sha512_base_case_rule" in
   let base_idx = (cb 64 1) in
-  let lhs = (apply Autospecs.Sha2.air_processBlocks_rec [base_idx; (smem "input" 64 64)]) in
+  let ctx = (sb 512 "ctx") in
+  let lhs = (apply Autospecs.Sha2.air_processBlocks_rec [ctx; base_idx; (smem "input" 64 64)]) in
   let equiv = Equal in
-  let rec_call = (Cryptol.toAir (Cryptol.join "0x8" "0x40" Cryptol.Bit Autospecs.Sha2.h0)) in
+  let rec_call = ctx in
   let input_block =
     (let i = (cb 64 1) in (* i: Number of blocks *)
      let i_1 = (bvsub 64 i (cb 64 1)) in
@@ -469,9 +396,10 @@ let sha512_inductive_case_rule =
   let name = "sha512_inductive_case_rule" in
   let base_idx = (bvadd 64 (sb 64 "var_1") (cb 64 1)) in
   let hyp = (bvlt 64 (cb 64 0) base_idx) in
-  let lhs = (apply Autospecs.Sha2.air_processBlocks_rec [base_idx; (smem "input" 64 64)]) in
+  let ctx = (sb 512 "ctx") in
+  let lhs = (apply Autospecs.Sha2.air_processBlocks_rec [ctx; base_idx; (smem "input" 64 64)]) in
   let equiv = Equal in
-  let rec_call = (apply Autospecs.Sha2.air_processBlocks_rec [(bvsub 64 base_idx (cb 64 1)); (smem "input" 64 64)]) in
+  let rec_call = (apply Autospecs.Sha2.air_processBlocks_rec [ctx; (bvsub 64 base_idx (cb 64 1)); (smem "input" 64 64)]) in
   let input_block =
     (let i = base_idx in (* i: Number of blocks *)
      let i_1 = (bvsub 64 i (cb 64 1)) in

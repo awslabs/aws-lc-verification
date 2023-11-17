@@ -115,15 +115,15 @@ processBlock_Common_rec H w0 w1 w2 w3 w4 w5 w6 w7 w8 w9 w10 w11 w12 w13 w14 w15 
   where
     Mi = [w0, w1, w2, w3, w4, w5, w6, w7, w8, w9, w10, w11, w12, w13, w14, w15]
 
-processBlocks_rec : [64] -> WordArray -> [8*w]
-processBlocks_rec num data = 
+processBlocks_rec : [8*w] -> [64] -> WordArray -> [8*w]
+processBlocks_rec H num data = 
   if num == 0 
-  then join H0 
+  then H
   // The where clause need to be wrapped in parentheses.
   // Cryptol is lazy -- it can evaluate the term correctly without the parentheses.
   // However, when translating to Ocaml, we lose laziness.
   else (processBlock_Common_rec prev_H w0 w1 w2 w3 w4 w5 w6 w7 w8 w9 w10 w11 w12 w13 w14 w15
         where
           last_Block = arrayRangeLookup data ((num-1) * 2 * `wd)
-          prev_H = processBlocks_rec (num - 1) data
+          prev_H = processBlocks_rec H (num - 1) data
           [w0, w1, w2, w3, w4, w5, w6, w7, w8, w9, w10, w11, w12, w13, w14, w15] = last_Block)

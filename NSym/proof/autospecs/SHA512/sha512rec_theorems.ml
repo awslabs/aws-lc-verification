@@ -17,8 +17,8 @@ let sha512_spec_base_theorem =
   (let formula =
     (bveq
         512
-        (apply Sha2.air_processBlocks_rec [(cb 64 0); (smem "input" 64 64)])
-        (Cryptol.toAir (Cryptol.join "0x8" "0x40" Cryptol.Bit Sha2.h0)))
+        (apply Sha2.air_processBlocks_rec [(sb 512 "ctx"); (cb 64 0); (smem "input" 64 64)])
+        (sb 512 "ctx"))
     in
     let _ =
       Smtverify.air_prove
@@ -39,6 +39,7 @@ let sha512_spec_ind_theorem =
   let formula =
     (let i = (bound_sb 64 "i") in (* i: Number of blocks *)
      let i_1 = (bvsub 64 i (cb 64 1)) in
+     let ctx = (sb 512 "ctx") in
      let w0  = (State.read_memory 8 (bvadd 64 (bvlsh 64 i_1 (cb 32 7)) (cb 64 (8 * 0)))  ("input", (smem "input" 64 64))) in
      let w1  = (State.read_memory 8 (bvadd 64 (bvlsh 64 i_1 (cb 32 7)) (cb 64 (8 * 1)))  ("input", (smem "input" 64 64))) in
      let w2  = (State.read_memory 8 (bvadd 64 (bvlsh 64 i_1 (cb 32 7)) (cb 64 (8 * 2)))  ("input", (smem "input" 64 64))) in
@@ -58,12 +59,12 @@ let sha512_spec_ind_theorem =
      let input_block = (List.map
              (fun x -> (apply (get_air_fn "specs.common.bv_revbytes64") [x]))
              [w0; w1; w2; w3; w4; w5; w6; w7; w8; w9; w10; w11; w12; w13; w14; w15]) in
-     let rec_call = (apply Sha2.air_processBlocks_rec [i_1; (smem "input" 64 64)]) in
+     let rec_call = (apply Sha2.air_processBlocks_rec [ctx; i_1; (smem "input" 64 64)]) in
      (forall [i]
         (implies (bnot (bveq 64 i (cb 64 0)))
            (bveq
               512
-              (apply Sha2.air_processBlocks_rec [i; (smem "input" 64 64)])
+              (apply Sha2.air_processBlocks_rec [ctx; i; (smem "input" 64 64)])
               (apply Sha2.air_processBlock_Common_rec (rec_call :: input_block))))
         "sha512_spec_ind_theorem"))
   in

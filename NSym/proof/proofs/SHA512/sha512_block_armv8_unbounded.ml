@@ -8,6 +8,15 @@ open State.Assertions;;
 (* ---------------------------------------------------------------------- *)
 
 (* State Initialization *)
+let h0 = (sb 64 "h0");;
+let h1 = (sb 64 "h1");;
+let h2 = (sb 64 "h2");;
+let h3 = (sb 64 "h3");;
+let h4 = (sb 64 "h4");;
+let h5 = (sb 64 "h5");;
+let h6 = (sb 64 "h6");;
+let h7 = (sb 64 "h7");;
+let ctx = [h0; h1; h2; h3; h4; h5; h6; h7];;
 
 let num_blocks = (sb 64 "num_blocks");;
 let ctx_base   = (sb 64 "ctx_base");;
@@ -17,6 +26,7 @@ let state =
   Sha512_block_armv8_init.sha512_block_armv8_init_state
     ~num_blocks:num_blocks
     ~ctx_base:ctx_base
+    ~ctx:(Some ctx)
     ~input_base:input_base
     ~input:None
     "State initialized for sha512_block_armv8.";;
@@ -65,8 +75,9 @@ let inductive_invariant =
          let (_, impl_digest) = (encapsulate ~name:"SHA512_BLK_IMPL" impl_digest) in
          let n = Cryptol.CryBV(num_blocks_hashed) in 
          let input = Cryptol.CryMem(input_region.memory) in
+         let ctx_flat = Cryptol.join "0x8" "0x40" Cryptol.Bit (Cryptol.toCry2Dim ctx) in
          let spec_digest = (Cryptol.rev_digest_blocks 
-                             (Autospecs.Sha2.processblocks_rec n input)) in
+                             (Autospecs.Sha2.processblocks_rec ctx_flat n input)) in
          let spec_digest =
            uncond_rewrite spec_digest Sha512_block_armv8_rules.[sha512_base_case_rule]
          in
@@ -145,8 +156,9 @@ let loop_postcondition =
                                                 (sfp 128 3 s)])) in
          let n = Cryptol.CryBV(num_blocks) in 
          let input = Cryptol.CryMem(input_region.memory) in
+         let ctx_flat = Cryptol.join "0x8" "0x40" Cryptol.Bit (Cryptol.toCry2Dim ctx) in
          let spec_digest = (Cryptol.rev_digest_blocks 
-                              (Autospecs.Sha2.processblocks_rec n input)) in
+                              (Autospecs.Sha2.processblocks_rec ctx_flat n input)) in
          (band_list
             [
              (bveq 64 num_blocks_left (cb 64 0));

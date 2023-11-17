@@ -26,10 +26,21 @@ let input_list = [w0; w1; w2; w3; w4; w5; w6; w7; w8; w9; w10; w11; w12; w13; w1
 
 let asm_input_blk = input_list;;
 
+let h0 = (sb 64 "h0");;
+let h1 = (sb 64 "h1");;
+let h2 = (sb 64 "h2");;
+let h3 = (sb 64 "h3");;
+let h4 = (sb 64 "h4");;
+let h5 = (sb 64 "h5");;
+let h6 = (sb 64 "h6");;
+let h7 = (sb 64 "h7");;
+let ctx = [h0; h1; h2; h3; h4; h5; h6; h7];;
+
 let state =
   Sha512_block_armv8_init.sha512_block_armv8_init_state
     ~num_blocks:(cb 64 1)
     ~ctx_base:(sb 64 "ctx_base")
+    ~ctx:(Some ctx)
     ~input_base:(sb 64 "input_base")
     ~input:(Some asm_input_blk)
     "State initialized for sha512_block_armv8.";;
@@ -165,11 +176,12 @@ let expected_message_digest =
   let input = Cryptol.array_from_seq "0x40" "0x40"
                 (Cryptol.toCry2Dim input_message)
                 (Cryptol.symbolic_malloc "input" 64 64) in
+  let ctx_flat = Cryptol.join "0x8" "0x40" Cryptol.Bit (Cryptol.toCry2Dim ctx) in
   (* Note that impl_digest are in order h7 h6 h5 ... h0, 
      but spec_digest are in order h0 h1 h2 ... h7. 
      Splitting, reversing and joining spec_digest to get the same order. *)
   let res = (Cryptol.rev_digest_blocks 
-              (Autospecs.Sha2.processblocks_rec n input)) in
+              (Autospecs.Sha2.processblocks_rec ctx_flat n input)) in
   uncond_rewrite res Sha512_block_armv8_rules.[rev64_of_rev64_rule];;
 
 (* print_string "spec:";; *)

@@ -6,7 +6,7 @@
 set -ex
 
 Z3_URL='https://github.com/Z3Prover/z3/releases/download/z3-4.11.2/z3-4.11.2-x64-glibc-2.31.zip'
-CVC5_URL='https://github.com/cvc5/cvc5/releases/download/latest/cvc5-Linux-2023-11-07-e579c90'
+CVC5_URL='https://github.com/cvc5/cvc5/releases/download/cvc5-1.0.8/cvc5-Linux'
 MESON_URL='https://github.com/mesonbuild/meson/releases/download/1.2.3/meson-1.2.3.tar.gz'
 # YICES_URL='https://yices.csl.sri.com/releases/2.6.2/yices-2.6.2-x86_64-pc-linux-gnu-static-gmp.tar.gz'
 

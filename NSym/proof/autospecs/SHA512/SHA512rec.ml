@@ -454,19 +454,22 @@ let lowercase_processBlock_Common_rec lowercase_H
   (Cryptol.toAir lowercase_w14);
   (Cryptol.toAir lowercase_w15)]))
 
-let cry_processBlocks_rec : Cryptol.cryExp -> Cryptol.cryExp -> Cryptol.cryExp =
-  let lowercase_processBlocks_rec lowercase_num
-  lowercase_data = (Cryptol.toCry1Dim (Cryptol.apply_rec "spec.SHA512rec.air_processBlocks_rec" [(Cryptol.toAir lowercase_num);
+let cry_processBlocks_rec : Cryptol.cryExp -> Cryptol.cryExp -> Cryptol.cryExp -> Cryptol.cryExp =
+  let lowercase_processBlocks_rec lowercase_H
+  lowercase_num
+  lowercase_data = (Cryptol.toCry1Dim (Cryptol.apply_rec "spec.SHA512rec.air_processBlocks_rec" [(Cryptol.toAir lowercase_H);
+  (Cryptol.toAir lowercase_num);
   (Cryptol.toAir lowercase_data)] (Air.BV 512))) in
-  (fun (lowercase_num : Cryptol.cryExp)
+  (fun (lowercase_H : Cryptol.cryExp)
+    (lowercase_num : Cryptol.cryExp)
     (lowercase_data : Cryptol.cryExp) ->
     (Cryptol.airIte ((((Cryptol.eqAir (Cryptol.seq "0x40" Cryptol.Bit))) lowercase_num) (((Cryptol.number "0x0") (Cryptol.seq "0x40" Cryptol.Bit))))
-     (((((Cryptol.join "0x8") "0x40") Cryptol.Bit)) lowercase_H0)
+     lowercase_H
      (let lowercase_last_Block : Cryptol.cryExp =
        ((((((((Cryptol.arrayRangeLookup (Cryptol.seq "0x40" Cryptol.Bit)) (Cryptol.seq "0x40" Cryptol.Bit)) "0x10")))) lowercase_data) ((((Cryptol.mul (Cryptol.seq "0x40" Cryptol.Bit))) ((((Cryptol.mul (Cryptol.seq "0x40" Cryptol.Bit))) ((((Cryptol.sub (Cryptol.seq "0x40" Cryptol.Bit))) lowercase_num) (((Cryptol.number "0x1") (Cryptol.seq "0x40" Cryptol.Bit))))) (((Cryptol.number "0x2") (Cryptol.seq "0x40" Cryptol.Bit))))) (((Cryptol.number "0x8") (Cryptol.seq "0x40" Cryptol.Bit)))))
        in
      let lowercase_prev_H : Cryptol.cryExp =
-       (lowercase_processBlocks_rec ((((Cryptol.sub (Cryptol.seq "0x40" Cryptol.Bit))) lowercase_num) (((Cryptol.number "0x1") (Cryptol.seq "0x40" Cryptol.Bit)))) lowercase_data)
+       ((lowercase_processBlocks_rec lowercase_H ((((Cryptol.sub (Cryptol.seq "0x40" Cryptol.Bit))) lowercase_num) (((Cryptol.number "0x1") (Cryptol.seq "0x40" Cryptol.Bit))))) lowercase_data)
        in
      let lowercase___p0 : Cryptol.cryExp = lowercase_last_Block in
      let lowercase_w0 : Cryptol.cryExp =
@@ -504,10 +507,15 @@ let cry_processBlocks_rec : Cryptol.cryExp -> Cryptol.cryExp -> Cryptol.cryExp =
      ((((((((((((((((lowercase_processBlock_Common_rec lowercase_prev_H lowercase_w0) lowercase_w1) lowercase_w2) lowercase_w3) lowercase_w4) lowercase_w5) lowercase_w6) lowercase_w7) lowercase_w8) lowercase_w9) lowercase_w10) lowercase_w11) lowercase_w12) lowercase_w13) lowercase_w14) lowercase_w15))))
 
 let air_processBlocks_rec =
-  (Cryptol.defun_rec "spec.SHA512rec.air_processBlocks_rec" [(Cryptol.sb "lowercase_num" 64);
-  (Cryptol.smem "lowercase_data" 64 64)] (Air.BV 512) (Cryptol.toAir (cry_processBlocks_rec (Cryptol.toCry1Dim (Cryptol.sb "lowercase_num" 64))
+  (Cryptol.defun_rec "spec.SHA512rec.air_processBlocks_rec" [(Cryptol.sb "lowercase_H" 512);
+  (Cryptol.sb "lowercase_num" 64);
+  (Cryptol.smem "lowercase_data" 64 64)] (Air.BV 512) (Cryptol.toAir (cry_processBlocks_rec (Cryptol.toCry1Dim (Cryptol.sb "lowercase_H" 512))
+  (Cryptol.toCry1Dim (Cryptol.sb "lowercase_num" 64))
   (Cryptol.toCryMem (Cryptol.smem "lowercase_data" 64 64)))))
 
-let lowercase_processBlocks_rec lowercase_num lowercase_data =
-  (Cryptol.toCry1Dim (Cryptol.apply air_processBlocks_rec [(Cryptol.toAir lowercase_num);
+let lowercase_processBlocks_rec lowercase_H
+  lowercase_num
+  lowercase_data =
+  (Cryptol.toCry1Dim (Cryptol.apply air_processBlocks_rec [(Cryptol.toAir lowercase_H);
+  (Cryptol.toAir lowercase_num);
   (Cryptol.toAir lowercase_data)]))

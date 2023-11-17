@@ -48,8 +48,9 @@ air_fn_set_beta_reduce_status true ["spec.SHA512rec.air_processBlocks_rec"];;
 
 (* Run SHA512 specification *)
 let digest = 
-   let n = (s_cb 64 "0x1") in
-   Autospecs.SHA512rec.lowercase_processBlocks_rec (Cryptol.CryBV(n)) message;;
+  let n = (s_cb 64 "0x1") in
+  let h0 = (Cryptol.join "0x8" "0x40" Cryptol.Bit Autospecs.SHA512rec.lowercase_H0) in
+  Autospecs.SHA512rec.lowercase_processBlocks_rec h0 (Cryptol.CryBV(n)) message;;
 
 let flat_digest = digest;;
 
@@ -115,7 +116,8 @@ let expected_digest = Cryptol.join "0x6" "0x40" Cryptol.Bit
 (* Run SHA512 specification *)
 let digest = 
   let n = (s_cb 64 "0x2") in
-  Autospecs.SHA512rec.lowercase_processBlocks_rec (Cryptol.CryBV(n)) message2;;
+  let h0 = (Cryptol.join "0x8" "0x40" Cryptol.Bit Autospecs.SHA512rec.lowercase_H0) in
+  Autospecs.SHA512rec.lowercase_processBlocks_rec h0 (Cryptol.CryBV(n)) message2;;
 
 let flat_digest = digest;;
 

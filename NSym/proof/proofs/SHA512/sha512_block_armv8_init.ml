@@ -124,6 +124,7 @@ let digest_size = 512;;
 let sha512_block_armv8_init_state
     ~(num_blocks : airExp)
     ~(ctx_base : airExp)
+    ~(ctx : airExp list option) (* Least significant blocks first. *)
     ~(input_base : airExp)
     ~(input : airExp list option) (* Least significant blocks first. *)
     (message : string) : State.t =
@@ -183,8 +184,11 @@ let sha512_block_armv8_init_state
       state
   in
   (* Initial hash value *)
-  let h0 = Cryptol.toAir2Dim Autospecs.Sha2.h0 in
-  let state = write_mem_data (8 * 8) ctx_pointer (bvapp_list h0) state in
+  let state =
+    if (Option.is_none ctx) then
+      state
+    else
+      write_mem_data (8 * 8) ctx_pointer (bvapp_list (Option.get ctx)) state in
   (* Input block *)
   let state =
     if (Option.is_none input) then

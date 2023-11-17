@@ -9,6 +9,16 @@ open State.Assertions;;
 
 (* State Initialization *)
 
+let h0 = (sb 64 "h0");;
+let h1 = (sb 64 "h1");;
+let h2 = (sb 64 "h2");;
+let h3 = (sb 64 "h3");;
+let h4 = (sb 64 "h4");;
+let h5 = (sb 64 "h5");;
+let h6 = (sb 64 "h6");;
+let h7 = (sb 64 "h7");;
+let ctx = [h0; h1; h2; h3; h4; h5; h6; h7];;
+
 let num_blocks = (sb 64 "num_blocks");;
 let ctx_base = (sb 64 "ctx_base");;
 let input_base = (sb 64 "input_base");;
@@ -17,6 +27,7 @@ let state =
   Sha512_block_data_order_init.sha512_block_data_order_init_state
     ~num_blocks:num_blocks
     ~ctx_base:ctx_base
+    ~ctx:(Some ctx)
     ~input_base:input_base
     ~input:None
     "State initialized for sha512_block_data_order.";;
@@ -69,9 +80,6 @@ let impl_digest_rules = Sha512_block_data_order_rules.[
     rev_rule;
     bvchop_bvadd_rule;
     bvchop_bvadd_rule2;
-    crock1;
-    crock2;
-    crock3;
     rev64_of_rev64_rule;
     sigma0_equiv_rule;
     sigma1_equiv_rule;
@@ -97,10 +105,11 @@ let inductive_invariant =
          (* let _ = Printf.printf "Rewritten num_blks_hashed:\n %s\n" (show_airexp_let num_blks_hashed) in *)
          let num_blks_to_hash = (bvsub 64 num_blocks num_blks_hashed) in
 
-         let n = Cryptol.CryBV(num_blks_hashed) in 
+         let n = Cryptol.CryBV(num_blks_hashed) in
          let input = Cryptol.CryMem(input_region.memory) in
+         let ctx_flat = Cryptol.join "0x8" "0x40" Cryptol.Bit (Cryptol.toCry2Dim ctx) in
          let spec_digest = (Cryptol.rev_digest_blocks
-                             (Autospecs.Sha2.processblocks_rec n input)) in
+                             (Autospecs.Sha2.processblocks_rec ctx_flat n input)) in
          (* let _ = Printf.printf "spec:\n %s\n" (show_airexp_let spec_digest) in *)
          let spec_digest = uncond_rewrite spec_digest spec_digest_rules in
          let spec_digest =
@@ -193,8 +202,9 @@ let loop_postcondition =
      (fun s ->
         (let n = Cryptol.CryBV(num_blocks) in 
          let input = Cryptol.CryMem(input_region.memory) in
+         let ctx_flat = Cryptol.join "0x8" "0x40" Cryptol.Bit (Cryptol.toCry2Dim ctx) in
          let spec_digest = (Cryptol.rev_digest_blocks 
-                             (Autospecs.Sha2.processblocks_rec n input)) in
+                             (Autospecs.Sha2.processblocks_rec ctx_flat n input)) in
          let (_, impl_digest) =
            (encapsulate ~name:"SHA512_BLK_IMPL"
               (read_mem_data 64 (State.make_pointer (sb 64 "ctx_base")) s))

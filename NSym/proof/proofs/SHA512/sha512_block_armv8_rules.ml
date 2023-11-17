@@ -234,9 +234,10 @@ let sha512_base_case_rule =
   let open Arm in
   let name = "sha512_base_case_rule" in
   let base_idx = (cb 64 1) in
-  let lhs = (apply Autospecs.Sha2.air_processBlocks_rec [base_idx; (smem "input" 64 64)]) in
+  let ctx = (sb 512 "ctx") in
+  let lhs = (apply Autospecs.Sha2.air_processBlocks_rec [ctx; base_idx; (smem "input" 64 64)]) in
   let equiv = Equal in
-  let rec_call = (Cryptol.toAir (Cryptol.join "0x8" "0x40" Cryptol.Bit Autospecs.Sha2.h0)) in
+  let rec_call = ctx in
   let input_block =
     (let i = (cb 64 1) in (* i: Number of blocks *)
      let i_1 = (bvsub 64 i (cb 64 1)) in
@@ -268,10 +269,11 @@ let sha512_inductive_case_rule =
   let open Arm in
   let name = "sha512_inductive_case_rule" in
   let base_idx = (bvsub 64 (sb 64 "var_1") (bvsub 64 (sb 64 "var_2") (cb 64 1))) in
+  let ctx = (sb 512 "ctx") in
   let hyp = (bvlt 64 (cb 64 0) base_idx) in
-  let lhs = (apply Autospecs.Sha2.air_processBlocks_rec [base_idx; (smem "input" 64 64)]) in
+  let lhs = (apply Autospecs.Sha2.air_processBlocks_rec [ctx; base_idx; (smem "input" 64 64)]) in
   let equiv = Equal in
-  let rec_call = (apply Autospecs.Sha2.air_processBlocks_rec [(bvsub 64 base_idx (cb 64 1)); (smem "input" 64 64)]) in
+  let rec_call = (apply Autospecs.Sha2.air_processBlocks_rec [ctx; (bvsub 64 base_idx (cb 64 1)); (smem "input" 64 64)]) in
   let input_block =
     (let i = base_idx in (* i: Number of blocks *)
      let i_1 = (bvsub 64 i (cb 64 1)) in

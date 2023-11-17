@@ -25,6 +25,16 @@ let w15 = (sb 64 "w15");;
 let input_list = [w0; w1; w2; w3; w4; w5; w6; w7; w8; w9; w10; w11; w12; w13; w14; w15];;
 let asm_input = input_list;;
 
+let h0 = (sb 64 "h0");;
+let h1 = (sb 64 "h1");;
+let h2 = (sb 64 "h2");;
+let h3 = (sb 64 "h3");;
+let h4 = (sb 64 "h4");;
+let h5 = (sb 64 "h5");;
+let h6 = (sb 64 "h6");;
+let h7 = (sb 64 "h7");;
+let ctx = [h0; h1; h2; h3; h4; h5; h6; h7];;
+
 (* Specification *)
 
 air_fn_set_uninterpreted_status
@@ -64,8 +74,9 @@ air_fn_set_beta_reduce_status true [Autospecs.Sha2.air_processBlocks_rec_name];;
 
 let expected_message_digest =
   let n = Cryptol.CryBV(s_cb 64 "0x1") in
+  let ctx_flat = Cryptol.join "0x8" "0x40" Cryptol.Bit (Cryptol.toCry2Dim ctx) in
   (Cryptol.rev_digest_blocks
-    (Autospecs.Sha2.processblocks_rec n spec_message));;
+    (Autospecs.Sha2.processblocks_rec ctx_flat n spec_message));;
 
 air_fn_set_uninterpreted_status
   true
@@ -100,6 +111,7 @@ let state =
   Sha512_block_data_order_init.sha512_block_data_order_init_state
     ~num_blocks:(cb 64 1)
     ~ctx_base:(sb 64 "ctx_base")
+    ~ctx:(Some ctx)
     ~input_base:(sb 64 "input_base")
     ~input:(Some asm_input)
     "State initialized for sha512_block_data_order.";;
@@ -110,8 +122,6 @@ let final_ss = run ~ignore_assertions:true state;;
 let message_digest = read_mem_data 64 (State.make_pointer (sb 64 "ctx_base")) final_ss;;
 
 let expected_message_digest' =
-  let _ = print_string "spec before:" in
-  let _ = print_airexp_let expected_message_digest in
   uncond_rewrite
   expected_message_digest
     Sha512_block_data_order_rules.[
@@ -139,9 +149,6 @@ let message_digest' =
       (* Note: the rewrites bvchop_bvadd_rule and bvchop_bvadd_rule2 are necessary for cvc5 only *)
       bvchop_bvadd_rule;
       bvchop_bvadd_rule2;
-      crock1;
-      crock2;
-      crock3; (* crock3: needed for cvc5, not z3 *)
       rev64_of_rev64_rule;
       sigma0_equiv_rule;
       sigma1_equiv_rule;

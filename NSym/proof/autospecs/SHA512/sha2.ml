@@ -1,7 +1,8 @@
 module Sys = Sys
 
-let version = Sys.getenv("NSYM_SHA2_VERSION")
-let choose a b = if version = "SHA512" then a else b
+let version = try Sys.getenv("NSYM_SHA2_VERSION")
+              with Not_found -> failwith ("Error: Environment variable NSYM_SHA2_VERSION is not found!")
+let choose a b = (if version = "SHA512" then a else b)
 
 let h0 = choose SHA512rec.lowercase_H0 SHA384rec.lowercase_H0
 let k = choose SHA512rec.lowercase_K SHA384rec.lowercase_K
