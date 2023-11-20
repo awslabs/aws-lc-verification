@@ -1,3 +1,6 @@
+(* Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+   SPDX-License-Identifier: Apache-2.0 *)
+
 module Sys = Sys
 
 let version = try Sys.getenv("NSYM_SHA2_VERSION")

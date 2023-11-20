@@ -1,3 +1,6 @@
+(* Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved. SPDX-License-Identifier: Apache-2.0 *)
+(* This is an automatically generated file. *)
+
 module Cryptol = Cryptol
 module Air = Air
 type bv_airExp = Air.airExp;;
