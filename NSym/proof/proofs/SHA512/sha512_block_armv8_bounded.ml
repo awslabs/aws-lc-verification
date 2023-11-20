@@ -160,9 +160,6 @@ let message_digest' = uncond_rewrite message_digest
                             bv_partsel_of_bvapp_rule_2;
                             rev64_of_rev64_rule;];;
 
-(* print_string "impl:";; *)
-(* print_airexp_let message_digest';; *)
-
 air_fn_set_uninterpreted_status false [Autospecs.Sha2.air_processBlock_Common_rec_name];
 air_fn_set_beta_reduce_status true [Autospecs.Sha2.air_processBlock_Common_rec_name];;
 air_fn_set_uninterpreted_status false [Autospecs.Sha2.air_processBlocks_rec_name];
@@ -183,9 +180,6 @@ let expected_message_digest =
   let res = (Cryptol.rev_digest_blocks 
               (Autospecs.Sha2.processblocks_rec ctx_flat n input)) in
   uncond_rewrite res Sha512_block_armv8_rules.[rev64_of_rev64_rule];;
-
-(* print_string "spec:";; *)
-(* print_airexp_let expected_message_digest;; *)
 
 Smtverify.air_prove
   ~formula:(bveq 512 message_digest' expected_message_digest)

@@ -59,8 +59,6 @@ let state =
 
 (* Inductive Assertions *)
 
-(* prep_sym ~unroll_options:[(1, Full)] state;; *)
-
 let spec_digest_rules = Sha512_block_data_order_rules.[
     rev64_of_rev64_rule;
     commutativity_and_associativity_of_bvadd_1;
@@ -98,11 +96,9 @@ let inductive_invariant =
         (let input_pointer = (input_ptr s) in
          let num_bytes_hashed = input_pointer.offset in
          let num_blks_hashed = (bvrsh 64 num_bytes_hashed (cb 32 7)) in
-         (* let _ = Printf.printf "num_blks_hashed:\n %s\n" (show_airexp_let num_blks_hashed) in *)
          let num_blks_hashed =
            Smtverify.apply_rewrites (path_cond s) num_blks_hashed
              Sha512_block_data_order_rules.[simplify_num_blks_hashed_rule] in
-         (* let _ = Printf.printf "Rewritten num_blks_hashed:\n %s\n" (show_airexp_let num_blks_hashed) in *)
          let num_blks_to_hash = (bvsub 64 num_blocks num_blks_hashed) in
 
          let n = Cryptol.CryBV(num_blks_hashed) in
@@ -110,7 +106,6 @@ let inductive_invariant =
          let ctx_flat = Cryptol.join "0x8" "0x40" Cryptol.Bit (Cryptol.toCry2Dim ctx) in
          let spec_digest = (Cryptol.rev_digest_blocks
                              (Autospecs.Sha2.processblocks_rec ctx_flat n input)) in
-         (* let _ = Printf.printf "spec:\n %s\n" (show_airexp_let spec_digest) in *)
          let spec_digest = uncond_rewrite spec_digest spec_digest_rules in
          let spec_digest =
            Smtverify.apply_rewrites (path_cond s) spec_digest
@@ -119,7 +114,6 @@ let inductive_invariant =
                                             bvsub_bvadd_rule;
                                             simplify_input_index_rule;]
          in
-         (* let _ = Printf.printf "Rewritten spec:\n %s\n" (show_airexp_let spec_digest) in *)
 
          let (_, impl_digest_reg) =
            (encapsulate ~name:"SHA512_BLK_IMPL_REG"
@@ -222,9 +216,6 @@ print_all_assertions true;;
 (* ---------------------------------------------------------------------- *)
 
 (* Symbolic Simulation & Proof *)
-
-(* Nsym_config.global_verbose false;; *)
-(* Nsym_config.quiet_disasm true;; *)
 
 air_fn_set_uninterpreted_status
   true

@@ -43,8 +43,6 @@ let state =
 
 (* Inductive Assertions *)
 
-(* prep_sym state;; *)
-
 let inductive_invariant =
   let open State in
   let open Sha512_block_armv8_init in

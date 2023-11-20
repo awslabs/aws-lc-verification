@@ -8,10 +8,6 @@ open Arm;;
 
    A note on initializing the Arm memory for SHA512 verification
 
-   [For details: see
-   https://quip-amazon.com/P1nfA3dP3Je3/NSym-Memory-Regions, but the
-   following note attempts to be at least somewhat self-contained.]
-
    Briefly, NSym has a segmented memory model, and the user is
    required to explicitly declare the separate memory regions that
    will be accessed by a program (see

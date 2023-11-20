@@ -116,7 +116,6 @@ let state =
     ~input:(Some asm_input)
     "State initialized for sha512_block_data_order.";;
 
-(* Nsym_config.quiet_disasm true;; *)
 let final_ss = run ~ignore_assertions:true state;;
 
 let message_digest = read_mem_data 64 (State.make_pointer (sb 64 "ctx_base")) final_ss;;
@@ -131,9 +130,6 @@ let expected_message_digest' =
       commutativity_and_associativity_of_bvadd_2;
       commutativity_and_associativity_of_bvadd_3;
     ];;
-
-(* print_string "spec:";; *)
-(* print_airexp_let expected_message_digest';; *)
 
 let message_digest' =
   uncond_rewrite message_digest Sha512_block_data_order_rules.[
@@ -157,9 +153,6 @@ let message_digest' =
       ch_equiv_rule;
       maj_equiv_rule;
     ];;
-
-(* print_string "impl:";; *)
-(* print_airexp_let message_digest';; *)
 
 (* ---------------------------------------------------------------------- *)
 

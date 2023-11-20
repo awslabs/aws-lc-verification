@@ -27,12 +27,9 @@ let sha512_spec_base_theorem =
            recursive function. To use universal quantifiers to state
            the definitional axiom, use the ~defun_conversion_list
            labeled argument of air_prove. *)
-        (* ~defun_conversion_list:["SHA512_SPEC"] *)
         "sha512_spec_base_theorem"
     in
       formula);;
-
-(* let _ = print_airexp sha512_spec_base_theorem;; *)
 
 let sha512_spec_ind_theorem =
   let open Arm in
@@ -71,8 +68,6 @@ let sha512_spec_ind_theorem =
   let _ =
     Smtverify.air_prove ~formula:formula "sha512_spec_ind_theorem" in
   formula;;
-
-(*let _ = print_airexp sha512_spec_ind_theorem;;*)
 
 air_fn_set_uninterpreted_status true [Sha2.air_processBlock_Common_rec_name];;
 air_fn_set_uninterpreted_status true [Sha2.air_processBlocks_rec_name];;
