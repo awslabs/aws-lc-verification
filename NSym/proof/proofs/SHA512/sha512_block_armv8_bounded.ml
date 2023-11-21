@@ -57,9 +57,9 @@ Air.air_fn_set_uninterpreted_status
    "arm.inst_sfp_adv_simd_extract.ext128";
    "arm.inst_sfp_adv_simd_three_same.add_sub_2d";
    (* Specification functions *)
-   Autospecs.Sha2.air_messageSchedule_Word_name;
-   Autospecs.Sha2.air_compress_Common_t1_name;
-   Autospecs.Sha2.air_compress_Common_t2_name;
+   Sha2.air_messageSchedule_Word_name;
+   Sha2.air_compress_Common_t1_name;
+   Sha2.air_compress_Common_t2_name;
    "specs.common.bv_revbytes64";];;
 
 (* Rewriting LD1 expressions during symbolic simulation:
@@ -118,9 +118,9 @@ Air.air_fn_set_uninterpreted_status
    "arm.inst_sfp_adv_simd_extract.ext128";
    "arm.inst_sfp_adv_simd_three_same.add_sub_2d";
     (* Specification functions *)
-   Autospecs.Sha2.air_messageSchedule_Word_name;
-   Autospecs.Sha2.air_compress_Common_t1_name;
-   Autospecs.Sha2.air_compress_Common_t2_name;
+   Sha2.air_messageSchedule_Word_name;
+   Sha2.air_compress_Common_t1_name;
+   Sha2.air_compress_Common_t2_name;
    "specs.common.bv_revbytes64";];;
 
 Air.air_fn_set_uninterpreted_status
@@ -136,12 +136,12 @@ Air.air_fn_set_uninterpreted_status
    "arm.inst_sfp_adv_simd_three_same.add_sub_2d";
 
    (* Specification functions *)
-   Autospecs.Sha2.air_s0_name;
-   Autospecs.Sha2.air_s1_name;
-   Autospecs.Sha2.air_S0_name;
-   Autospecs.Sha2.air_S1_name;
-   Autospecs.Sha2.air_Ch_name;
-   Autospecs.Sha2.air_messageSchedule_Word_name;
+   Sha2.air_s0_name;
+   Sha2.air_s1_name;
+   Sha2.air_S0_name;
+   Sha2.air_S1_name;
+   Sha2.air_Ch_name;
+   Sha2.air_messageSchedule_Word_name;
    "specs.common.bv_revbytes64";
    ];;
 
@@ -160,10 +160,10 @@ let message_digest' = uncond_rewrite message_digest
                             bv_partsel_of_bvapp_rule_2;
                             rev64_of_rev64_rule;];;
 
-air_fn_set_uninterpreted_status false [Autospecs.Sha2.air_processBlock_Common_rec_name];
-air_fn_set_beta_reduce_status true [Autospecs.Sha2.air_processBlock_Common_rec_name];;
-air_fn_set_uninterpreted_status false [Autospecs.Sha2.air_processBlocks_rec_name];
-air_fn_set_beta_reduce_status true [Autospecs.Sha2.air_processBlocks_rec_name];;
+air_fn_set_uninterpreted_status false [Sha2.air_processBlock_Common_rec_name];
+air_fn_set_beta_reduce_status true [Sha2.air_processBlock_Common_rec_name];;
+air_fn_set_uninterpreted_status false [Sha2.air_processBlocks_rec_name];
+air_fn_set_beta_reduce_status true [Sha2.air_processBlocks_rec_name];;
 
 let expected_message_digest = 
   let n = Cryptol.CryBV(s_cb 64 "0x1") in
@@ -178,7 +178,7 @@ let expected_message_digest =
      but spec_digest are in order h0 h1 h2 ... h7. 
      Splitting, reversing and joining spec_digest to get the same order. *)
   let res = (Cryptol.rev_digest_blocks 
-              (Autospecs.Sha2.processblocks_rec ctx_flat n input)) in
+              (Sha2.processblocks_rec ctx_flat n input)) in
   uncond_rewrite res Sha512_block_armv8_rules.[rev64_of_rev64_rule];;
 
 Smtverify.air_prove

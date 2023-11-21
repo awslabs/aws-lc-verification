@@ -42,11 +42,11 @@ air_fn_set_uninterpreted_status
    "arm.inst_sfp_crypto_three_reg_sha512.sigma_big_1";
    "arm.inst_sfp_crypto_three_reg_sha512.ch";
    "arm.inst_sfp_crypto_three_reg_sha512.maj";
-   Autospecs.Sha2.air_s0_name;
-   Autospecs.Sha2.air_s1_name;
-   Autospecs.Sha2.air_S0_name;
-   Autospecs.Sha2.air_S1_name;
-   Autospecs.Sha2.air_Ch_name;
+   Sha2.air_s0_name;
+   Sha2.air_s1_name;
+   Sha2.air_S0_name;
+   Sha2.air_S1_name;
+   Sha2.air_Ch_name;
    "specs.common.bv_revbytes64"];;
 
 let state =
@@ -105,7 +105,7 @@ let inductive_invariant =
          let input = Cryptol.CryMem(input_region.memory) in
          let ctx_flat = Cryptol.join "0x8" "0x40" Cryptol.Bit (Cryptol.toCry2Dim ctx) in
          let spec_digest = (Cryptol.rev_digest_blocks
-                             (Autospecs.Sha2.processblocks_rec ctx_flat n input)) in
+                             (Sha2.processblocks_rec ctx_flat n input)) in
          let spec_digest = uncond_rewrite spec_digest spec_digest_rules in
          let spec_digest =
            Smtverify.apply_rewrites (path_cond s) spec_digest
@@ -198,7 +198,7 @@ let loop_postcondition =
          let input = Cryptol.CryMem(input_region.memory) in
          let ctx_flat = Cryptol.join "0x8" "0x40" Cryptol.Bit (Cryptol.toCry2Dim ctx) in
          let spec_digest = (Cryptol.rev_digest_blocks 
-                             (Autospecs.Sha2.processblocks_rec ctx_flat n input)) in
+                             (Sha2.processblocks_rec ctx_flat n input)) in
          let (_, impl_digest) =
            (encapsulate ~name:"SHA512_BLK_IMPL"
               (read_mem_data 64 (State.make_pointer (sb 64 "ctx_base")) s))
@@ -234,14 +234,14 @@ air_fn_set_uninterpreted_status
    "arm.inst_dpi_extract.ror64";
    "arm.inst_dpr_one_src.rev64";
 
-   Autospecs.Sha2.air_s0_name;
-   Autospecs.Sha2.air_s1_name;
-   Autospecs.Sha2.air_S0_name;
-   Autospecs.Sha2.air_S1_name;
-   Autospecs.Sha2.air_Ch_name;
+   Sha2.air_s0_name;
+   Sha2.air_s1_name;
+   Sha2.air_S0_name;
+   Sha2.air_S1_name;
+   Sha2.air_Ch_name;
   ];;
 
-air_fn_set_uninterpreted_status false [Autospecs.Sha2.air_processBlock_Common_rec_name];;
+air_fn_set_uninterpreted_status false [Sha2.air_processBlock_Common_rec_name];;
 
 let _ = run ~unroll_options:[(1, Full)] state;;
 

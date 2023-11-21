@@ -12,11 +12,11 @@ SHA512_SPEC_FILE := \
   sha512rec_spec
 
 SHA2_GRAVITON2_FILES := \
-	sha512_block_data_order_bounded \
+  sha512_block_data_order_bounded \
   sha512_block_data_order_unbounded
 
 SHA2_GRAVITON3_FILES := \
-	sha512_block_armv8_bounded \
+  sha512_block_armv8_bounded \
   sha512_block_armv8_unbounded
 
 all: sha384_spec sha512_spec sha2_grav2 sha2_grav3

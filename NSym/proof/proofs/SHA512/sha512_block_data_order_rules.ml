@@ -157,8 +157,8 @@ let bvchop_bvadd_rule2 =
 
 let commutativity_and_associativity_of_bvadd_1 =
   let name = "commutativity_and_associativity_of_bvadd_1" in
-  let sigma_big_1 = (get_air_fn Autospecs.Sha2.air_S1_name) in
-  let ch    = (get_air_fn Autospecs.Sha2.air_Ch_name) in
+  let sigma_big_1 = (get_air_fn Sha2.air_S1_name) in
+  let ch    = (get_air_fn Sha2.air_Ch_name) in
   let x0 = (sb 64 "x0") in
   let x1 = (sb 64 "x1") in
   let x2 = (sb 64 "x2") in
@@ -182,8 +182,8 @@ let commutativity_and_associativity_of_bvadd_1 =
 
 let commutativity_and_associativity_of_bvadd_2 =
   let name = "commutativity_and_associativity_of_bvadd_2" in
-  let sigma_big_0 = (get_air_fn Autospecs.Sha2.air_S0_name) in
-  let maj   = (get_air_fn Autospecs.Sha2.air_Maj_name) in
+  let sigma_big_0 = (get_air_fn Sha2.air_S0_name) in
+  let maj   = (get_air_fn Sha2.air_Maj_name) in
   let x0 = (sb 64 "x0") in
   let x1 = (sb 64 "x1") in
   let x2 = (sb 64 "x2") in
@@ -201,8 +201,8 @@ let commutativity_and_associativity_of_bvadd_2 =
 
 let commutativity_and_associativity_of_bvadd_3 =
   let name = "commutativity_and_associativity_of_bvadd_3" in
-  let sigma_1 = (get_air_fn Autospecs.Sha2.air_s1_name) in
-  let sigma_0 = (get_air_fn Autospecs.Sha2.air_s0_name) in
+  let sigma_1 = (get_air_fn Sha2.air_s1_name) in
+  let sigma_0 = (get_air_fn Sha2.air_s0_name) in
   let x0 = (sb 64 "x0") in
   let x1 = (sb 64 "x1") in
   let x2 = (sb 64 "x2") in
@@ -234,7 +234,7 @@ let commutativity_and_associativity_of_bvadd_3 =
   let sigma0_equiv_rule = 
     let name = "sigma0_equiv_rule" in
     let impl = get_air_fn "arm.inst_sfp_crypto_two_reg_sha512.sigma_0" in
-    let spec = get_air_fn Autospecs.Sha2.air_s0_name in
+    let spec = get_air_fn Sha2.air_s0_name in
     let a = (sb 64 "a") in
     let lhs = (apply impl [a; (bv_partsel a 7 57)]) in
     let equiv = Equal in
@@ -245,7 +245,7 @@ let commutativity_and_associativity_of_bvadd_3 =
   let sigma1_equiv_rule = 
     let name = "sigma1_equiv_rule" in
     let impl = get_air_fn "arm.inst_sfp_crypto_three_reg_sha512.sigma_1" in
-    let spec = get_air_fn Autospecs.Sha2.air_s1_name in
+    let spec = get_air_fn Sha2.air_s1_name in
     let a = (sb 64 "a") in
     let lhs = (apply impl [a; (bv_partsel a 6 58)]) in
     let equiv = Equal in
@@ -256,7 +256,7 @@ let commutativity_and_associativity_of_bvadd_3 =
   let sigma0_big_equiv_rule = 
     let name = "sigma0_big_equiv_rule" in
     let impl = get_air_fn "arm.inst_sfp_crypto_three_reg_sha512.sigma_big_0" in
-    let spec = get_air_fn Autospecs.Sha2.air_S0_name in
+    let spec = get_air_fn Sha2.air_S0_name in
     let a = (sb 64 "a") in
     let lhs = (apply impl [a]) in
     let equiv = Equal in
@@ -267,7 +267,7 @@ let commutativity_and_associativity_of_bvadd_3 =
   let sigma1_big_equiv_rule =
     let name = "sigma1_big_equiv_rule" in
     let impl = get_air_fn "arm.inst_sfp_crypto_three_reg_sha512.sigma_big_1" in
-    let spec = get_air_fn Autospecs.Sha2.air_S1_name in
+    let spec = get_air_fn Sha2.air_S1_name in
     let a = (sb 64 "a") in
     let lhs = (apply impl [a]) in
     let equiv = Equal in
@@ -278,7 +278,7 @@ let commutativity_and_associativity_of_bvadd_3 =
   let maj_equiv_rule = 
     let name = "maj_equiv_rule" in
     let impl = get_air_fn "arm.inst_sfp_crypto_three_reg_sha512.maj" in
-    let spec = get_air_fn Autospecs.Sha2.air_Maj_name in
+    let spec = get_air_fn Sha2.air_Maj_name in
     let a = (sb 64 "a") in
     let b = (sb 64 "b") in
     let c = (sb 64 "c") in
@@ -291,7 +291,7 @@ let commutativity_and_associativity_of_bvadd_3 =
   let ch_equiv_rule = 
     let name = "ch_equiv_rule" in
     let impl = get_air_fn "arm.inst_sfp_crypto_three_reg_sha512.ch" in
-    let spec = get_air_fn Autospecs.Sha2.air_Ch_name in
+    let spec = get_air_fn Sha2.air_Ch_name in
     let a = (sb 64 "a") in
     let b = (sb 64 "b") in
     let c = (sb 64 "c") in
@@ -361,7 +361,7 @@ let sha512_base_case_rule =
   let name = "sha512_base_case_rule" in
   let base_idx = (cb 64 1) in
   let ctx = (sb 512 "ctx") in
-  let lhs = (apply Autospecs.Sha2.air_processBlocks_rec [ctx; base_idx; (smem "input" 64 64)]) in
+  let lhs = (apply Sha2.air_processBlocks_rec [ctx; base_idx; (smem "input" 64 64)]) in
   let equiv = Equal in
   let rec_call = ctx in
   let input_block =
@@ -387,8 +387,8 @@ let sha512_base_case_rule =
         (fun x -> (apply (get_air_fn "specs.common.bv_revbytes64") [x]))
         [w0; w1; w2; w3; w4; w5; w6; w7; w8; w9; w10; w11; w12; w13; w14; w15]))
   in
-  let rhs =  (apply Autospecs.Sha2.air_processBlock_Common_rec (rec_call :: input_block)) in
-  (let _ = Smtverify.air_prove ~lhs:lhs ~rhs:rhs ~theory:[Autospecs.Sha512rec_theorems.sha512_spec_base_theorem; Autospecs.Sha512rec_theorems.sha512_spec_ind_theorem] name in
+  let rhs =  (apply Sha2.air_processBlock_Common_rec (rec_call :: input_block)) in
+  (let _ = Smtverify.air_prove ~lhs:lhs ~rhs:rhs ~theory:[Sha512rec_theorems.sha512_spec_base_theorem; Sha512rec_theorems.sha512_spec_ind_theorem] name in
    (make_rule ~lhs ~equiv ~rhs name));;
 
 let sha512_inductive_case_rule =
@@ -397,9 +397,9 @@ let sha512_inductive_case_rule =
   let base_idx = (bvadd 64 (sb 64 "var_1") (cb 64 1)) in
   let hyp = (bvlt 64 (cb 64 0) base_idx) in
   let ctx = (sb 512 "ctx") in
-  let lhs = (apply Autospecs.Sha2.air_processBlocks_rec [ctx; base_idx; (smem "input" 64 64)]) in
+  let lhs = (apply Sha2.air_processBlocks_rec [ctx; base_idx; (smem "input" 64 64)]) in
   let equiv = Equal in
-  let rec_call = (apply Autospecs.Sha2.air_processBlocks_rec [ctx; (bvsub 64 base_idx (cb 64 1)); (smem "input" 64 64)]) in
+  let rec_call = (apply Sha2.air_processBlocks_rec [ctx; (bvsub 64 base_idx (cb 64 1)); (smem "input" 64 64)]) in
   let input_block =
     (let i = base_idx in (* i: Number of blocks *)
      let i_1 = (bvsub 64 i (cb 64 1)) in
@@ -423,8 +423,8 @@ let sha512_inductive_case_rule =
         (fun x -> (apply (get_air_fn "specs.common.bv_revbytes64") [x]))
         [w0; w1; w2; w3; w4; w5; w6; w7; w8; w9; w10; w11; w12; w13; w14; w15]))
   in
-  let rhs =  (apply Autospecs.Sha2.air_processBlock_Common_rec (rec_call :: input_block)) in
-  (let _ = Smtverify.air_prove ~hyp:hyp ~lhs:lhs ~rhs:rhs ~theory:[Autospecs.Sha512rec_theorems.sha512_spec_base_theorem; Autospecs.Sha512rec_theorems.sha512_spec_ind_theorem] name in
+  let rhs =  (apply Sha2.air_processBlock_Common_rec (rec_call :: input_block)) in
+  (let _ = Smtverify.air_prove ~hyp:hyp ~lhs:lhs ~rhs:rhs ~theory:[Sha512rec_theorems.sha512_spec_base_theorem; Sha512rec_theorems.sha512_spec_ind_theorem] name in
    (make_rule ~lhs ~equiv ~rhs name));;
 
 

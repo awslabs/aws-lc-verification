@@ -9,10 +9,6 @@ Topdirs.dir_use Format.err_formatter (Filename.concat (Sys.getenv "HOME") ".ocam
 open Air;;
 open Arm;;
 
-(* #mod_use "sha512_program.ml";; *)
-
-(* #install_printer default_pp_airexp_let;; *)
-
 let print_hex (intstr : string) : unit =
   let hexstr = Z.format "%#x" (Z.of_string intstr) in
   Format.fprintf Format.std_formatter "@[<1>%s@]@." hexstr;;

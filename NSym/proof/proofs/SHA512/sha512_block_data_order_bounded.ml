@@ -45,11 +45,11 @@ air_fn_set_uninterpreted_status
    "arm.inst_sfp_crypto_three_reg_sha512.sigma_big_1";
    "arm.inst_sfp_crypto_three_reg_sha512.ch";
    "arm.inst_sfp_crypto_three_reg_sha512.maj";
-   Autospecs.Sha2.air_s0_name;
-   Autospecs.Sha2.air_s1_name;
-   Autospecs.Sha2.air_S0_name;
-   Autospecs.Sha2.air_S1_name;
-   Autospecs.Sha2.air_Ch_name;
+   Sha2.air_s0_name;
+   Sha2.air_s1_name;
+   Sha2.air_S0_name;
+   Sha2.air_S1_name;
+   Sha2.air_Ch_name;
    "specs.common.bv_revbytes64"];;
 
 let spec_message = 
@@ -59,24 +59,24 @@ let spec_message =
     (Cryptol.symbolic_malloc "input" 64 64);;
 
 air_fn_set_beta_reduce_status true
-  [Autospecs.Sha2.air_compress_Common_t1_name;
-   Autospecs.Sha2.air_compress_Common_t2_name;
-   Autospecs.Sha2.air_compress_Common_e_name;
-   Autospecs.Sha2.air_compress_Common_a_name;
-   Autospecs.Sha2.air_messageSchedule_Word_name;
+  [Sha2.air_compress_Common_t1_name;
+   Sha2.air_compress_Common_t2_name;
+   Sha2.air_compress_Common_e_name;
+   Sha2.air_compress_Common_a_name;
+   Sha2.air_messageSchedule_Word_name;
   ];;
 
 
-air_fn_set_uninterpreted_status false [Autospecs.Sha2.air_processBlock_Common_rec_name];
-air_fn_set_beta_reduce_status true [Autospecs.Sha2.air_processBlock_Common_rec_name];;
-air_fn_set_uninterpreted_status false [Autospecs.Sha2.air_processBlocks_rec_name];
-air_fn_set_beta_reduce_status true [Autospecs.Sha2.air_processBlocks_rec_name];;
+air_fn_set_uninterpreted_status false [Sha2.air_processBlock_Common_rec_name];
+air_fn_set_beta_reduce_status true [Sha2.air_processBlock_Common_rec_name];;
+air_fn_set_uninterpreted_status false [Sha2.air_processBlocks_rec_name];
+air_fn_set_beta_reduce_status true [Sha2.air_processBlocks_rec_name];;
 
 let expected_message_digest =
   let n = Cryptol.CryBV(s_cb 64 "0x1") in
   let ctx_flat = Cryptol.join "0x8" "0x40" Cryptol.Bit (Cryptol.toCry2Dim ctx) in
   (Cryptol.rev_digest_blocks
-    (Autospecs.Sha2.processblocks_rec ctx_flat n spec_message));;
+    (Sha2.processblocks_rec ctx_flat n spec_message));;
 
 air_fn_set_uninterpreted_status
   true
@@ -86,11 +86,11 @@ air_fn_set_uninterpreted_status
    "arm.inst_sfp_crypto_three_reg_sha512.sigma_big_1";
    "arm.inst_sfp_crypto_three_reg_sha512.ch";
    "arm.inst_sfp_crypto_three_reg_sha512.maj";
-   Autospecs.Sha2.air_s0_name;
-   Autospecs.Sha2.air_s1_name;
-   Autospecs.Sha2.air_S0_name;
-   Autospecs.Sha2.air_S1_name;
-   Autospecs.Sha2.air_Ch_name;
+   Sha2.air_s0_name;
+   Sha2.air_s1_name;
+   Sha2.air_S0_name;
+   Sha2.air_S1_name;
+   Sha2.air_Ch_name;
    "specs.common.bv_revbytes64";
 
    "arm.inst_dpr_logical_shifted_reg.eor64";
