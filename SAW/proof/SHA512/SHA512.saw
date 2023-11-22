@@ -64,4 +64,3 @@ let verify_final_with_length withLength = do {
   disable_what4_eval;
 };
 for [false, true] verify_final_with_length;
-

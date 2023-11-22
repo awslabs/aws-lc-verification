@@ -1,0 +1,12 @@
+/* 
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+*/
+
+import "../../../NSym/spec/SHA512rec.cry";
+
+include "../common/helpers.saw";
+let is_x86 = false;
+
+include "SHA512-512.saw";
+include "SHA512.saw";

@@ -1,0 +1,23 @@
+/*
+* Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+* SPDX-License-Identifier: Apache-2.0
+*/
+
+enable_experimental;
+
+let asm_switch = true;
+let load_module = if asm_switch
+  then llvm_load_module "../../build/llvm_x86/crypto/crypto_test.bc"
+  else llvm_load_module "../../build/llvm_aarch64/crypto/crypto_test.bc";
+
+// let llvm_verify_asm m bin func globals pathsat spec tactic = if asm_switch
+//   then llvm_verify_x86 m bin func globals pathsat spec tactic
+//   else crucible_llvm_unsafe_assume_spec m func spec;
+
+// let llvm_verify_fixpoint_asm m bin func globals pathsat loop spec tactic = if asm_switch
+//   then llvm_verify_fixpoint_x86 m bin func globals pathsat loop spec tactic
+//   else crucible_llvm_unsafe_assume_spec m func spec;
+
+// let crucible_asm_points_to ptr term_x86 term_aarch64 = if asm_switch
+//   then crucible_points_to ptr term_x86
+//   else crucible_points_to ptr term_aarch64;
