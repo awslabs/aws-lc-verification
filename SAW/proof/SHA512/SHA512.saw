@@ -38,6 +38,7 @@ EVP_DigestUpdate_array_ov <- llvm_verify m "EVP_DigestUpdate"
     simplify (addsimps [arrayRangeEq_arrayRangeLookup_eq_thm, arrayCopy_zero_thm] empty_ss);
     simplify (addsimps append_ite_thms empty_ss);
     goal_eval_unint ["processBlocks", "processBlock_Common"];
+    print_goal;
     w4_unint_z3 ["processBlocks", "processBlock_Common"];
   });
 
@@ -59,6 +60,7 @@ let verify_final_with_length withLength = do {
       simplify (addsimps [bvult_64_32_thm] empty_ss);
       simplify (addsimps append_ite_thms empty_ss);
       goal_eval_unint ["processBlock_Common"];
+      print_goal;
       w4_unint_z3 ["processBlock_Common"];
     });
   disable_what4_eval;
