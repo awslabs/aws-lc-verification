@@ -42,7 +42,7 @@ AWS libcrypto includes many cryptographic algorithm implementations for several 
 | ECDH      | with <nobr>P-384</nobr> | EVP_PKEY_derive_init, EVP_PKEY_derive | SandyBridge+ | EC_Ops_Correct, MemCorrect, NoEngine, CRYPTO_refcount_Correct, PubKeyValid |[SAW](SAW/README.md) |
 | HKDF      | with <nobr>HMAC-SHA384</nobr> | HKDF_extract, HKDF_expand, HKDF | SandyBridge+ | MemCorrect, NoEngine, NoInline, OutputLength, CRYPTO_once_Correct  |[SAW](SAW/README.md) |
 
-The platforms for which code is verified are defined in the following table. In all cases, the actual verification is performed on code that is produced by Clang 14 for NSym proofs and Clang 10 for others, but the verification results also apply to any compiler that produces semantically equivalent code.
+The platforms for which code is verified are defined in the following table. In all cases, the actual verification is performed on code that is produced by Clang 14 (for neoverse-v1 cross-compilation) and Clang 10, but the verification results also apply to any compiler that produces semantically equivalent code.
 
 | Platform        | Description |
 | --------------- | ------------|

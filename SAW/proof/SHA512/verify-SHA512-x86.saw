@@ -5,5 +5,6 @@
 
 import "../../../cryptol-specs/Primitive/Keyless/Hash/SHA512.cry";
 
-include "SHA512-x86_64-sandybridge+.saw";
+include "SHA512-defines.saw";
+include "x86_64-sandybridge+.saw";
 include "SHA512.saw";

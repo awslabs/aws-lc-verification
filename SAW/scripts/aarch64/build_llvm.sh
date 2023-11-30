@@ -6,7 +6,6 @@
 set -ex
 
 BUILD_TYPE=$1
-MICRO_ARCH=$2
 TARGET="aarch64-unknown-linux-gnu"
 
 mkdir -p build_src/llvm_aarch64
@@ -18,11 +17,10 @@ export BINUTILS_TARGET_PREFIX=aarch64-linux-gnu
 
 cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
       -DBUILD_LIBSSL=OFF \
-      -DKEEP_ASM_LOCAL_SYMBOLS=1 \
       -DCMAKE_TOOLCHAIN_FILE=../../scripts/aarch64/build_llvm.cmake \
-      -DCMAKE_C_FLAGS="-mcpu=${MICRO_ARCH} --target=${TARGET} -I/usr/aarch64-linux-gnu/include -I/usr/aarch64-linux-gnu/include/c++/9/aarch64-linux-gnu" \
-      -DCMAKE_CXX_FLAGS="-mcpu=${MICRO_ARCH} --target=${TARGET} -I/usr/aarch64-linux-gnu/include -I/usr/aarch64-linux-gnu/include/c++/9/aarch64-linux-gnu" \
-      -DCMAKE_ASM_FLAGS="-mcpu=${MICRO_ARCH} --target=${TARGET} -I/usr/aarch64-linux-gnu/include -I/usr/aarch64-linux-gnu/include/c++/9/aarch64-linux-gnu" \
+      -DCMAKE_C_FLAGS="--target=${TARGET} -I/usr/aarch64-linux-gnu/include -I/usr/aarch64-linux-gnu/include/c++/9/aarch64-linux-gnu" \
+      -DCMAKE_CXX_FLAGS="--target=${TARGET} -I/usr/aarch64-linux-gnu/include -I/usr/aarch64-linux-gnu/include/c++/9/aarch64-linux-gnu" \
+      -DCMAKE_ASM_FLAGS="--target=${TARGET} -I/usr/aarch64-linux-gnu/include -I/usr/aarch64-linux-gnu/include/c++/9/aarch64-linux-gnu" \
       -DCMAKE_CXX_LINK_FLAGS="-Wl,--unresolved-symbols=ignore-in-object-files -I/usr/aarch64-linux-gnu/include -I/usr/aarch64-linux-gnu/include/c++/9/aarch64-linux-gnu"  \
       ../../../src
 
