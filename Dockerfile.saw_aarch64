@@ -15,10 +15,7 @@ RUN apt-get install -y curl wget unzip git cmake ninja-build clang llvm g++-aarc
 RUN wget "https://dl.google.com/go/${GO_ARCHIVE}" && tar -xvf $GO_ARCHIVE && \
    mkdir $GOROOT &&  mv go/* $GOROOT && rm $GO_ARCHIVE
 
-RUN opam init --auto-setup --yes --disable-sandboxing \
-  && opam switch create 4.14.0 \
-  && eval $(opam env --switch=4.14.0) \
-  && opam install -y dune ppxlib ppx_deriving zarith odoc
+RUN pip3 install psutil
 
 # Dependencies for Cryptol-Air-Interface
 # ghcup, ghc-8.10.7

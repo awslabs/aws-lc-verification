@@ -22,7 +22,7 @@ RUN opam init --auto-setup --yes --disable-sandboxing \
    && opam install -y coq-bits \
    && opam pin -y entree-specs https://github.com/GaloisInc/entree-specs.git#52c4868f1f65c7ce74e90000214de27e23ba98fb
 
-ADD SAW/scripts /lc/scripts
+ADD SAW/scripts/x86_64 /lc/scripts
 RUN /lc/scripts/docker_install.sh
 ENV CRYPTOLPATH="../../../cryptol-specs:../../spec"
 

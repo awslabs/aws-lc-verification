@@ -10,6 +10,7 @@ enable_experimental;
 disable_debug_intrinsics;
 
 // Load LLVM bytecode
+print (str_concat "ARCH: " (show ARCH));
 include "../common/asm_helpers.saw";
 m <- load_module;
 
@@ -30,7 +31,7 @@ EVP_MD_pctx_ops_ov <- llvm_unsafe_assume_spec
 
 enable_what4_hash_consing;
 
-sha512_block_data_order_ov <- llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "sha512_block_data_order"
+sha512_block_data_order_ov <- llvm_verify_asm m "../../build/x86/crypto/crypto_test" "sha512_block_data_order"
   [ ("K512", 5120) // Initializes the global for round constants, called K, at a size of 5120 bytes
   ]
   true
@@ -50,7 +51,7 @@ sha512_block_data_order_ov <- llvm_verify_x86 m "../../build/x86/crypto/crypto_t
 enable_what4_eval;
 enable_x86_what4_hash_consing;
 
-sha512_block_data_order_array_ov <- llvm_verify_fixpoint_x86 m "../../build/x86/crypto/crypto_test" "sha512_block_data_order"
+sha512_block_data_order_array_ov <- llvm_verify_fixpoint_asm m "../../build/x86/crypto/crypto_test" "sha512_block_data_order"
   [ ("K512", 5120) // Initializes the global for round constants, called K, at a size of 5120 bytes
   ]
   true

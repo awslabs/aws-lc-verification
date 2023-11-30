@@ -14,12 +14,16 @@ The easiest way to build the library and run the proofs is to use [Docker](https
 
 2. Build a Docker image:
    `docker build --pull --no-cache -f Dockerfile.[...] -t awslc-saw .`
-   1. For running SAW proofs, use: `Dockerfile.saw_x86`
-   2. For running Coq proofs, use: `Dockerfile.coq`
-   3. For running NSym proofs, use: `Dockerfile.nsym`
+   1. For running SAW proofs on X86_64, use: `Dockerfile.saw_x86`
+   2. For running SAW proofs on AARCH64, use: `Dockerfile.saw_aarch64`
+   3. For running Coq proofs, use: `Dockerfile.coq`
+   4. For running NSym proofs, use: `Dockerfile.nsym`
 
 3. Run the SAW proofs inside the Docker container: ``docker run -v `pwd`:`pwd` -w `pwd` awslc-saw``
-   1. Use Coq to validate the Cryptol specs used in the SAW proofs: ``docker run -it -v `pwd`:`pwd` -w `pwd` --entrypoint Coq/docker_entrypoint.sh awslc-saw``
+   1. Run SAW proofs on X86_64: ``docker run -it -v `pwd`:`pwd` -w `pwd` --entrypoint SAW/scripts/x86_64/docker_entrypoint.sh awslc-saw``
+   2. Run SAW proofs on AARCH64: ``docker run -it -v `pwd`:`pwd` -w `pwd` --entrypoint SAW/scripts/aarch64/docker_entrypoint.sh awslc-saw``
+   3. Use Coq to validate the Cryptol specs used in the SAW proofs: ``docker run -it -v `pwd`:`pwd` -w `pwd` --entrypoint Coq/docker_entrypoint.sh awslc-saw``
+   4. Run NSym for AARCH64 assembly: ``docker run -it -v `pwd`:`pwd` -w `pwd` --entrypoint NSym/scripts/docker_entrypoint.sh awslc-saw``
 
 Running ``docker run -it -v `pwd`:`pwd` -w `pwd` --entrypoint bash awslc-saw`` will enter an interactive shell within the container, which is often useful for debugging.
 
@@ -30,6 +34,7 @@ AWS libcrypto includes many cryptographic algorithm implementations for several 
 | Algorithm | Variants |  API Operations | Platform   | Caveats | Tech |
 | ----------| -------------| --------------- | -----------| ------------ | --------- |
 | SHA-2     | 384, 512     | EVP_DigestInit, EVP_DigestUpdate, EVP_DigestFinal | SandyBridge+ | NoEngine, MemCorrect | [SAW](SAW/README.md) |
+| SHA-2     | 384     | EVP_DigestInit, EVP_DigestUpdate, EVP_DigestFinal | neoverse-n1, neoverse-v1 | NoEngine, MemCorrect, ArmSpecGap | [SAW](SAW/README.md) |
 | HMAC      | with <nobr>SHA-384</nobr> | HMAC_CTX_init, HMAC_Init_ex, HMAC_Update, HMAC_Final, HMAC | SandyBridge+ | NoEngine, MemCorrect, InitZero, NoInline, CRYPTO_once_Correct | [SAW](SAW/README.md) |
 | <nobr>AES-KW(P)</nobr>  | 256     | AES_wrap_key, AES_unwrap_key, AES_wrap_key_padded, AES_unwrap_key_padded | SandyBridge+ | InputLength, MemCorrect, NoInline |[SAW](SAW/README.md) |
 | Elliptic Curve Keys and Parameters | with <nobr>P-384</nobr> | EVP_PKEY_CTX_new_id, EVP_PKEY_CTX_new, EVP_PKEY_paramgen_init, EVP_PKEY_CTX_set_ec_paramgen_curve_nid, EVP_PKEY_paramgen, EVP_PKEY_keygen_init, EVP_PKEY_keygen | SandyBridge+ | EC_Ops_Correct, NoEngine, MemCorrect, CRYPTO_refcount_Correct, CRYPTO_once_Correct, OptNone, SAWBreakpoint |[SAW](SAW/README.md) |
@@ -37,12 +42,14 @@ AWS libcrypto includes many cryptographic algorithm implementations for several 
 | ECDH      | with <nobr>P-384</nobr> | EVP_PKEY_derive_init, EVP_PKEY_derive | SandyBridge+ | EC_Ops_Correct, MemCorrect, NoEngine, CRYPTO_refcount_Correct, PubKeyValid |[SAW](SAW/README.md) |
 | HKDF      | with <nobr>HMAC-SHA384</nobr> | HKDF_extract, HKDF_expand, HKDF | SandyBridge+ | MemCorrect, NoEngine, NoInline, OutputLength, CRYPTO_once_Correct  |[SAW](SAW/README.md) |
 
-The platforms for which code is verified are defined in the following table. In all cases, the actual verification is performed on code that is produced by Clang 10, but the verification results also apply to any compiler that produces semantically equivalent code.
+The platforms for which code is verified are defined in the following table. In all cases, the actual verification is performed on code that is produced by Clang 14 for NSym proofs and Clang 10 for others, but the verification results also apply to any compiler that produces semantically equivalent code.
 
 | Platform        | Description |
 | --------------- | ------------|
-| SandyBridge+ | x86-64 with AES-NI, CLMUL, and AVX. Compile switches: -DCMAKE_BUILD_TYPE=Release
-| SandyBridge-Skylake | x86-64 with AES-NI, CLMUL, and AVX, but not AVX-512. Compile switches: -DCMAKE_BUILD_TYPE=Release
+| SandyBridge+ | x86-64 with AES-NI, CLMUL, and AVX. Compile switches: check SAW/scripts/x86_64/build_llvm.sh and SAW/scripts/x86_64/build_x86.sh
+| SandyBridge-Skylake | x86-64 with AES-NI, CLMUL, and AVX, but not AVX-512. Compile switches: check SAW/scripts/x86_64/build_llvm.sh and SAW/scripts/x86_64/build_x86.sh
+| neoverse-n1 | aarch64 without SHA512. Compile switches: check SAW/scripts/aarch64/build_llvm.sh and NSym/scripts/build_aarch64.sh
+| neoverse-v1 | aarch64 with SHA512. Compile switches: check SAW/scripts/aarch64/build_llvm.sh and NSym/scripts/build_aarch64.sh
 
 The caveats associated with some of the verification results are defined in the table below.
 
@@ -63,6 +70,7 @@ The caveats associated with some of the verification results are defined in the 
 | OptNone | The implementation is verified correct assuming that certain functions are not optimized by the compiler. |
 | PubKeyValid | Public key validity checks are not verified, and the code is only proved correct for the public keys that pass these checks. |
 | SAWBreakpoint | The proof uses SAW's breakpoint feature. This feature assumes the specification on the breakpoint function for the inductive hypothesis. The feature lacks well-foundedness check for the inductive invariant. |
+| ArmSpecGap | The Cryptol specification used in NSym proofs for Arm is different from the one used in the corresponding SAW proofs. Specifically, recursive comprehensions are written as recursions. |
 
 ### Functions with compiler optimization disabled
 

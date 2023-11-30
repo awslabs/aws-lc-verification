@@ -26,9 +26,5 @@ cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
       -DCMAKE_CXX_LINK_FLAGS="-Wl,--unresolved-symbols=ignore-in-object-files -I/usr/aarch64-linux-gnu/include -I/usr/aarch64-linux-gnu/include/c++/9/aarch64-linux-gnu"  \
       ../../../src
 
-# -DCMAKE_C_COMPILER_TARGET=$TARGET \
-#                          -DCMAKE_CXX_COMPILER_TARGET=$TARGET \
-#                          -DCMAKE_ASM_COMPILER_TARGET=$TARGET \
-
 NUM_CPU_THREADS=$(grep -c ^processor /proc/cpuinfo)
 make -j $NUM_CPU_THREADS VERBOSE=1
