@@ -19,6 +19,7 @@ Require Import SetoidClass.
 
 From EC Require Import Zfacts.
 
+
 Theorem nat_shiftl_nz : forall n b,
   (0 < b)%nat ->
   (0 < shiftl b n)%nat.
@@ -61,6 +62,16 @@ Theorem shiftl_to_nat_eq : forall n2 n1,
   
 Qed.
 
+Definition SignedWindow := Z.
+
+Fixpoint flatten (A : Type)(ls : list (list A)) : list A :=
+  match ls with
+  | nil => nil
+  | x :: ls' => x ++ (flatten ls')
+  end.
+
+
+
 (* A simple definition of group multiplication, an optimized multiplication algorithm using 
 windowed non-adjacent form, and a proof of equivalence of the two. *)
 Section GroupMulWNAF.
@@ -99,7 +110,7 @@ Section GroupMulWNAF.
 
   Qed.
 
-  Instance groupMul_propr : Proper (eq ==> equiv ==> equiv) groupMul.
+  Instance groupMul_proper : Proper (eq ==> equiv ==> equiv) groupMul.
 
     unfold Proper, respectful; intros. subst.
     eapply groupMul_equiv_compat; eauto.
@@ -254,12 +265,6 @@ Section GroupMulWNAF.
     | w :: ws' => (groupAdd_window w e (groupDouble_n (length w) (groupMul_windows ws' e)))
     end.
 
-  Fixpoint flatten (A : Type)(ls : list (list A)) : list A :=
-    match ls with
-    | nil => nil
-    | x :: ls' => x ++ (flatten ls')
-    end.
-
   Theorem groupDouble_distrib : 
     forall a b,
     groupDouble (groupAdd a b) == groupAdd (groupDouble a) (groupDouble b).
@@ -334,8 +339,6 @@ Section GroupMulWNAF.
   Hypothesis groupInverse_correct : forall e, groupAdd e (groupInverse e) == idElem.
   Hypothesis groupInverse_add_distr : forall e1 e2, groupInverse (groupAdd e1 e2) == groupAdd (groupInverse e1) (groupInverse e2).
   Hypothesis groupInverse_involutive : forall e, groupInverse (groupInverse e) == e.
-
-  Definition SignedWindow := Z.
 
   Theorem groupMul_doubleAdd_pos_succ : forall p e,
     groupMul_doubleAdd_pos (Pos.succ p) e ==
@@ -685,6 +688,67 @@ Section GroupMulWNAF.
     rewrite zDouble_n_mul.
     reflexivity.
 
+  Qed.
+
+
+  Fixpoint groupMul_signedWindows_exp (ws : list SignedWindow) n : GroupElem :=
+  match ws with
+  | nil => idElem
+  | w :: ws' => groupAdd (groupMul_doubleAdd_signed (zDouble_n (n * wsize) w) p) (groupMul_signedWindows_exp ws' (S n))
+  end.
+
+  Theorem groupDouble_n_add : forall n1 n2 e,
+    groupDouble_n (n1 + n2) e = groupDouble_n n1 (groupDouble_n n2 e).
+
+    induction n1; intros; simpl in *.
+    reflexivity.
+    rewrite IHn1.
+    reflexivity.
+  Qed.
+
+  Theorem groupAdd_groupDouble_n_distr : forall n e1 e2,
+    groupAdd (groupDouble_n n e1) (groupDouble_n n e2) == groupDouble_n n (groupAdd e1 e2).
+
+    induction n; intros; simpl in *.
+    reflexivity.
+    rewrite <- groupDouble_distrib.
+    rewrite <- IHn.
+    reflexivity.
+
+  Qed.
+
+  Theorem groupDouble_n_id : forall n,
+    groupDouble_n n idElem == idElem.
+
+    induction n; intros; simpl in *.
+    reflexivity.
+    rewrite IHn.
+    rewrite groupDouble_correct.
+    apply groupAdd_id.
+
+  Qed.
+
+  Theorem groupMul_signedWindows_exp_equiv : forall ws n,
+    Forall RegularWindow ws ->
+    groupDouble_n (wsize * n) (groupMul_signedWindows ws) == groupMul_signedWindows_exp ws n.
+
+    induction ws; intros; simpl in *.
+    apply groupDouble_n_id.
+
+    unfold groupAdd_signedWindow.
+    rewrite <- IHws.
+    rewrite zDouble_n_mul.
+    replace (wsize * S n)%nat with (n * wsize + wsize)%nat; try lia.
+    rewrite groupDouble_n_add.
+    rewrite groupAdd_groupDouble_n_distr.
+    replace (wsize * n)%nat with (n * wsize)%nat; try lia.
+    apply groupDouble_n_equiv_compat.
+    apply groupAdd_proper.
+    apply bMultiple_correct.
+    inversion H; clear H; subst.
+    trivial.
+    reflexivity.
+    inversion H; trivial.
   Qed.
 
   End SignedWindows.
@@ -1968,24 +2032,53 @@ Section GroupMulWNAF.
 
   Section SignedWindowsWithTable.
 
-  Variable numWindows : nat.
-  Hypothesis numWindows_nz : numWindows <> 0%nat.
+    Variable numWindows : nat.
+    Hypothesis numWindows_nz : numWindows <> 0%nat.
 
-  Definition groupMul_signedRegular_table p n := 
-    groupMul_signedRegular p (groupMul_signed_table (preCompTable p)) numWindows n.
+    Definition groupMul_signedRegular_table p n := 
+      groupMul_signedRegular p (groupMul_signed_table (preCompTable p)) numWindows n.
 
-  Theorem groupMul_signedRegular_table_correct : forall p n,
-    Z.of_nat n < Z.shiftl 1 (Z.of_nat (numWindows * wsize)) ->
-    groupMul_signedRegular_table p n == groupMul n p.
+    Theorem groupMul_signedRegular_table_correct : forall p n,
+      Z.of_nat n < Z.shiftl 1 (Z.of_nat (numWindows * wsize)) ->
+      groupMul_signedRegular_table p n == groupMul n p.
 
-    intros.
-    eapply groupMul_signedRegular_correct; intros.
-    eapply signedMul_table_correct; trivial.
-    apply preCompTable_correct.
-    trivial.
-    trivial.
+      intros.
+      eapply groupMul_signedRegular_correct; intros.
+      eapply signedMul_table_correct; trivial.
+      apply preCompTable_correct.
+      trivial.
+      trivial.
 
-  Qed.
+    Qed.
+
+    Theorem groupMul_assoc : forall a b x,
+      groupMul (a * b) x == groupMul a (groupMul b x).
+
+      induction a; intros; simpl in *.
+      reflexivity.
+
+      rewrite groupMul_distr.
+      apply groupAdd_proper.
+      reflexivity.
+      eauto.
+
+    Qed.
+
+    Theorem groupDouble_n_groupMul_equiv : forall m x,
+        (groupDouble_n m x) == (groupMul (2 ^ m) x).
+
+      induction m; intros; simpl in *.
+      rewrite groupAdd_comm.
+      rewrite groupAdd_id.
+      reflexivity.
+      rewrite groupMul_distr.
+      rewrite plus_0_r.
+      rewrite groupDouble_correct.
+      apply groupAdd_proper; eauto.
+
+    Qed.
+
+
   End SignedWindowsWithTable.
 
 End GroupMulWNAF.
@@ -2000,4 +2093,6 @@ Theorem recode_rwnaf_length : forall w nw z,
   apply recode_rwnaf_odd_length.
 
 Qed.
+
+
 
