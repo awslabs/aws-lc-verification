@@ -5,6 +5,8 @@
 
 This repository contains specifications, proof scripts, and other artifacts required to formally verify portions of [AWS libcrypto](https://github.com/awslabs/aws-lc). Formal verification is used to locate bugs and increase assurance of the correctness and security of the library.
 
+C and X86_64 proofs are carried out in [SAW](https://saw.galois.com/) using [Cryptol](https://cryptol.net/) specifications stored in the [Galois Cryptol spec repository](https://github.com/GaloisInc/cryptol-specs). AArch64 proofs are carried out in NSym using translated specifications from Cryptol. [Coq](https://coq.inria.fr) proofs are developed for proving properties of some of the Cryptol specifications.
+
 ## Building and Running
 The easiest way to build the library and run the proofs is to use [Docker](https://docs.docker.com/get-docker/). To check the proofs, execute the following steps in the top-level directory of the repository.
 
@@ -33,23 +35,23 @@ AWS libcrypto includes many cryptographic algorithm implementations for several 
 
 | Algorithm | Variants |  API Operations | Platform   | Caveats | Tech |
 | ----------| -------------| --------------- | -----------| ------------ | --------- |
-| SHA-2     | 384, 512     | EVP_DigestInit, EVP_DigestUpdate, EVP_DigestFinal | SandyBridge+ | NoEngine, MemCorrect | [SAW](SAW/README.md) |
-| SHA-2     | 384     | EVP_DigestInit, EVP_DigestUpdate, EVP_DigestFinal | neoverse-n1, neoverse-v1 | NoEngine, MemCorrect, ArmSpecGap | [SAW](SAW/README.md) |
-| HMAC      | with <nobr>SHA-384</nobr> | HMAC_CTX_init, HMAC_Init_ex, HMAC_Update, HMAC_Final, HMAC | SandyBridge+ | NoEngine, MemCorrect, InitZero, NoInline, CRYPTO_once_Correct | [SAW](SAW/README.md) |
-| <nobr>AES-KW(P)</nobr>  | 256     | AES_wrap_key, AES_unwrap_key, AES_wrap_key_padded, AES_unwrap_key_padded | SandyBridge+ | InputLength, MemCorrect, NoInline |[SAW](SAW/README.md) |
-| Elliptic Curve Keys and Parameters | with <nobr>P-384</nobr> | EVP_PKEY_CTX_new_id, EVP_PKEY_CTX_new, EVP_PKEY_paramgen_init, EVP_PKEY_CTX_set_ec_paramgen_curve_nid, EVP_PKEY_paramgen, EVP_PKEY_keygen_init, EVP_PKEY_keygen | SandyBridge+ | EC_Conversion_Correct, SAWCore_Coq, EC_Fiat_Crypto, NoEngine, MemCorrect, CRYPTO_refcount_Correct, CRYPTO_once_Correct, OptNone, SAWBreakpoint |[SAW](SAW/README.md) |
-| ECDSA     | with <nobr>P-384</nobr>, <nobr>SHA-384</nobr> | EVP_DigestSignInit, EVP_DigestVerifyInit, EVP_DigestSignUpdate, EVP_DigestVerifyUpdate, EVP_DigestSignFinal, EVP_DigestVerifyFinal, EVP_DigestSign, EVP_DigestVerify | SandyBridge+ | EC_Ops_Correct, NoEngine, MemCorrect, ECDSA_k_Valid, ECDSA_SignatureLength, CRYPTO_refcount_Correct, CRYPTO_once_Correct, ERR_put_error_Correct, NoInline |[SAW](SAW/README.md) |
-| ECDH      | with <nobr>P-384</nobr> | EVP_PKEY_derive_init, EVP_PKEY_derive | SandyBridge+ | EC_Conversion_Correct, SAWCore_Coq, EC_Fiat_Crypto, MemCorrect, NoEngine, CRYPTO_refcount_Correct, PubKeyValid |[SAW](SAW/README.md) |
-| HKDF      | with <nobr>HMAC-SHA384</nobr> | HKDF_extract, HKDF_expand, HKDF | SandyBridge+ | MemCorrect, NoEngine, NoInline, OutputLength, CRYPTO_once_Correct  |[SAW](SAW/README.md) |
+| SHA-2     | 384, 512     | EVP_DigestInit, EVP_DigestUpdate, EVP_DigestFinal | SandyBridge+ | NoEngine, MemCorrect | [SAW](SPEC.md) |
+| SHA-2     | 384     | EVP_DigestInit, EVP_DigestUpdate, EVP_DigestFinal | neoverse-n1, neoverse-v1 | NoEngine, MemCorrect, ArmSpecGap | [SAW](SPEC.md) |
+| HMAC      | with <nobr>SHA-384</nobr> | HMAC_CTX_init, HMAC_Init_ex, HMAC_Update, HMAC_Final, HMAC | SandyBridge+ | NoEngine, MemCorrect, InitZero, NoInline, CRYPTO_once_Correct | [SAW](SPEC.md) |
+| <nobr>AES-KW(P)</nobr>  | 256     | AES_wrap_key, AES_unwrap_key, AES_wrap_key_padded, AES_unwrap_key_padded | SandyBridge+ | InputLength, MemCorrect, NoInline |[SAW](SPEC.md) |
+| Elliptic Curve Keys and Parameters | with <nobr>P-384</nobr> | EVP_PKEY_CTX_new_id, EVP_PKEY_CTX_new, EVP_PKEY_paramgen_init, EVP_PKEY_CTX_set_ec_paramgen_curve_nid, EVP_PKEY_paramgen, EVP_PKEY_keygen_init, EVP_PKEY_keygen | SandyBridge+ | EC_Conversion_Correct, SAWCore_Coq, EC_Fiat_Crypto, NoEngine, MemCorrect, CRYPTO_refcount_Correct, CRYPTO_once_Correct, OptNone, SAWBreakpoint |[SAW](SPEC.md) |
+| ECDSA     | with <nobr>P-384</nobr>, <nobr>SHA-384</nobr> | EVP_DigestSignInit, EVP_DigestVerifyInit, EVP_DigestSignUpdate, EVP_DigestVerifyUpdate, EVP_DigestSignFinal, EVP_DigestVerifyFinal, EVP_DigestSign, EVP_DigestVerify | SandyBridge+ | EC_Ops_Correct, NoEngine, MemCorrect, ECDSA_k_Valid, ECDSA_SignatureLength, CRYPTO_refcount_Correct, CRYPTO_once_Correct, ERR_put_error_Correct, NoInline |[SAW](SPEC.md) |
+| ECDH      | with <nobr>P-384</nobr> | EVP_PKEY_derive_init, EVP_PKEY_derive | SandyBridge+ | EC_Conversion_Correct, SAWCore_Coq, EC_Fiat_Crypto, MemCorrect, NoEngine, CRYPTO_refcount_Correct, PubKeyValid |[SAW](SPEC.md) |
+| HKDF      | with <nobr>HMAC-SHA384</nobr> | HKDF_extract, HKDF_expand, HKDF | SandyBridge+ | MemCorrect, NoEngine, NoInline, OutputLength, CRYPTO_once_Correct  |[SAW](SPEC.md) |
 
-The platforms for which code is verified are defined in the following table. In all cases, the actual verification is performed on code that is produced by Clang 14 (for neoverse-v1 cross-compilation) and Clang 10, but the verification results also apply to any compiler that produces semantically equivalent code.
+The platforms for which code is verified are defined in the following table. In all cases, the actual verification is performed on code that is produced by Clang 14 (for cross-compilation to AArch64) and Clang 10, but the verification results also apply to any compiler that produces semantically equivalent code.
 
 | Platform        | Description |
 | --------------- | ------------|
-| SandyBridge+ | x86-64 with AES-NI, CLMUL, and AVX. Compile switches: check SAW/scripts/x86_64/build_llvm.sh and SAW/scripts/x86_64/build_x86.sh
-| SandyBridge-Skylake | x86-64 with AES-NI, CLMUL, and AVX, but not AVX-512. Compile switches: check SAW/scripts/x86_64/build_llvm.sh and SAW/scripts/x86_64/build_x86.sh
-| neoverse-n1 | aarch64 without SHA512. Compile switches: check SAW/scripts/aarch64/build_llvm.sh and NSym/scripts/build_aarch64.sh
-| neoverse-v1 | aarch64 with SHA512. Compile switches: check SAW/scripts/aarch64/build_llvm.sh and NSym/scripts/build_aarch64.sh
+| SandyBridge+ | x86-64 with AES-NI, CLMUL, and AVX. Compile switches: see [build_llvm.sh](SAW/scripts/x86_64/build_llvm.sh) and [build_x86.sh](SAW/scripts/x86_64/build_x86.sh)
+| SandyBridge-Skylake | x86-64 with AES-NI, CLMUL, and AVX, but not AVX-512. Compile switches: see [build_llvm.sh](SAW/scripts/x86_64/build_llvm.sh) and [build_x86.sh](SAW/scripts/x86_64/build_x86.sh)
+| neoverse-n1 | aarch64 without SHA512. Compile switches: see [build_llvm.sh](SAW/scripts/aarch64/build_llvm.sh) and [build_aarch64.sh](NSym/scripts/build_aarch64.sh)
+| neoverse-v1 | aarch64 with SHA512. Compile switches: see [build_llvm.sh](SAW/scripts/aarch64/build_llvm.sh) and [build_aarch64.sh](NSym/scripts/build_aarch64.sh)
 
 The caveats associated with some of the verification results are defined in the table below.
 
@@ -58,7 +60,7 @@ The caveats associated with some of the verification results are defined in the 
 | EC_Conversion_Correct | The proof assumes the correctness of some simple conversion operations such as converting field elements to Montgomery form, and converting points from Jacobian to affine.|
 | SAWCore_Coq | Certain facts are admitted in Coq code provided by the saw-core-coq library. |
 | EC_Fiat_Crypto | The proof uses formal specifications of finite field arithmetic provided by Fiat-Crypto. When building in the specified configurations, the finite field implementation is provided by s2n-bignum, which is verified against a different formal specification. The overall formal verification result only holds for this configuration if s2n-bignum code is also correct w.r.t. the formal specification taken from Fiat-Crypto. To obtain a formally verified implementation without this mechanization gap, the code can be built in a configuration that causes the finite field arithmetic code from Fiat-Crypto to be used instead of s2n-bignum.|
-| EC_Ops_Correct    | The proof assumes the correctness of certain elliptic curve scalar-point multiplication operations and all the code implementing these operations. |
+| EC_Ops_Correct    | The proof assumes the correctness of elliptic curve operations and all the code implementing these operations. |
 | InputLength    | The implementation is verified correct only on a limited number of input lengths. These lengths were chosen to exercise all paths through the code, and the code is verified correct for all possible input values of each length. |
 | OutputLength    | The implementation is verified correct only on a limited number of output lengths. These lengths were chosen to satisfy the verification needs of other cryptographic functions, and the code is verified correct for all possible input values of each length. |
 | NoEngine      | For any API operation that accepts an ENGINE*, the implementation is only verified when the supplied pointer is null. |
@@ -105,6 +107,9 @@ SAW's breakpoint feature for invariant proof capability requires all local varia
 | -------- | ------------------ | ------ |
 | `ec_GFp_nistp384_point_mul_public` | EC | This function has a loop that is computationally hard for SAW. We use SAW's breakpoint feature to conduct invariant proof instead of doing loop-unrolling. |
 
+## Specification
+
+The [SPEC.md](SPEC.md) file contains specifications for each verified implementation.
 
 ## License
 

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 // Include SHA512 helper functions
-include "SHA512-common.saw"; 
+include "SHA512-common.saw";
 
 // Include rewrite rules
 include "goal-rewrites.saw";
