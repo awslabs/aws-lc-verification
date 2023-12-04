@@ -36,7 +36,7 @@ AWS libcrypto includes many cryptographic algorithm implementations for several 
 | Algorithm | Variants |  API Operations | Platform   | Caveats | Tech |
 | ----------| -------------| --------------- | -----------| ------------ | --------- |
 | [SHA-2](SPEC.md#SHA-2) | 384, 512 | EVP_DigestInit, EVP_DigestUpdate, EVP_DigestFinal | SandyBridge+ | NoEngine, MemCorrect | SAW |
-| [SHA-2](SPEC.md#SHA-2) | 384 | EVP_DigestInit, EVP_DigestUpdate, EVP_DigestFinal | neoverse-n1, neoverse-v1 | NoEngine, MemCorrect, ArmSpecGap, SAWNSymGap | NSym |
+| [SHA-2](SPEC.md#SHA-2) | 384 | EVP_DigestInit, EVP_DigestUpdate, EVP_DigestFinal | neoverse-n1, neoverse-v1 | NoEngine, MemCorrect, ArmSpecGap, SAWNSymGap | SAW, NSym |
 | [HMAC](SPEC.md#HMAC-with-SHA-384) | with <nobr>SHA-384</nobr> | HMAC_CTX_init, HMAC_Init_ex, HMAC_Update, HMAC_Final, HMAC | SandyBridge+ | NoEngine, MemCorrect, InitZero, NoInline, CRYPTO_once_Correct | SAW |
 | [<nobr>AES-KW(P)</nobr>](SPEC.md#AES-KWP) | 256 | AES_wrap_key, AES_unwrap_key, AES_wrap_key_padded, AES_unwrap_key_padded | SandyBridge+ | InputLength, MemCorrect, NoInline | SAW |
 | [Elliptic Curve Keys and Parameters](SPEC.md#Elliptic-Curve-Keys-and-Parameters) | with <nobr>P-384</nobr> | EVP_PKEY_CTX_new_id, EVP_PKEY_CTX_new, EVP_PKEY_paramgen_init, EVP_PKEY_CTX_set_ec_paramgen_curve_nid, EVP_PKEY_paramgen, EVP_PKEY_keygen_init, EVP_PKEY_keygen | SandyBridge+ | EC_Ops_Correct, NoEngine, MemCorrect, CRYPTO_refcount_Correct, CRYPTO_once_Correct, OptNone, SAWBreakpoint | SAW |
@@ -50,7 +50,7 @@ The platforms for which code is verified are defined in the following table. In 
 | --------------- | ------------| -------- |
 | SandyBridge+ | x86-64 with AES-NI, CLMUL, and AVX. | Clang 10. Compile switches: see [build_llvm.sh](SAW/scripts/x86_64/build_llvm.sh) and [build_x86.sh](SAW/scripts/x86_64/build_x86.sh)
 | SandyBridge-Skylake | x86-64 with AES-NI, CLMUL, and AVX, but not AVX-512. | Clang 10. Compile switches: see [build_llvm.sh](SAW/scripts/x86_64/build_llvm.sh) and [build_x86.sh](SAW/scripts/x86_64/build_x86.sh)
-| neoverse-n1 | aarch64 without SHA512. | Clang 10 for C and Clang 14 for assembly. Compile switches: see [build_llvm.sh](SAW/scripts/aarch64/build_llvm.sh) and [build_aarch64.sh](NSym/scripts/build_aarch64.sh)
+| neoverse-n1 | aarch64 without SHA512. | Clang 10 for C and Clang 10/14 for assembly. Compile switches: see [build_llvm.sh](SAW/scripts/aarch64/build_llvm.sh) and [build_aarch64.sh](NSym/scripts/build_aarch64.sh)
 | neoverse-v1 | aarch64 with SHA512. | Clang 10 for C and Clang 14 for assembly. Compile switches: see [build_llvm.sh](SAW/scripts/aarch64/build_llvm.sh) and [build_aarch64.sh](NSym/scripts/build_aarch64.sh)
 
 The caveats associated with some of the verification results are defined in the table below.
