@@ -625,16 +625,16 @@ Section PointMul.
       intuition eauto.
     Qed.
 
-    Definition add_base_abstract numPrecompExponenGroups (rnaf : list (Vector.t bool 16))(p : point)(j : nat) : point :=
+    Definition add_base_abstract one pred_wsize (rnaf : list (Vector.t bool 16))(p : point)(j : nat) : point :=
       let window  := nth j rnaf (vecRepeat false 16) in
-      let selected   := select_point_affine_abstract (sign_extend_16_64 (bvSShr _ (bvAdd _ (shiftR _ _ false window 15) (bvXor _ window (bvSShr _ window 15%nat))) 1%nat)) (nth (Nat.div j numPrecompExponenGroups) base_precomp_table nil) in
+      let selected   := select_point_affine_abstract (sign_extend_16_64 (bvSShr _ (bvAdd _ (shiftR _ _ false window 15) (bvXor _ window (bvSShr _ window 15%nat))) 1%nat)) (nth (Nat.div j pred_wsize) base_precomp_table nil) in
       let x_coord   :=nth_order  selected zero_lt_two in
       let y_coord   :=nth_order  selected one_lt_two in
-      point_add true p [x_coord; felem_cmovznz (point_id_to_limb (bvShr _ window 15)) y_coord (felem_opp y_coord); p384_felem_one].
+      point_add true p [x_coord; felem_cmovznz (point_id_to_limb (bvShr _ window 15)) y_coord (felem_opp y_coord); one].
 
     Theorem add_base_abstract_equiv : forall rnaf p i,
       (bvToNat _ i < 77)%nat -> 
-      add_base_abstract 4 (to_list rnaf) p (bvToNat _ i) = add_base rnaf p i.
+      add_base_abstract p384_felem_one 4 (to_list rnaf) p (bvToNat _ i) = add_base rnaf p i.
 
       intros.
       unfold add_base_abstract, add_base, EC_P384_5.add_base.
@@ -844,12 +844,12 @@ Section PointMul.
     Definition b64_4 := CryptolPrimitivesForSAWCore.ecNumber 4%nat _ (CryptolPrimitivesForSAWCore.PLiteralSeqBool 64%nat).
     Definition b64_3 := CryptolPrimitivesForSAWCore.ecNumber 3%nat _ (CryptolPrimitivesForSAWCore.PLiteralSeqBool 64%nat).
 
-    Definition double_add_base_abstract (numPrecompExponentGroups : nat)(wsize : nat) (nw : nat) rnaf
+    Definition double_add_base_abstract one (wsize : nat) (nw : nat) rnaf
       (p : point) 
       (i : nat) 
         : point :=
-    let doubled   := if (eq_nat_dec i (pred numPrecompExponentGroups))  then p else fold_left (fun x _ => point_double x) (forNats wsize) p  in
-      fold_left (add_base_abstract numPrecompExponentGroups rnaf) (List.rev (lsMultiples nw numPrecompExponentGroups i)) doubled.
+    let doubled   := if (eq_nat_dec i (pred (pred wsize)))  then p else fold_left (fun x _ => point_double x) (forNats wsize) p  in
+      fold_left (add_base_abstract one (pred wsize) rnaf) (List.rev (lsMultiples nw (pred wsize) i)) doubled.
 
     Definition p384_g_pre_comp_gen := p384_g_pre_comp.
     Local Opaque p384_g_pre_comp_gen.
@@ -958,7 +958,7 @@ Section PointMul.
 
     Theorem double_add_base_abstract_equiv : forall x y z,
       (bvToNat _ z < 4)%nat ->
-      double_add_base_abstract 4 5 77 (to_list x) y (bvToNat _ z) = double_add_base x y z.
+      double_add_base_abstract p384_felem_one 5 77 (to_list x) y (bvToNat _ z) = double_add_base x y z.
 
       intros.
       unfold double_add_base_abstract, double_add_base, EC_P384_5.double_add_base.
@@ -1145,18 +1145,18 @@ Section PointMul.
 
     Variable affine_default : Vec 2 felem.
 
-    Definition affine_g := Vector.append (nth 0 (nth 0 base_precomp_table nil) affine_default) [p384_felem_one].
+    Definition affine_g one := Vector.append (nth 0 (nth 0 base_precomp_table nil) affine_default) [one].
 
-    Definition point_mul_base_abstract (numPrecompExponentGroups wsize nw : nat)  s :=
+    Definition point_mul_base_abstract one (wsize nw : nat)  s :=
       conditional_subtract_if_even_mixed_abstract 
       (fold_left
-         (double_add_base_abstract numPrecompExponentGroups wsize nw (mul_scalar_rwnaf_abstract wsize (pred (pred (pred nw))) s))
-          (forNats numPrecompExponentGroups)
+         (double_add_base_abstract one wsize nw (mul_scalar_rwnaf_abstract wsize (pred (pred (pred nw))) s))
+          (forNats (pred wsize))
           (replicate 3 (Vec 6 (bitvector 64)) (replicate 6 (bitvector 64) (intToBv 64 0)))
-      ) s affine_g.
+      ) s (affine_g one).
 
   Theorem point_mul_base_abstract_equiv : forall s,
-    point_mul_base s = point_mul_base_abstract 4 5 77 s.
+    point_mul_base s = point_mul_base_abstract p384_felem_one 5 77 s.
     
     unfold point_mul_base, EC_P384_5.point_mul_base in *.
     unfold point_mul_base_abstract in *.
@@ -1164,7 +1164,7 @@ Section PointMul.
     replace (append
      (sawAt 16 (Vec 2 (Vec 6 (bitvector 64)))
         (sawAt 20 (Vec 16 (Vec 2 (Vec 6 (bitvector 64)))) p384_g_pre_comp 0) 0)
-     [p384_felem_one]) with affine_g in *.
+     [p384_felem_one]) with (affine_g p384_felem_one) in *.
     intros.
     rewrite conditional_subtract_if_even_mixed_equiv.
 
