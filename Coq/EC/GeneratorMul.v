@@ -26,6 +26,9 @@ values. We only need to double to get from one group to the next. E.g. with a wi
 and then the accumulator is doubled wsize times. 
 *)
 
+(* This file contains the proof of correctness for this algorithm. It uses the general purpose windowed multiplication machine
+to transform the wnaf multiplication algorithm into the algorithm above. *)
+
 Section GeneratorMulWNAF.
 
   Variable GroupElem : Type.
