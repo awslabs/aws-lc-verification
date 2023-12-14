@@ -41,7 +41,7 @@ def run_process(command):
         wd = os.getcwd()
         os.chdir(path)
     start = time.perf_counter()
-    result = subprocess.run(command, capture_output = True)
+    result = subprocess.run(["/usr/bin/time"] + command, capture_output = True)
     end = time.perf_counter()
     if path:
         os.chdir(wd)
@@ -65,7 +65,7 @@ def create_summary(output, error, exit_code, debug):
 def parallel_run (commands, debug):
     mem = psutil.virtual_memory().available
     # Assuming each process uses 7GB memory
-    pmem = 7*1024*1024*1024
+    pmem = 10*1024*1024*1024
     pbound = int(mem/pmem)
     np = multiprocessing.cpu_count()
     pool = multiprocessing.Pool(min(np, pbound))
