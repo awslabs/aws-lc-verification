@@ -103,7 +103,7 @@ Definition multiSelect(A : Type)(ls : list A)(lsn : list nat) : option (list A) 
 
 
 Inductive WindowedMultOp :=
-  | wm_Add : nat -> Z -> WindowedMultOp (* wm_Add n z means add z * 2^n to the accumulator *)  
+  | wm_Add : nat -> Z -> WindowedMultOp (* Add (z * 2^n) * g to the accumulator, where g is a group element *)  
   | wm_Double : nat -> WindowedMultOp (* Double the value in the accumulator *)
 .
 
@@ -118,7 +118,11 @@ Fixpoint signedWindowsToProg (ws : list SignedWindow)(n : nat) :=
 
 (* Operations that preserve the value *)
 
-(* Insert a double at the head of the list and adjust exponents on remaining items *)
+(* Insert a double at the head of the list and adjust exponents on remaining items. This operation factors the
+doubling out of the remaining list, and it will only succeed in circumstances where each element in the list has
+the required factors. For example, if we want to double 5 times at the beginning of the list, this will succeed 
+if an only if the list looks like [x1 * 2^(y1 + 5), x2 * 2^(y2 + 5), ... , xn * 2^(yn + 5)]. In other words, it will 
+succeed if and only if each exponent is at least 5. *)
 Definition decrExp (n : nat)(p : WindowedMultOp) :=
   match p with
   | wm_Add n' w =>
@@ -1717,6 +1721,9 @@ Theorem permuteAndDouble_grouped_equiv_if : forall perm ws d ls,
 Qed.
 
 
+(* Machine semantics requires a group. The following section assumes an arbitrary group, and the semantics is defined
+in terms of this group. The section also fixes a group element (usually the generator of some interesting group), and multiples
+of this group element are added by the wm_Add operation. *)
 Section MachineEval.
 
   Variable GroupElem : Type.
@@ -1760,9 +1767,9 @@ Section MachineEval.
     bMultiple w == groupMul_doubleAdd_signed w p.
 
   Definition groupMul_signedWindows := groupMul_signedWindows groupAdd idElem groupDouble wsize bMultiple.
-  Definition groupMul_signedWindows_exp := groupMul_signedWindows_exp groupAdd idElem groupDouble groupInverse wsize p.
   Definition groupDouble_n := groupDouble_n groupDouble.
 
+  (* Semantics of a single double or add operation *)
   Definition evalWindowMult (m : WindowedMultOp)(e : GroupElem) :=
     match m with
     | wm_Add n w => (groupAdd (groupMul_doubleAdd_signed (zDouble_n (n * wsize) w) p) e)
@@ -1784,11 +1791,74 @@ Section MachineEval.
 
   Qed.
 
+  (* Semantics of a program comprising a list of operations that are executed in order *)
   Fixpoint groupMul_signedWindows_prog (ws : list WindowedMultOp) : GroupElem :=
     match ws with
     | nil => idElem
     | w :: ws' => evalWindowMult w (groupMul_signedWindows_prog ws')
     end.
+
+  (* groupMul_signedWindows_exp takes a number n and a list of windows, and effectively
+  multiplies each window by 2^(n + wsize) before performing the usual signed window multiplication operation. 
+  This is an intermediate definition that simplifies an equivalence proof. *)
+  Fixpoint groupMul_signedWindows_exp (ws : list SignedWindow) n : GroupElem :=
+    match ws with
+    | nil => idElem
+    | w :: ws' => groupAdd (groupMul_doubleAdd_signed (zDouble_n (n * wsize) w) p) (groupMul_signedWindows_exp ws' (S n))
+    end.
+
+  Theorem groupDouble_n_add : forall n1 n2 e,
+    groupDouble_n (n1 + n2) e = groupDouble_n n1 (groupDouble_n n2 e).
+
+    induction n1; intros; simpl in *.
+    reflexivity.
+    rewrite IHn1.
+    reflexivity.
+  Qed.
+
+  Theorem groupAdd_groupDouble_n_distr : forall n e1 e2,
+    groupAdd (groupDouble_n n e1) (groupDouble_n n e2) == groupDouble_n n (groupAdd e1 e2).
+
+    induction n; intros; simpl in *.
+    reflexivity.
+    rewrite <- groupDouble_distrib; eauto.
+
+  Qed.
+
+  Theorem groupDouble_n_id : forall n,
+    groupDouble_n n idElem == idElem.
+
+    induction n; intros; simpl in *.
+    reflexivity.
+    rewrite IHn.
+    rewrite groupDouble_correct.
+    apply groupAdd_id.
+
+  Qed.
+
+  Theorem groupMul_signedWindows_exp_equiv : forall ws n,
+    Forall RegularWindow ws ->
+    groupDouble_n (wsize * n) (groupMul_signedWindows ws) == groupMul_signedWindows_exp ws n.
+
+    induction ws; intros; simpl in *.
+    apply groupDouble_n_id.
+
+    unfold groupAdd_signedWindow.
+    rewrite <- IHws.
+    unfold groupMul_doubleAdd_signed.
+    rewrite zDouble_n_mul; eauto.
+    replace (wsize * S n)%nat with (n * wsize + wsize)%nat; try lia.
+    rewrite groupDouble_n_add.
+    rewrite groupAdd_groupDouble_n_distr.
+    replace (wsize * n)%nat with (n * wsize)%nat; try lia.
+    apply groupDouble_n_equiv_compat; eauto.
+    apply groupAdd_proper.
+    apply bMultiple_correct.
+    inversion H; clear H; subst.
+    trivial.
+    reflexivity.
+    inversion H; trivial.
+  Qed.
 
   Theorem groupMul_signedWindows_prog_equiv : forall ws n,
     groupMul_signedWindows_prog (signedWindowsToProg ws n) == groupMul_signedWindows_exp ws n.
@@ -2034,6 +2104,10 @@ Section MachineEval.
     discriminate.
   Qed.
 
+  (* Prove that programs produced by the permuteAndDouble function produce the same result
+  as the function that performed group multiplication using signed windows defined in GroupMulWNAF.
+  This existing function is already proved to be correct in GroupMulWNAF. Also, permuteAndDouble may fail,
+  and this equivalence holds any time this function succeeds. *)
   Theorem permuteAndDouble_equiv : forall ws d perm doubles ps,
     Forall RegularWindow ws -> 
     Permutation perm (seq 0 (length ws)) ->

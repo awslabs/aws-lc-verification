@@ -690,67 +690,6 @@ Section GroupMulWNAF.
 
   Qed.
 
-
-  Fixpoint groupMul_signedWindows_exp (ws : list SignedWindow) n : GroupElem :=
-  match ws with
-  | nil => idElem
-  | w :: ws' => groupAdd (groupMul_doubleAdd_signed (zDouble_n (n * wsize) w) p) (groupMul_signedWindows_exp ws' (S n))
-  end.
-
-  Theorem groupDouble_n_add : forall n1 n2 e,
-    groupDouble_n (n1 + n2) e = groupDouble_n n1 (groupDouble_n n2 e).
-
-    induction n1; intros; simpl in *.
-    reflexivity.
-    rewrite IHn1.
-    reflexivity.
-  Qed.
-
-  Theorem groupAdd_groupDouble_n_distr : forall n e1 e2,
-    groupAdd (groupDouble_n n e1) (groupDouble_n n e2) == groupDouble_n n (groupAdd e1 e2).
-
-    induction n; intros; simpl in *.
-    reflexivity.
-    rewrite <- groupDouble_distrib.
-    rewrite <- IHn.
-    reflexivity.
-
-  Qed.
-
-  Theorem groupDouble_n_id : forall n,
-    groupDouble_n n idElem == idElem.
-
-    induction n; intros; simpl in *.
-    reflexivity.
-    rewrite IHn.
-    rewrite groupDouble_correct.
-    apply groupAdd_id.
-
-  Qed.
-
-  Theorem groupMul_signedWindows_exp_equiv : forall ws n,
-    Forall RegularWindow ws ->
-    groupDouble_n (wsize * n) (groupMul_signedWindows ws) == groupMul_signedWindows_exp ws n.
-
-    induction ws; intros; simpl in *.
-    apply groupDouble_n_id.
-
-    unfold groupAdd_signedWindow.
-    rewrite <- IHws.
-    rewrite zDouble_n_mul.
-    replace (wsize * S n)%nat with (n * wsize + wsize)%nat; try lia.
-    rewrite groupDouble_n_add.
-    rewrite groupAdd_groupDouble_n_distr.
-    replace (wsize * n)%nat with (n * wsize)%nat; try lia.
-    apply groupDouble_n_equiv_compat.
-    apply groupAdd_proper.
-    apply bMultiple_correct.
-    inversion H; clear H; subst.
-    trivial.
-    reflexivity.
-    inversion H; trivial.
-  Qed.
-
   End SignedWindows.
 
   (* signed odd windows *)
