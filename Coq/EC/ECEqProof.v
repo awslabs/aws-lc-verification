@@ -6206,10 +6206,42 @@ Section ECEqProof.
     (n2 < Nat.pow 2 (numPrecompExponentGroups wsize))%nat-> 
     jac_eq (seqToProd (affineToJac (List.nth n2 (List.nth n1 preCompTable List.nil) (affine_default preCompTable)))) (fromPoint (groupMul ((2 * n2 + 1) * (Nat.pow 2 (n1 * (numPrecompExponentGroups wsize) * wsize))) g)).
 
-  Hypothesis preCompTable_entry_length : forall ls,
+  Theorem to_list_entry_length_h : forall (A : Type)(n2 : nat)(v : list (Vec n2 A)) (ls : list A),
+    List.In ls (List.map (fun x => to_list x) v) ->
+    List.length ls = n2.
+
+    induction v; intros.
+    simpl in H.
+    intuition idtac.
+
+    simpl in H.
+    intuition idtac.
+    subst.
+    apply length_to_list.
+    eapply IHv.
+    eauto.
+
+  Qed.
+ 
+  Theorem to_list_entry_length : forall (A : Type)(n1 n2 : nat)(v : Vec n1 (Vec n2 A)) (ls : list A),
+    List.In ls (List.map (fun x => to_list x) (to_list v)) ->
+    List.length ls = n2.
+
+    intros.
+    eapply to_list_entry_length_h.
+    eauto.
+
+  Qed.
+
+  Theorem preCompTable_entry_length : forall ls,
     List.In ls preCompTable ->
     Datatypes.length ls = Nat.pow 2 (numPrecompExponentGroups wsize).
 
+    intros.
+    unfold preCompTable in *.
+    erewrite to_list_entry_length; eauto.
+
+  Qed.
 
   Theorem preCompTable_length : 
     Datatypes.length preCompTable = 20%nat.
@@ -6275,8 +6307,7 @@ Section ECEqProof.
     lia.
     symmetry.
     apply preCompTable_length.
-
-    eauto.
+    apply preCompTable_entry_length.
     eauto.
 
   Qed.
