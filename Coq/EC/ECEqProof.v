@@ -3542,78 +3542,19 @@ Section ECEqProof.
   Hypothesis precompTableSize_nz : precompTableSize <> 0%nat.
   Hypothesis base_precomp_table_entry_length : 
     forall ls, List.In ls base_precomp_table -> List.length ls = Nat.pow 2 numPrecompExponentGroups.
-
+  Variable g : point.
   Definition affineToJac (a : affine_point) : Vec 3 F :=
     (append _ _ _ a (cons _ Fone 0 (@nil F))).
-  Variable g : point.
+  Definition affine_default :=  List.hd (cons _ Fone _ (cons _ Fone _ (@nil F))) (List.hd List.nil base_precomp_table ) .
+  Hypothesis base_precomp_table_correct : forall n1 n2,
+    (n1 < precompTableSize)%nat ->
+    (n2 < Nat.pow 2 numPrecompExponentGroups)%nat-> 
+    jac_eq (seqToProd (affineToJac (List.nth n2 (List.nth n1 base_precomp_table List.nil) affine_default))) (fromPoint (groupMul ((2 * n2 + 1) * (Nat.pow 2 (n1 * numPrecompExponentGroups * wsize))) g)).
 
   Definition on_curve (p : affine_point ) : Prop :=
     let x := nth_order p zero_lt_two in
     let y := nth_order p one_lt_two in 
     Feq (y^2) (x^3 + a * x + b).
-
-  Hypothesis base_precomp_table_on_curve : 
-    forall ls p, 
-    List.In p ls -> 
-    List.In ls base_precomp_table -> 
-    on_curve p.
-
-  Definition affine_default :=  List.hd (cons _ Fone _ (cons _ Fone _ (@nil F))) (List.hd List.nil base_precomp_table ) .
-
-  Theorem affine_default_on_curve : on_curve affine_default.
-
-    eapply base_precomp_table_on_curve.
-    unfold affine_default.
-    eapply hd_In.
-    unfold precompTableSize in *.
-    destruct base_precomp_table.
-    simpl in *.
-    intuition idtac.
-    simpl in *.
-    specialize (base_precomp_table_entry_length l).
-    intuition idtac.
-    destruct l.
-    simpl in *.
-    eapply (NPeano.Nat.pow_nonzero 2%nat).
-    lia.
-    symmetry in H6.
-    eauto.
-    discriminate.
-
-    eapply hd_In.
-    unfold precompTableSize in *.
-    destruct base_precomp_table.
-    simpl in *. lia.
-    intuition idtac.
-    discriminate.
-
-  Qed.
-
-  Theorem affineIsJacobian : forall affinePt,
-    on_curve affinePt -> 
-    is_jacobian (seqToProd (affineToJac affinePt)).
-
-    intros.
-    unfold affineToJac, is_jacobian, on_curve in *.
-    simpl.
-    replace (nth_order (append 2 1 felem affinePt (cons F 1 0 (nil F))) two_lt_three)  with 1.
-    destruct (dec (Feq 1 0)).
-    trivial.
-    replace (b * (1 ^ 3) ^ 2) with b.
-    replace (a * nth_order (append 2 1 felem affinePt (cons F 1 0 (nil F))) zero_lt_three * (1 ^ 2) ^ 2) with (a * nth_order (append 2 1 felem affinePt (cons F 1 0 (nil F))) zero_lt_three).
-    erewrite (@nth_order_append_l_eq _ _ 1%nat _ 2%nat _ _ _ one_lt_two ).  
-    repeat erewrite (@nth_order_append_l_eq _ _ 1%nat _ 2%nat _ _ _ zero_lt_two ).
-    apply H.
-    nsatz.
-    nsatz.
-    symmetry.
-    erewrite (@nth_order_append_eq felem _ 1%nat (cons F 1 0 (nil F)) 2%nat affinePt 0%nat two_lt_three ).
-    reflexivity.
-    
-    Unshelve. 
-    lia.
-
-  Qed.
 
   Theorem affineOpp_on_curve : forall p,
     on_curve p -> 
@@ -3646,6 +3587,71 @@ Section ECEqProof.
   Definition affinePointLookup (n m : nat) :=
     List.nth n (List.nth m base_precomp_table List.nil) affine_default.
 
+  Theorem is_jacobian_on_curve : forall p,
+    is_jacobian (seqToProd (affineToJac p)) -> 
+    on_curve p.
+
+    intros.
+    unfold is_jacobian, affineToJac, on_curve in *.
+    simpl in *.
+    destruct (Vec_S_cons _ _ p).
+    destruct H0.
+    subst.
+    destruct (Vec_S_cons _ _ x0).
+    destruct H0.
+    subst.
+    unfold nth_order in *.
+    simpl in *.
+    unfold sawAt in *.
+    simpl in *.
+    unfold Feq in *.
+    destruct (dec (1 = 0)).
+    nsatz.
+    rewrite H.
+    nsatz.
+  Qed.
+
+  Theorem base_precomp_table_on_curve : 
+    forall ls p, 
+    List.In p ls -> 
+    List.In ls base_precomp_table -> 
+    on_curve p.
+
+    intros.
+    eapply is_jacobian_on_curve.
+    destruct (In_nth ls p affine_default H).
+    destruct H1.
+    subst.
+    destruct (In_nth base_precomp_table ls List.nil H0).
+    destruct H2.
+    subst.  
+    eapply jac_eq_is_jacobian; [idtac | apply jac_eq_symm; apply base_precomp_table_correct].
+    eapply fromPoint_is_jacobian.
+    eauto.
+    erewrite base_precomp_table_entry_length in H1.
+    lia.
+    eauto.
+
+  Qed.
+
+  Theorem affine_default_on_curve : on_curve affine_default.
+    unfold affine_default.
+    eapply base_precomp_table_on_curve.
+    repeat rewrite <- nth_0_hd_equiv.
+    eapply nth_In.
+    rewrite base_precomp_table_entry_length.
+    assert (Nat.pow 2 numPrecompExponentGroups <> 0)%nat.
+    apply NPeano.Nat.pow_nonzero.
+    lia.
+    lia.
+    eapply nth_In.
+    unfold precompTableSize in *.
+    lia.
+    eapply nth_In.
+    unfold precompTableSize in *.
+    lia.
+  Qed.
+
   Theorem affinePointLookup_on_curve : forall n m,
     on_curve (affinePointLookup n m).
  
@@ -3670,15 +3676,35 @@ Section ECEqProof.
 
   Qed.
 
+  Theorem affineIsJacobian : forall affinePt,
+    on_curve affinePt -> 
+    is_jacobian (seqToProd (affineToJac affinePt)).
+
+    intros.
+    unfold affineToJac, is_jacobian, on_curve in *.
+    simpl.
+    replace (nth_order (append 2 1 felem affinePt (cons F 1 0 (nil F))) two_lt_three)  with 1.
+    destruct (dec (Feq 1 0)).
+    trivial.
+    replace (b * (1 ^ 3) ^ 2) with b.
+    replace (a * nth_order (append 2 1 felem affinePt (cons F 1 0 (nil F))) zero_lt_three * (1 ^ 2) ^ 2) with (a * nth_order (append 2 1 felem affinePt (cons F 1 0 (nil F))) zero_lt_three).
+    erewrite (@nth_order_append_l_eq _ _ 1%nat _ 2%nat _ _ _ one_lt_two ).  
+    repeat erewrite (@nth_order_append_l_eq _ _ 1%nat _ 2%nat _ _ _ zero_lt_two ).
+    apply H.
+    nsatz.
+    nsatz.
+    symmetry.
+    erewrite (@nth_order_append_eq felem _ 1%nat (cons F 1 0 (nil F)) 2%nat affinePt 0%nat two_lt_three ).
+    reflexivity.
+
+    Unshelve. 
+    lia.
+  Qed.
+
   Definition pExpMultiple (n : nat) (x : Z) : point := 
     let absPt := affinePointLookup (Z.to_nat (Z.div2 (Z.abs x))) n in
     let affinePt :=  affineOppIfNegative x absPt in
     toPoint (seqToProd (affineToJac affinePt)) (affineIsJacobian (affineOppIfNegative_on_curve _ (affinePointLookup_on_curve _ _ ))).
-
-  Hypothesis base_precomp_table_correct : forall n1 n2,
-    (n1 < precompTableSize)%nat ->
-    (n2 < Nat.pow 2 numPrecompExponentGroups)%nat-> 
-    jac_eq (seqToProd (affineToJac (List.nth n2 (List.nth n1 base_precomp_table List.nil) affine_default))) (fromPoint (groupMul ((2 * n2 + 1) * (Nat.pow 2 (n1 * numPrecompExponentGroups * wsize))) g)).
 
   Theorem affineOpp_toPoint_eq :  forall p,
     jac_eq
