@@ -1726,32 +1726,7 @@ in terms of this group. The section also fixes a group element (usually the gene
 of this group element are added by the wm_Add operation. *)
 Section MachineEval.
 
-  Variable GroupElem : Type.
-  
-  Context `{GroupElem_eq : Setoid GroupElem}.
-
-  Variable groupAdd : GroupElem -> GroupElem -> GroupElem.
-  Hypothesis groupAdd_proper : Proper (equiv ==> equiv ==> equiv) groupAdd.
-
-  Hypothesis groupAdd_assoc : forall a b c,
-    groupAdd (groupAdd a b) c == groupAdd a (groupAdd b c).
-  Hypothesis groupAdd_comm : forall a b,
-    groupAdd a b == groupAdd b a.
-
-  Variable idElem : GroupElem.
-  Hypothesis groupAdd_id : forall x, groupAdd idElem x == x.
-
-  Variable groupDouble : GroupElem -> GroupElem.
-  Hypothesis groupDouble_proper : Proper (equiv ==> equiv) groupDouble.
-  Hypothesis groupDouble_correct : forall x,
-    groupDouble x == groupAdd x x.
-
-  Variable groupInverse : GroupElem -> GroupElem.
-  Hypothesis groupInverse_proper : Proper (equiv ==> equiv) groupInverse.
-  Hypothesis groupInverse_id : groupInverse idElem == idElem.
-  Hypothesis groupInverse_correct : forall e, groupAdd e (groupInverse e) == idElem.
-  Hypothesis groupInverse_add_distr : forall e1 e2, groupInverse (groupAdd e1 e2) == groupAdd (groupInverse e1) (groupInverse e2).
-  Hypothesis groupInverse_involutive : forall e, groupInverse (groupInverse e) == e.
+  Context `{grp : CommutativeGroupWithDouble}.
 
   Variable p : GroupElem.
   Variable RegularWindow : SignedWindow -> Prop.
@@ -1759,15 +1734,10 @@ Section MachineEval.
   Variable wsize : nat.
   Hypothesis wsize_nz : wsize <> 0%nat.
 
-  Definition groupMul_doubleAdd_signed := groupMul_doubleAdd_signed groupAdd idElem groupDouble groupInverse.
-
   Variable bMultiple : SignedWindow -> GroupElem.
   Hypothesis bMultiple_correct : forall w, 
     RegularWindow w ->
     bMultiple w == groupMul_doubleAdd_signed w p.
-
-  Definition groupMul_signedWindows := groupMul_signedWindows groupAdd idElem groupDouble wsize bMultiple.
-  Definition groupDouble_n := groupDouble_n groupDouble.
 
   (* Semantics of a single double or add operation *)
   Definition evalWindowMult (m : WindowedMultOp)(e : GroupElem) :=
@@ -1822,6 +1792,8 @@ Section MachineEval.
     induction n; intros; simpl in *.
     reflexivity.
     rewrite <- groupDouble_distrib; eauto.
+    apply groupDouble_proper.
+    eauto.
 
   Qed.
 
@@ -1836,6 +1808,8 @@ Section MachineEval.
 
   Qed.
 
+  Definition groupMul_signedWindows := groupMul_signedWindows wsize bMultiple.
+
   Theorem groupMul_signedWindows_exp_equiv : forall ws n,
     Forall RegularWindow ws ->
     groupDouble_n (wsize * n) (groupMul_signedWindows ws) == groupMul_signedWindows_exp ws n.
@@ -1845,7 +1819,6 @@ Section MachineEval.
 
     unfold groupAdd_signedWindow.
     rewrite <- IHws.
-    unfold groupMul_doubleAdd_signed.
     rewrite zDouble_n_mul; eauto.
     replace (wsize * S n)%nat with (n * wsize + wsize)%nat; try lia.
     rewrite groupDouble_n_add.
@@ -1879,7 +1852,6 @@ Section MachineEval.
     destruct a.
     destruct (le_dec n n0).
     inversion H; clear H; subst.
-    unfold groupMul_doubleAdd_signed.
     rewrite zDouble_n_mul; eauto.
     assert (exists m, n + m = n0)%nat.
     exists (n0 - n)%nat.
@@ -1968,7 +1940,6 @@ Section MachineEval.
     subst.
     replace (x + n0 - n0)%nat with x.
     unfold evalWindowMult.
-    unfold groupMul_doubleAdd_signed.
     rewrite zDouble_n_mul; eauto.
     rewrite Nat.mul_add_distr_r.
     rewrite plus_comm.
@@ -1986,7 +1957,6 @@ Section MachineEval.
     inversion H; clear H; subst.
     unfold evalWindowMult.
     symmetry.
-    unfold groupMul_doubleAdd_signed.
     rewrite zDouble_n_mul; eauto.
     rewrite Nat.mul_add_distr_r.
     rewrite groupDouble_n_add.

@@ -18,6 +18,7 @@ Require Import ZArith.BinInt.
 Require Import SetoidClass.
 
 From EC Require Import Zfacts.
+From EC Require Export CommutativeGroup.
 
 
 Theorem nat_shiftl_nz : forall n b,
@@ -76,64 +77,7 @@ Fixpoint flatten (A : Type)(ls : list (list A)) : list A :=
 windowed non-adjacent form, and a proof of equivalence of the two. *)
 Section GroupMulWNAF.
 
-  Variable GroupElem : Type.
-  
-  Context `{GroupElem_eq : Setoid GroupElem}.
-
-  Variable groupAdd : GroupElem -> GroupElem -> GroupElem.
-  Hypothesis groupAdd_proper : Proper (equiv ==> equiv ==> equiv) groupAdd.
-
-  Hypothesis groupAdd_assoc : forall a b c,
-    groupAdd (groupAdd a b) c == groupAdd a (groupAdd b c).
-  Hypothesis groupAdd_comm : forall a b,
-    groupAdd a b == groupAdd b a.
-
-  Variable idElem : GroupElem.
-  Hypothesis groupAdd_id : forall x, groupAdd idElem x == x.
-
-  Fixpoint groupMul(x : nat)(e : GroupElem) :=
-    match x with
-    | 0 => idElem
-    | S x' => (groupAdd e (groupMul x' e))
-    end.
-
-  Theorem groupMul_equiv_compat : forall n e1 e2,
-    e1 == e2 ->
-    groupMul n e1 == groupMul n e2.
-
-    induction n; intuition; simpl in *.
-    reflexivity.
-
-    f_equiv.
-    trivial.
-    eauto.
-
-  Qed.
-
-  Instance groupMul_proper : Proper (eq ==> equiv ==> equiv) groupMul.
-
-    unfold Proper, respectful; intros. subst.
-    eapply groupMul_equiv_compat; eauto.
-
-  Qed.
-
-  Theorem groupMul_distr : forall a b x,
-    groupMul (a + b) x == 
-    (groupAdd (groupMul a x) (groupMul b x)).
-
-    induction a; intuition; simpl in *.
-    rewrite groupAdd_id.
-    reflexivity.
-    rewrite IHa.
-    rewrite groupAdd_assoc.
-    reflexivity.
-
-  Qed.
-
-  Variable groupDouble : GroupElem -> GroupElem.
-  Hypothesis groupDouble_proper : Proper (equiv ==> equiv) groupDouble.
-  Hypothesis groupDouble_correct : forall x,
-    groupDouble x == groupAdd x x.
+  Context `{dbl_grp: CommutativeGroupWithDouble}.
 
   (* a basic double and add loop *) 
 
@@ -157,7 +101,8 @@ Section GroupMulWNAF.
 
     induction p; intuition; simpl in *.
     +rewrite IHp.
-    f_equiv.
+    apply groupAdd_proper.
+    reflexivity.
     rewrite Pmult_nat_mult.
     rewrite PeanoNat.Nat.mul_comm.
     simpl.
@@ -230,7 +175,7 @@ Section GroupMulWNAF.
     rewrite PeanoNat.Nat.add_0_r.
     rewrite groupMul_distr.
     simpl.
-    rewrite (@groupAdd_comm _ idElem).
+    rewrite (groupAdd_comm _ idElem).
     rewrite groupAdd_id.
     rewrite IHbs.
     rewrite groupDouble_correct.
@@ -271,8 +216,9 @@ Section GroupMulWNAF.
 
     intros.
     repeat rewrite groupDouble_correct.
-    repeat rewrite groupAdd_assoc.
-    f_equiv.
+    repeat rewrite groupAdd_assoc.  
+    apply groupAdd_proper.
+    reflexivity.
     rewrite groupAdd_comm.
     rewrite groupAdd_assoc.
     reflexivity.
@@ -289,7 +235,8 @@ Section GroupMulWNAF.
     destruct a.
     rewrite IHls1.
     rewrite groupAdd_assoc.
-    f_equiv.
+    apply groupAdd_proper.
+    reflexivity.
     rewrite <- groupDouble_distrib.
     reflexivity.
     
@@ -303,7 +250,7 @@ Section GroupMulWNAF.
     groupDouble_n n e1 == groupDouble_n n e2.
 
     induction n; intuition; simpl in *.
-    f_equiv.
+    apply groupDouble_proper.
     eauto.
 
   Qed.
@@ -315,7 +262,8 @@ Section GroupMulWNAF.
     reflexivity.
     unfold groupAdd_window.
     rewrite groupMul_doubleAdd_bits_app.
-    f_equiv.
+    apply groupAdd_proper.
+    reflexivity.
     eapply groupDouble_n_equiv_compat.
     eauto.
 
@@ -333,13 +281,6 @@ Section GroupMulWNAF.
   (* Signed windows *)
   Local Open Scope Z_scope.
 
-  Variable groupInverse : GroupElem -> GroupElem.
-  Hypothesis groupInverse_proper : Proper (equiv ==> equiv) groupInverse.
-  Hypothesis groupInverse_id : groupInverse idElem == idElem.
-  Hypothesis groupInverse_correct : forall e, groupAdd e (groupInverse e) == idElem.
-  Hypothesis groupInverse_add_distr : forall e1 e2, groupInverse (groupAdd e1 e2) == groupAdd (groupInverse e1) (groupInverse e2).
-  Hypothesis groupInverse_involutive : forall e, groupInverse (groupInverse e) == e.
-
   Theorem groupMul_doubleAdd_pos_succ : forall p e,
     groupMul_doubleAdd_pos (Pos.succ p) e ==
     groupAdd e (groupMul_doubleAdd_pos p e).
@@ -348,12 +289,13 @@ Section GroupMulWNAF.
     rewrite IHp.
     repeat rewrite groupDouble_correct.
     rewrite groupAdd_assoc.
-    f_equiv.
+    apply groupAdd_proper.
+    reflexivity.
     rewrite groupAdd_comm.
     rewrite groupAdd_assoc.
     reflexivity.
-
     reflexivity.
+    apply groupDouble_correct.
 
   Qed.
 
@@ -490,17 +432,20 @@ Section GroupMulWNAF.
     rewrite groupDouble_distrib.
     rewrite groupDouble_correct.
     repeat rewrite groupAdd_assoc.
-    f_equiv.
+    apply groupAdd_proper.
+    reflexivity.
     rewrite (groupAdd_comm (groupDouble (groupMul_doubleAdd_pos a e))).
     rewrite groupAdd_assoc.
-    f_equiv.
+    apply groupAdd_proper.
+    reflexivity.
     rewrite groupDouble_distrib.
     rewrite groupAdd_comm.
     reflexivity.
 
     rewrite IHa.
     rewrite groupAdd_assoc.
-    f_equiv.
+    apply groupAdd_proper.
+    reflexivity.
     rewrite groupDouble_distrib.
     reflexivity.
 
@@ -508,7 +453,8 @@ Section GroupMulWNAF.
     rewrite groupDouble_distrib.
     repeat rewrite groupDouble_correct.
     repeat rewrite groupAdd_assoc.
-    f_equiv.
+    apply groupAdd_proper.
+    reflexivity.
     symmetry.
     rewrite (groupAdd_comm (groupMul_doubleAdd_pos a e)).
     rewrite groupAdd_assoc.
@@ -520,7 +466,8 @@ Section GroupMulWNAF.
     rewrite IHa.  
     rewrite (groupAdd_comm (groupDouble (groupMul_doubleAdd_pos a e))).
     rewrite groupAdd_assoc.
-    f_equiv.
+    apply groupAdd_proper.
+    reflexivity.
     rewrite groupDouble_distrib.
     rewrite groupAdd_comm.
     reflexivity.
@@ -679,7 +626,8 @@ Section GroupMulWNAF.
     inversion H; clear H; subst.
     rewrite groupMul_signed_distr.
     unfold groupAdd_signedWindow.
-    f_equiv.
+    
+    apply groupAdd_proper.
     eapply bMultiple_correct.
     eauto.
     transitivity (groupDouble_n wsize (groupMul_doubleAdd_signed (windowsToZ ws) p)).
@@ -1648,10 +1596,12 @@ Section GroupMulWNAF.
     reflexivity.
     rewrite IHn.
     repeat rewrite groupAdd_assoc.
-    f_equiv.
+    apply groupAdd_proper.
+    reflexivity.
     rewrite groupAdd_comm.
     repeat rewrite groupAdd_assoc.
-    f_equiv.
+    apply groupAdd_proper.
+    reflexivity.
     eapply groupAdd_comm.
 
   Qed.
@@ -1667,11 +1617,12 @@ Section GroupMulWNAF.
     simpl.
     rewrite (groupAdd_comm _ idElem).
     rewrite groupAdd_id.
-    f_equiv.
+    apply groupAdd_proper.
     rewrite plus_0_r.
     rewrite groupDouble_correct.
     rewrite groupMul_distr.
     rewrite groupMul_groupAdd_distr.
+    reflexivity.  
     reflexivity.
 
     simpl.
@@ -1962,7 +1913,7 @@ Section GroupMulWNAF.
     apply shiftr_window_small; eauto.
 
     simpl in *.
-    f_equiv.
+    apply groupInverse_proper.
     eapply H0.
     simpl.
     trivial.
@@ -2032,6 +1983,5 @@ Theorem recode_rwnaf_length : forall w nw z,
   apply recode_rwnaf_odd_length.
 
 Qed.
-
 
 

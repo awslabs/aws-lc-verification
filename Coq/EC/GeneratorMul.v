@@ -29,34 +29,9 @@ and then the accumulator is doubled wsize times.
 (* This file contains the proof of correctness for this algorithm. It uses the general purpose windowed multiplication machine
 to transform the wnaf multiplication algorithm into the algorithm above. *)
 
-Section GeneratorMulWNAF.
+Section GeneratorMul.
 
-  Variable GroupElem : Type.
-  
-  Context `{GroupElem_eq : Setoid GroupElem}.
-
-  Variable groupAdd : GroupElem -> GroupElem -> GroupElem.
-  Hypothesis groupAdd_proper : Proper (equiv ==> equiv ==> equiv) groupAdd.
-
-  Hypothesis groupAdd_assoc : forall a b c,
-    groupAdd (groupAdd a b) c == groupAdd a (groupAdd b c).
-  Hypothesis groupAdd_comm : forall a b,
-    groupAdd a b == groupAdd b a.
-
-  Variable idElem : GroupElem.
-  Hypothesis groupAdd_id : forall x, groupAdd idElem x == x.
-
-  Variable groupDouble : GroupElem -> GroupElem.
-  Hypothesis groupDouble_proper : Proper (equiv ==> equiv) groupDouble.
-  Hypothesis groupDouble_correct : forall x,
-    groupDouble x == groupAdd x x.
-
-  Variable groupInverse : GroupElem -> GroupElem.
-  Hypothesis groupInverse_proper : Proper (equiv ==> equiv) groupInverse.
-  Hypothesis groupInverse_id : groupInverse idElem == idElem.
-  Hypothesis groupInverse_correct : forall e, groupAdd e (groupInverse e) == idElem.
-  Hypothesis groupInverse_add_distr : forall e1 e2, groupInverse (groupAdd e1 e2) == groupAdd (groupInverse e1) (groupInverse e2).
-  Hypothesis groupInverse_involutive : forall e, groupInverse (groupInverse e) == e.
+  Context `{dbl_grp : CommutativeGroupWithDouble}.
 
   Variable RegularWindow : SignedWindow -> Prop.
   Variable wsize : nat.
@@ -70,16 +45,14 @@ Section GeneratorMulWNAF.
   Variable precompTableSize : nat.
 
   Definition OddWindow := OddWindow wsize.
-  Definition groupMul_doubleAdd_signed := groupMul_doubleAdd_signed groupAdd idElem groupDouble groupInverse.
   Variable pMultiple : SignedWindow -> GroupElem.
   Hypothesis pMultiple_correct : forall w,
     OddWindow w ->
     pMultiple w == groupMul_doubleAdd_signed w p.
 
-  Definition groupMul_signedWindows := groupMul_signedWindows groupAdd idElem groupDouble wsize pMultiple.
-  Definition groupMul_signedWindows_prog := groupMul_signedWindows_prog groupAdd idElem groupDouble groupInverse p wsize.
-  Definition groupDouble_n := groupDouble_n groupDouble.
-  Definition evalWindowMult := evalWindowMult groupAdd idElem groupDouble groupInverse p wsize.
+  Definition groupMul_signedWindows := groupMul_signedWindows wsize pMultiple.
+  Definition groupMul_signedWindows_prog := groupMul_signedWindows_prog p wsize.
+  Definition evalWindowMult := evalWindowMult p wsize.
 
   (* Start with an algorithm that performs the computation in the correct order, but doesn't do any table lookups. 
   This is the basic odd signed window multiplication operation with the additions permuted, and with some accumulator 
@@ -164,7 +137,6 @@ Section GeneratorMulWNAF.
     inversion H0; clear H0; subst.
     rewrite pExpMultiple_correct.
     eapply groupAdd_proper; eauto.
-    unfold groupMul_doubleAdd_signed.
     match goal with
     | [|- ?f ?a ?c == ?f ?b ?c] => replace a with b
     end.
@@ -584,14 +556,6 @@ Section GeneratorMulWNAF.
 
   Qed.
 
-End GeneratorMulWNAF.
-
-Section ComputeBaseTable.
-
-
-
-
-
-End ComputeBaseTable.
+End GeneratorMul.
 
 

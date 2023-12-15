@@ -6,6 +6,7 @@
 -Q EC EC
 
 EC/Zfacts.v
+EC/CommutativeGroup.v
 EC/GroupMulWNAF.v
 EC/WindowedMulMachine.v
 EC/GeneratorMul.v
