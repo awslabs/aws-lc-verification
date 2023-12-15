@@ -68,7 +68,10 @@ def parallel_run (commands, debug):
     pmem = 18*1024*1024*1024
     pbound = int(mem/pmem)
     np = multiprocessing.cpu_count()
-    pool = multiprocessing.Pool(min(np, pbound))
+    # TODO: Maybe the memory leak in SAW is somehow causing issue in Python
+    # https://stackoverflow.com/questions/54974817/python-multiprocessing-pool-maxtasksperchild/54975030#54975030
+    # https://stackoverflow.com/questions/54974817/python-multiprocessing-pool-maxtasksperchild/54975030#54975030
+    pool = multiprocessing.Pool(processes = min(np, pbound), maxtasksperchild = 1)
     with pool as p:
         results = p.map(run_process, commands)
         for res in results:
@@ -102,6 +105,13 @@ def parse_commands():
 
 if __name__ == '__main__':
     [commands, debug] = parse_commands()
+
+    timestr = time.strftime("%Y%m%d-%H%M%S")
+    logname = "mem_usage_" + timestr + ".log"
+    # Start a subprocess for watching memory usage
+    command = ["./scripts/watch.sh", logname]
+    watch_proc = subprocess.Popen(command)
     exit_code =  parallel_run(commands, debug)
+    watch_proc.terminate()
     print("Exit {}".format(exit_code))
     sys.exit(exit_code)
