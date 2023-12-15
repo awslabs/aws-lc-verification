@@ -65,7 +65,7 @@ def create_summary(output, error, exit_code, debug):
 def parallel_run (commands, debug):
     mem = psutil.virtual_memory().available
     # Assuming each process uses 10GB memory
-    pmem = 10*1024*1024*1024
+    pmem = 18*1024*1024*1024
     pbound = int(mem/pmem)
     np = multiprocessing.cpu_count()
     pool = multiprocessing.Pool(min(np, pbound))
