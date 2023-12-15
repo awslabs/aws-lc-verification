@@ -490,7 +490,7 @@ Section ECEqProof.
     (seqToProd p3).
 
 
-  (* Assume that squaring satisifes its spec. *)
+  (* Prove that squaring satisifes its spec. *)
   Theorem felem_sqr_spec : forall (x : F), Fsquare x = Fmul x x.
 
     intros. reflexivity.
