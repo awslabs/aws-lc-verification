@@ -41,7 +41,10 @@ def run_process(command):
         wd = os.getcwd()
         os.chdir(path)
     start = time.perf_counter()
-    result = subprocess.run(["/usr/bin/time"] + command, capture_output = True)
+    # result = subprocess.run(["/usr/bin/time"] + command, capture_output = True)
+    p = subprocess.Popen(["/usr/bin/time"] + command, stdout=subprocess.PIPE)
+    for line in iter(p.stdout.readline, b''):
+        print('>>> {}'.format(line.rstrip()))
     end = time.perf_counter()
     if path:
         os.chdir(wd)
