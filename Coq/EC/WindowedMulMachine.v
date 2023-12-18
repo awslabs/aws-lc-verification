@@ -22,85 +22,6 @@ Require Import SetoidClass.
 
 From EC Require Import GroupMulWNAF.
 
-(* A tactic that simplifies hypothesis involving option values*)
-Ltac optSomeInv_1 := 
-  match goal with 
-    | [H : match ?a with | Some _ => _ | None => _ end = Some _ |- _ ] =>
-      case_eq a; [ intro | idtac]; (let v := fresh in intro v; rewrite v in H); [idtac | discriminate]
-    | [H : Some _ = Some _ |- _ ] => inversion H; clear H; subst
-    end.
-
-Ltac optSomeInv := repeat optSomeInv_1.
-
-(* Combine a list of option into an option list *)
-Fixpoint combineOpt(A: Type)(ls : list (option A)) :=
-  match ls with
-  | nil => Some nil
-  | opta :: ls' => 
-    match opta with
-    | None => None
-    | Some a =>
-      match (combineOpt ls') with
-      | None => None
-      | Some ls'' => Some (a :: ls'')
-      end
-    end
-  end.
-
-Theorem combineOpt_perm_ex : forall (A : Type)(ls1 ls2 : list (option A)),
-  Permutation ls1 ls2 ->
-  forall ls1', 
-  combineOpt ls1 = Some ls1' ->
-  exists ls2', 
-  combineOpt ls2 = Some ls2' /\
-  Permutation ls1' ls2'.
-
-  induction 1; intros; simpl in *.
-  inversion H; clear H; subst.
-  exists nil.
-  intuition idtac.
-  econstructor.
-
-  destruct x; simpl in *.
-  remember (combineOpt l) as z.
-  destruct z.
-  inversion H0; clear H0; subst.
-  destruct (IHPermutation l0).
-  reflexivity.
-  intuition idtac.
-  exists (a :: x).
-  rewrite H1.
-  intuition idtac.
-  econstructor.
-  trivial.
-  discriminate.
-  discriminate.
-
-  destruct y; try discriminate.
-  destruct x; try discriminate.
-  remember (combineOpt l) as z1; destruct z1.
-  inversion H; clear H; subst.
-  exists (a0 :: a :: l0).
-  intuition idtac.
-  econstructor.
-  discriminate.
-
-  destruct (IHPermutation1 ls1').
-  trivial.
-  intuition idtac.
-  destruct (IHPermutation2 x).
-  trivial.
-  intuition idtac.
-  exists x0.
-  intuition idtac.
-  econstructor; eauto.
-
-Qed.
-
-(* Select a number of items from a list based on index *)
-Definition multiSelect(A : Type)(ls : list A)(lsn : list nat) : option (list A) :=
-  combineOpt (map (nth_error ls) lsn).
-
 
 Inductive WindowedMultOp :=
   | wm_Add : nat -> Z -> WindowedMultOp (* Add (z * 2^n) * g to the accumulator, where g is a group element *)  
@@ -174,7 +95,6 @@ Fixpoint insertDoublesAt d ls lsn :=
     | Some ls' => insertDoublesAt d ls' lsn'
     end
   end.
-
 
 (* We can arbitrarily permute and insert accumulator doublings. If it succeeds, then the value computed 
 by this program will be the same as the basic windowed multiplication. *)
@@ -470,17 +390,6 @@ Fixpoint groupIndices_h(nMax numGroups curGroup : nat) :=
     (groupIndices_h nMax numGroups curGroup') ++ ((lsMultiples nMax numGroups curGroup') :: nil)
   end.
 
-Theorem flatten_app : forall (A : Type)(ls1 ls2 : list (list A)),
-  flatten (ls1 ++ ls2) = (flatten ls1 ++ flatten ls2).
-
-  induction ls1; intros; simpl in *.
-  reflexivity.
-  rewrite <- app_assoc.
-  f_equal.
-  eauto.
-
-Qed.
-
 Definition groupIndices nMax numGroups :=
   groupIndices_h nMax numGroups numGroups.
 
@@ -528,34 +437,6 @@ Theorem In_groupIndices_h_if : forall  b1 a x nMax,
   intuition idtac.
   eapply IHb1; eauto.
   eapply In_lsMultiples_if; eauto.
-
-Qed.
-
-Theorem NoDup_app : forall (A : Type)(ls1 ls2 : list A),
-  NoDup ls1 -> 
-  NoDup ls2 -> 
-  (forall a, In a ls1 -> In a ls2 -> False) -> 
-  NoDup (ls1 ++ ls2).
-
-  induction ls1; intros; simpl in *.
-  trivial.
-  inversion H; clear H; subst.
-  eapply (@Permutation_NoDup _ (ls1 ++ (a :: ls2))).
-  eapply Permutation_sym.
-  eapply Permutation_middle.
-  eapply IHls1.
-  trivial.
-  econstructor.
-  intuition idtac.
-  eapply H1.
-  left.
-  reflexivity.
-  trivial.
-  trivial.
-  intuition idtac.
-  inversion H2; clear H2; subst.
-  intuition idtac.
-  eauto.
 
 Qed.
 
@@ -630,24 +511,6 @@ Theorem in_groupIndices_h_isMultiple : forall b a x nMax,
 
 Qed.
 
-
-Theorem mul_add_mod_ne : forall x a1 a2 b1 b2,
-  (b1 < x)%nat ->
-  (b2 < b1)%nat -> 
-  (a1 * x + b1)%nat = (a2 * x + b2)%nat ->
-  False.
-
-  intros.
-  rewrite Nat.mul_comm in H1.
-  rewrite (Nat.mul_comm a2) in H1.
-  apply Nat.div_mod_unique in H1.
-  intuition idtac.
-  lia.
-  lia.
-  lia.
-
-Qed.
-
 Theorem groupIndices_h_NoDup : forall  b x nMax,
   (b <= x)%nat -> 
   NoDup (flatten (groupIndices_h nMax x b)).
@@ -708,153 +571,6 @@ Theorem groupIndices_perm : forall x y,
 
 Qed.
 
-
-
-Theorem nth_error_skipn_eq : forall n3 (A : Type)(ls : list A) n1,
-  (n3 <= n1)%nat ->
-  nth_error ls n1 = nth_error (skipn n3 ls) (n1 - n3).
-
-  induction n3; intros; simpl in *.
-  rewrite Nat.sub_0_r.
-  reflexivity.
-
-  destruct n1.
-  lia.
-  simpl.
-  
-  destruct ls.
-  symmetry.
-  apply nth_error_None.
-  simpl.
-  lia.
-  eapply IHn3.
-  lia.
-
-Qed.
-
-Theorem nth_error_seq_skipn_eq : forall n2 (A : Type)(ls : list A) n1 n3,
-  (n3 <= n1)%nat ->
-  map (nth_error ls) (seq n1 n2) = map (nth_error (skipn n3 ls)) (seq (n1 - n3) n2).
-
-  induction n2; intros; simpl in *.
-  trivial.
-  f_equal.
-  eapply nth_error_skipn_eq.
-  lia.
-  specialize (IHn2 _ ls (S n1) n3).
-  rewrite IHn2.
-  replace (S n1 - n3)%nat with (S (n1 - n3)).
-  reflexivity.
-  lia.
-  lia.
-Qed.
-
-Theorem combineOpt_map_seq_eq : forall (A : Type)(ls : list A),
-  combineOpt (map (nth_error ls) (seq 0 (length ls))) = Some ls.
-
-  induction ls; intros; simpl in *.
-  reflexivity.
-  rewrite (@nth_error_seq_skipn_eq _ _ _ _ 1%nat).
-  simpl.
-  rewrite IHls.
-  reflexivity.
-  trivial.
-
-Qed.
-
-Theorem multiSelect_perm : forall (A : Type)(ls ls' : list A)(lsn : list nat),
-  Permutation lsn (seq O (length ls)) ->
-  multiSelect ls lsn = Some ls' ->
-  Permutation ls ls'.
-
-  intros.
-  unfold multiSelect in *.
-  assert (combineOpt (map (nth_error ls) (seq 0 (length ls))) = Some ls).
-  apply combineOpt_map_seq_eq.
-
-  eapply combineOpt_perm_ex in H0.
-  destruct H0.
-  intuition idtac.
-  rewrite H1 in H2.
-  inversion H2; clear H2; subst.
-  eapply Permutation_sym.
-  trivial.
-  apply Permutation_map.
-  trivial.
-
-Qed.
-
-Theorem multiSelect_in_range_Some : forall (A : Type)(ls : list A)(lsn : list nat),
-  (forall n, In n lsn -> n < length ls)%nat ->
-  exists ls', multiSelect ls lsn = Some ls'.
-
-  induction lsn; intros; simpl in *.
-  exists nil.
-  reflexivity.
-  edestruct (IHlsn).
-  intros.
-  apply H.
-  intuition idtac.
-  unfold multiSelect in *.
-  simpl.
-  case_eq (nth_error ls a); intros.
-  rewrite H0.
-  econstructor; eauto.
-  apply nth_error_None in H1.
-  specialize (H a).
-  intuition idtac.
-  lia.
-
-Qed.
-
-Theorem multiSelect_perm_Some : forall (A : Type)(ls : list A)(lsn : list nat),
-  Permutation lsn (seq O (length ls)) -> 
-  exists ls', multiSelect ls lsn = Some ls'.
-
-  intros.
-  apply multiSelect_in_range_Some.
-  intros.
-  eapply Permutation_in in H0; eauto.
-  apply in_seq in H0.
-  lia.
-  
-Qed.
-
-
- Theorem combineOpt_app : forall ( A: Type)(ls1 ls2 : list (option A)),
-  combineOpt (ls1 ++ ls2) = 
-  match (combineOpt ls1) with
-  | Some ls1' => 
-    match (combineOpt ls2) with
-    | Some ls2' => Some (ls1' ++ ls2')
-    | None => None
-    end
-  | None => None
-  end.
-
-  induction ls1; intros; simpl in *.
-  destruct (combineOpt ls2); reflexivity.
-  destruct a.
-  rewrite IHls1.
-  destruct (combineOpt ls1).
-  destruct (combineOpt ls2).
-  simpl.
-  reflexivity.
-  reflexivity.
-  reflexivity.
-  reflexivity.
-Qed.
-
-Theorem combineOpt_id : forall (A : Type)(ls : list A),
-  combineOpt (List.map (fun x => Some x) ls) = Some ls.
-
-  induction ls; intros; simpl in *.
-  reflexivity.
-  rewrite IHls.
-  reflexivity.
-  
-Qed.
-
 Theorem decrExp_0 : forall x,
   decrExp 0 x = Some x.
 
@@ -878,38 +594,6 @@ Theorem decrExpLs_0 : forall x,
   rewrite IHx.
   reflexivity.
 
-Qed.
-
-Theorem combineOpt_map_map : forall (A B C : Type) f1 f2 f3 (ls1 : list A) (ls2: list B) (ls3 : list C),
-  (forall x y, f1 x = Some y -> f3 x = f2 y) ->
-  combineOpt (List.map f1 ls1) = Some ls2 ->
-  combineOpt (List.map f2 ls2) = Some ls3 -> 
-  combineOpt (List.map f3 ls1) = Some ls3.
-
-  induction ls1; intros; simpl in *.
-  inversion H0; clear H0; subst.
-  simpl in *.
-  inversion H1; clear H1; subst.
-  reflexivity.
-  case_eq (f1 a); intros;
-  rewrite H2 in H0.
-  case_eq (combineOpt (List.map f1 ls1)); intros;
-  rewrite H3 in H0.
-  inversion H0; clear H0; subst.
-  simpl in *.
-  case_eq (f2 b); intros;
-  rewrite H0 in H1.
-  case_eq (combineOpt (List.map f2 l) ); intros;
-  rewrite H4 in H1.
-  inversion H1; clear H1; subst.
-  erewrite H; eauto.
-  rewrite H0.
-  erewrite IHls1; eauto.
-  discriminate.
-  discriminate.
-  discriminate.
-  discriminate.
-  
 Qed.
 
 Theorem decrExp_plus : forall x y a b,
@@ -1056,51 +740,6 @@ Theorem decrExpLs_app : forall ls1 ls2 d ls1' ls2',
 
 Qed.
 
-Theorem combineOpt_map : forall (A B : Type)(f : A -> B) x y,
-  combineOpt x = Some y ->
-  combineOpt (map (fun z => match z with | Some a => Some (f a) | None => None end) x) = Some (map f y).
-
-  induction x; intros; simpl in *.
-  inversion H; clear H; subst.
-  reflexivity.
-
-  destruct a; simpl in *.
-  case_eq (combineOpt x); intros.
-  rewrite H0 in H.
-  inversion H; clear H; subst.
-  erewrite IHx; eauto.
-  reflexivity.
-  rewrite H0 in H.
-  discriminate.
-  discriminate.
-
-Qed.
-
-Theorem combineOpt_In_not_None : forall (A : Type)(ls : list (option A)) a y,
-  combineOpt ls = Some y ->
-  In a ls ->
-  a <> None.
-
-  induction ls; intros; simpl in *.
-  intuition idtac.
-  destruct a.
-  intuition idtac.
-  subst.
-  discriminate.
-  subst.
-  case_eq (combineOpt ls); intros.
-  rewrite H0 in H.
-  inversion H; clear H; subst.
-  eapply IHls.
-  eauto.
-  eauto.
-  trivial.
-  rewrite H0 in H.
-  discriminate.
-  discriminate.
-
-Qed.
-
 Theorem permuteAndDouble_grouped_cons : forall a perm ws d ls,
   permuteAndDouble_grouped ws d (a :: perm) = Some ls ->
   exists ls1 a1 ls2 , permuteAndDouble_grouped ws d perm = Some ls1 /\
@@ -1150,34 +789,6 @@ Theorem permuteAndDouble_grouped_cons : forall a perm ws d ls,
   rewrite H1 in H.
   discriminate.
   rewrite H0 in H.
-  discriminate.
-Qed.
-
-Theorem combineOpt_map_comm : forall (A : Type)(g : A -> A)(f : A -> option A) x y,
-  (forall a b, f (g a) = Some b -> exists c, (f a) = Some c /\ (g c) = b) -> 
-  combineOpt (map f (map g x)) = Some y ->
-  exists z, combineOpt (map f x) = Some z /\ y = map g z.
-
-  induction x; intros; simpl in *.
-  inversion H0; clear H0; subst.
-  exists nil. intuition idtac.
-  case_eq (f (g a)); intros.
-  rewrite H1 in H0.
-  case_eq (combineOpt (map f (map g x))); intros.
-  rewrite H2 in H0.
-  inversion H0; clear H0; subst.
-  edestruct IHx; eauto.
-  intuition idtac.
-  subst.
-  edestruct H; eauto.
-  intuition idtac; subst.
-  rewrite H4.
-  rewrite H3.
-  econstructor.
-  intuition idtac.
-  rewrite H2 in H0.
-  discriminate.
-  rewrite H1 in H0.
   discriminate.
 Qed.
 
@@ -1236,48 +847,6 @@ Theorem permuteAndDouble_grouped_cons_if : forall a perm ws d ls1 a1 ls2,
   intuition idtac; eauto.
   discriminate.
   discriminate.
-Qed.
-
-Theorem multiSelect_cons : forall (A : Type)(x : list A) y1 y2,
-  multiSelect x (y1 :: y2) = 
-  match (nth_error x y1) with
-  | Some y1' =>
-    match (multiSelect x y2) with
-    | Some y2' => Some (y1' :: y2')
-    | None => None
-    end
-  | None => None
-  end. 
-  
-  intros.
-  reflexivity.
-
-Qed.
-
-Theorem multiSelect_app : forall (A : Type)(x : list A) y1 y2,
-  multiSelect x (y1 ++ y2) = 
-  match (multiSelect x y1) with
-  | Some y1' => 
-    match (multiSelect x y2) with 
-    | Some y2' =>  Some (y1' ++ y2')
-    | None => None
-    end
-  | None => None
-   end.
-
-  induction y1; intros; simpl in *.
-  destruct (multiSelect x y2); trivial.
-  repeat rewrite multiSelect_cons.
-  rewrite IHy1.
-  case_eq (nth_error x a); intros.
-  case_eq (multiSelect x y1); intros.
-  case_eq (multiSelect x y2); intros.
-  simpl.
-  reflexivity.
-  reflexivity.
-  reflexivity.
-  reflexivity.
-
 Qed.
 
 Theorem insertDoubleAt_0 : forall d l1,
@@ -1471,36 +1040,6 @@ Theorem In_endIndices_h_ge : forall (A : Type)(ls : list (list A)) n m,
 
 Qed.
 
-Theorem combineOpt_length : forall (A : Type)(ls : list (option A)) x,
-  combineOpt ls = Some x ->
-  length ls = length x.
-
-  induction ls; intros; simpl in *.
-  inversion H; clear H; subst.
-  trivial.
-  destruct a.
-  case_eq (combineOpt ls); intros;
-  rewrite H0 in H.
-  inversion H; clear H; subst.
-  simpl.
-  f_equal; eauto.
-  discriminate.
-  discriminate.
-
-Qed.
-
-Theorem multiSelect_length : forall (A : Type)(ls : list A) a b,
-  multiSelect ls a = Some b ->
-  length a = length b.
-
-  intros.
-  unfold multiSelect in *.
-  apply combineOpt_length in H.
-  rewrite map_length in H.
-  trivial.
-
-Qed.
-
 Theorem permuteAndDouble_flatten_app_cons : forall  ws d a perm x,
   permuteAndDouble ws d (a ++ flatten perm) (endIndices (a :: perm))  = Some x ->
   exists a1 x1 x2, multiSelect (signedWindowsToProg ws 0) a = Some a1 /\
@@ -1584,36 +1123,6 @@ Theorem permuteAndDouble_flatten_app_cons_if : forall  ws d a perm a1 x1 x2,
   discriminate.
   
 Qed.
-
-Theorem combineOpt_map_flatten : 
-  forall (A B : Type)(f : list A -> option (list B)) x x1,
-  combineOpt (map f x) = Some x1 ->
-  f nil = Some nil ->
-  (forall a b y z, f a = Some y -> f b = Some z -> f (a ++ b) = Some (y ++ z)) -> 
-  f (flatten x) = Some (flatten x1).
-
-  induction x; intros; simpl in *.
-  inversion H; clear H; subst.
-  simpl.  
-  trivial.
-
-  case_eq (f a); intros;
-  rewrite H2 in H.
-  case_eq (combineOpt (map f x)); intros;
-  rewrite H3 in H.
-  inversion H; clear H; subst.
-  simpl.
-  erewrite H1.
-  eauto.
-  trivial.
-  eapply IHx;
-  eauto.
-  
-  discriminate.
-  discriminate.
-
-Qed.
-
     
 Theorem permuteAndDouble_grouped_equiv : forall perm ws d ls,
   permuteAndDouble_grouped ws d perm = Some ls ->
@@ -1644,14 +1153,6 @@ Theorem permuteAndDouble_grouped_equiv : forall perm ws d ls,
   eapply decrExpLs_app; eauto.
 
 Qed.
-
-
-Definition stripOptLs(A : Type)(x: option (list A)) :=
-  match x with
-  | Some y => y
-  | None => nil
-  end. 
-
 
 Theorem decrExpLs_flatten : forall d x2 x1,
   decrExpLs d (flatten x2) = Some x1 ->
@@ -1777,37 +1278,6 @@ Section MachineEval.
     | w :: ws' => groupAdd (groupMul_doubleAdd_signed (zDouble_n (n * wsize) w) p) (groupMul_signedWindows_exp ws' (S n))
     end.
 
-  Theorem groupDouble_n_add : forall n1 n2 e,
-    groupDouble_n (n1 + n2) e = groupDouble_n n1 (groupDouble_n n2 e).
-
-    induction n1; intros; simpl in *.
-    reflexivity.
-    rewrite IHn1.
-    reflexivity.
-  Qed.
-
-  Theorem groupAdd_groupDouble_n_distr : forall n e1 e2,
-    groupAdd (groupDouble_n n e1) (groupDouble_n n e2) == groupDouble_n n (groupAdd e1 e2).
-
-    induction n; intros; simpl in *.
-    reflexivity.
-    rewrite <- groupDouble_distrib; eauto.
-    apply groupDouble_proper.
-    eauto.
-
-  Qed.
-
-  Theorem groupDouble_n_id : forall n,
-    groupDouble_n n idElem == idElem.
-
-    induction n; intros; simpl in *.
-    reflexivity.
-    rewrite IHn.
-    rewrite groupDouble_correct.
-    apply groupAdd_id.
-
-  Qed.
-
   Definition groupMul_signedWindows := groupMul_signedWindows wsize bMultiple.
 
   Theorem groupMul_signedWindows_exp_equiv : forall ws n,
@@ -1870,7 +1340,6 @@ Section MachineEval.
     discriminate.
 
     inversion H; clear H; subst.  
-    unfold groupDouble_n.
     rewrite <- groupDouble_n_add.
     rewrite plus_comm.
     rewrite groupDouble_n_add.
@@ -1885,7 +1354,6 @@ Section MachineEval.
     induction ps; intros; simpl in *.
     inversion H; clear H; subst.
     simpl.
-    unfold groupDouble_n.
     rewrite groupDouble_n_id; eauto.
     reflexivity.
     remember (decrExp n a) as z1. destruct z1.
@@ -1969,7 +1437,6 @@ Section MachineEval.
 
     inversion H; clear H; subst.
     unfold evalWindowMult.
-    unfold groupDouble_n.
     rewrite <- groupDouble_n_add; eauto.
     rewrite plus_comm.
     rewrite groupDouble_n_add.

@@ -17,60 +17,10 @@ Require Import micromega.Lia.
 Require Import ZArith.BinInt.
 Require Import SetoidClass.
 
-From EC Require Import Zfacts.
+From EC Require Export Util.
 From EC Require Export CommutativeGroup.
 
-
-Theorem nat_shiftl_nz : forall n b,
-  (0 < b)%nat ->
-  (0 < shiftl b n)%nat.
-
-  induction n; intros; simpl in *.
-  lia.
-  unfold double.
-  specialize (IHn b).
-  lia.
-  
-Qed.
-
-Theorem Z_shiftl_1 : forall z,
-  Z.shiftl z 1 = Z.double z.
-
-  intuition.
-
-Qed.
-
-Theorem shiftl_to_nat_eq : forall n2 n1,
-  (shiftl n1 n2) = Z.to_nat (Z.shiftl (Z.of_nat n1) (Z.of_nat n2)).
-
-  induction n2; intros.
-  simpl. lia.
-  rewrite Znat.Nat2Z.inj_succ.
-  simpl.
-  rewrite IHn2.
-  rewrite <- Z.add_1_r.
-  rewrite <- Z.shiftl_shiftl.
-  rewrite Z_shiftl_1.
-  rewrite Z.double_spec.
-  rewrite Znat.Z2Nat.inj_mul.
-  unfold double.
-  simpl.
-  lia.
-  lia.
-  apply Z.shiftl_nonneg.
-  lia.
-  lia.
-  
-Qed.
-
 Definition SignedWindow := Z.
-
-Fixpoint flatten (A : Type)(ls : list (list A)) : list A :=
-  match ls with
-  | nil => nil
-  | x :: ls' => x ++ (flatten ls')
-  end.
-
 
 
 (* A simple definition of group multiplication, an optimized multiplication algorithm using 
@@ -139,19 +89,6 @@ Section GroupMulWNAF.
     simpl.
     reflexivity.
   Qed.
-
-
-  Fixpoint natToBits numBits (n : nat) : list bool :=
-    match numBits with
-    | 0 => nil
-    | S numBits' => (if (eq_nat_dec (n mod 2) 1) then true else false) :: (natToBits numBits' (n/2))
-    end.
-
-  Fixpoint natFromBits (bs : list bool) : nat :=
-    match bs with
-    | nil => 0
-    | b :: bs' => (if b then 1 else 0) + (2 * (natFromBits bs'))
-  end.
   
   Fixpoint groupMul_doubleAdd_bits(bs : list bool)(e : GroupElem) :=
     match bs with
@@ -195,12 +132,6 @@ Section GroupMulWNAF.
   (* a simple n-bit window*)
   Definition Window := list bool.
 
-  Fixpoint groupDouble_n n e :=
-    match n with
-    | 0 => e
-    | S n' => groupDouble (groupDouble_n n' e)
-    end.
-
   Definition groupAdd_window w e1 e2 :=
     (groupAdd (groupMul_doubleAdd_bits w e1) e2).
 
@@ -209,21 +140,6 @@ Section GroupMulWNAF.
     | nil => idElem
     | w :: ws' => (groupAdd_window w e (groupDouble_n (length w) (groupMul_windows ws' e)))
     end.
-
-  Theorem groupDouble_distrib : 
-    forall a b,
-    groupDouble (groupAdd a b) == groupAdd (groupDouble a) (groupDouble b).
-
-    intros.
-    repeat rewrite groupDouble_correct.
-    repeat rewrite groupAdd_assoc.  
-    apply groupAdd_proper.
-    reflexivity.
-    rewrite groupAdd_comm.
-    rewrite groupAdd_assoc.
-    reflexivity.
-
-  Qed.
 
   Theorem groupMul_doubleAdd_bits_app : forall ls1 ls2 e,
     groupMul_doubleAdd_bits (ls1 ++ ls2) e == 
@@ -243,16 +159,6 @@ Section GroupMulWNAF.
     rewrite IHls1.
     rewrite <- groupDouble_distrib.
     reflexivity.
-  Qed.
-
-  Theorem groupDouble_n_equiv_compat : forall n e1 e2,
-    e1 == e2 ->
-    groupDouble_n n e1 == groupDouble_n n e2.
-
-    induction n; intuition; simpl in *.
-    apply groupDouble_proper.
-    eauto.
-
   Qed.
 
   Theorem groupMul_windows_correct_h : forall ws e,
@@ -305,17 +211,6 @@ Section GroupMulWNAF.
     | Zpos p => groupMul_doubleAdd_pos p e 
     | Zneg p => groupInverse (groupMul_doubleAdd_pos p e)
     end.
-
-  Theorem Z_of_nat_0_if : forall n,
-    Z.of_nat n = 0 ->
-    n = 0%nat.
-
-    intuition idtac.
-    destruct n; simpl in *; trivial.
-    discriminate.
-
-  Qed.
-
 
   Theorem groupMul_signed_correct : forall n e,
     groupMul_doubleAdd_signed (Z.of_nat n) e == groupMul n e.
@@ -408,10 +303,6 @@ Section GroupMulWNAF.
   Qed.
 
   (* end fold multiplication model *)
-
-
-  Definition zDouble_n (times : nat) n : Z :=
-    Z.shiftl n (Z.of_nat times).
 
   Fixpoint windowsToZ (ws : list Z) :=
     match ws with
@@ -565,40 +456,6 @@ Section GroupMulWNAF.
     
   Qed.
 
-  Theorem zDouble_n_S : forall n z,
-    zDouble_n (S n) z = Z.double (zDouble_n n z).
-    
-    unfold zDouble_n in *; intuition.
-    rewrite Znat.Nat2Z.inj_succ.
-    rewrite <- Z.add_1_l.
-    rewrite <- Z.shiftl_shiftl.
-    rewrite <- Z_shiftl_1.
-    repeat rewrite Z.shiftl_shiftl.
-    rewrite Z.add_comm.
-    reflexivity.
-    apply Znat.Nat2Z.is_nonneg.
-    lia.
-    lia.
-
-  Qed.
-
-  Theorem zDouble_n_0 : forall z,
-    zDouble_n 0 z = z.
-    
-    unfold zDouble_n in *; intuition.
-
-  Qed.
-
-  Theorem Z_double_sum : forall z,
-    Z.double z = z + z.
-
-    intuition idtac.
-    rewrite Z.double_spec.
-    rewrite <- Z.add_diag.
-    reflexivity.
-
-  Qed.
-
   Theorem zDouble_n_mul : forall n x e,
     groupMul_doubleAdd_signed (zDouble_n n x) e == groupDouble_n n (groupMul_doubleAdd_signed x e).
 
@@ -672,39 +529,6 @@ Section GroupMulWNAF.
       then (windowsToZ ws) = z
       else (windowsToZ ws) = (Z.succ z).
 
-  Theorem zDouble_n_0_r : forall n,
-    zDouble_n n 0 = 0.
-
-    unfold zDouble_n in *; intros.
-    repeat rewrite Z.shiftl_mul_pow2.
-    apply Z.mul_0_l.
-    lia.
-  Qed.
-
-  Theorem zDouble_n_sum : forall n1 n2 z,
-    zDouble_n (n1 + n2) z = zDouble_n n1 (zDouble_n n2 z).
-
-    intros.
-    unfold zDouble_n in *.
-    rewrite Z.shiftl_shiftl.
-    f_equal.
-    lia.
-    lia.
-
-  Qed.
-  
-  Theorem zDouble_add_distr : forall n z1 z2,
-    zDouble_n n (z1 + z2) = (zDouble_n n z1) + (zDouble_n n z2).
-
-    unfold zDouble_n in *; intros.
-    repeat rewrite Z.shiftl_mul_pow2.
-    rewrite Z.mul_add_distr_r.
-    reflexivity.
-    lia.
-    lia.
-    lia.
-  Qed.
-
   Theorem windowsToZ_app : forall ws z,
     windowsToZ (ws ++ z::nil) = (windowsToZ ws) + (zDouble_n ((length ws) * wsize) z).
 
@@ -763,19 +587,6 @@ Section GroupMulWNAF.
     lia.
     lia.
  
-  Qed.
-
-  Theorem zDouble_n_opp : forall n z,
-    - (zDouble_n n z) = zDouble_n n (-z).
-
-    intros.    
-    unfold zDouble_n in *.
-    repeat rewrite Z.shiftl_mul_pow2.
-    rewrite Z.mul_opp_l.
-    reflexivity.
-    lia.
-    lia.
-
   Qed.
 
   Theorem windowsToZ_highWindowNonNeg : forall ws,
@@ -907,47 +718,6 @@ Section GroupMulWNAF.
   Definition RegularReprOfNat ws n :=
     RegularReprOfZ ws (Z.of_nat n).
 
-
-  Theorem even_of_pos_equiv : forall x,
-    even (Pos.to_nat x) = Z.even (Z.pos x).
-
-    destruct x; intuition; simpl in *.
-    rewrite Pmult_nat_mult in *.
-    case_eq (Pos.to_nat x * 2)%nat; intros; trivial.
-    rewrite <- PeanoNat.Nat.odd_succ.
-    rewrite <- H.
-    rewrite <- PeanoNat.Nat.negb_even.
-    apply negb_false_iff.
-    rewrite PeanoNat.Nat.even_mul.
-    apply orb_true_iff.
-    intuition.
-
-    unfold Pos.to_nat. simpl.
-    rewrite Pmult_nat_mult.
-    rewrite PeanoNat.Nat.even_mul.
-    apply orb_true_iff.
-    intuition.
-
-  Qed.
-
-  Theorem even_of_nat_equiv : forall n,
-    even n = Z.even (Z.of_nat n).
-
-    intros.
-    remember (Z.of_nat n) as z.
-    destruct z.
-    symmetry in Heqz.
-    apply Z_of_nat_0_if in Heqz; subst; trivial.
-
-    rewrite <- Znat.positive_nat_Z in Heqz.
-    rewrite Znat.Nat2Z.inj_iff in Heqz.
-    subst.
-    apply even_of_pos_equiv.
-
-    lia.
-
-  Qed.
-
   Theorem groupMul_signedRegularWindows_correct : forall ws n,
     RegularReprOfNat ws n ->
     groupMul_signedRegularWindows (even n) ws == groupMul n p.
@@ -965,21 +735,6 @@ Section GroupMulWNAF.
   Definition RegularReprOfOddZ (ws : list Z)(z : Z) :=
     RegularWindows ws /\
     (windowsToZ ws) = z.
-
-
-  Theorem zDouble_n_le_mono_r : forall n x1 x2,
-    (0 <= n)%nat ->
-    x1 <= x2 ->
-    zDouble_n n x1 <= zDouble_n n x2.
-
-    intros. unfold zDouble_n.
-    repeat rewrite Z.shiftl_mul_pow2.
-    apply Z.mul_le_mono_nonneg_r.
-    apply Z.pow_nonneg; lia.
-    trivial.
-    lia.
-    lia.
-  Qed.
 
   Definition twoToWsize := Z.shiftl 1 (Z.of_nat wsize).
   Definition wsize_mask := Z.sub (Z.shiftl twoToWsize 1) 1.
@@ -1016,53 +771,6 @@ Section GroupMulWNAF.
     lia.
   Qed.
 
-  Theorem mod_div_prod : forall a b c,
-    0 < b ->
-    c <> 0 ->
-    (a / c) mod b = (a mod (b * c)) / c.
-
-    intuition.
-    rewrite Z.mul_comm.
-    rewrite Z.rem_mul_r; intuition.
-   
-    rewrite Z.mul_comm.
-    rewrite Z.div_add; intuition.
-    rewrite Zdiv.Zmod_div.
-    rewrite Z.add_0_l.
-    reflexivity.
-
-  Qed.
-
-  Theorem shiftl_pos: forall a n : Z, 
-    0 <= n ->
-    a > 0 ->
-    Z.shiftl a n > 0.
-
-    intuition.
-    rewrite Z.shiftl_mul_pow2.
-    apply Z.lt_gt.
-    apply Z.mul_pos_pos.
-    lia.
-    apply Z.pow_pos_nonneg.
-    lia.
-    trivial.
-    trivial.
-
-  Qed.
-
-  Theorem pow_mod_0 : forall x y,
-    0%nat <> y ->
-    x ^ (Z.of_nat y) mod x = 0.
-
-    destruct y; intuition.
-    rewrite Znat.Nat2Z.inj_succ.
-    rewrite Z.pow_succ_r.
-    rewrite Z.mul_comm.
-    apply Zdiv.Z_mod_mult.
-    lia.
-
-  Qed.
-
   Theorem twoToWsize_mod_2 :
     twoToWsize mod 2 = 0.
 
@@ -1074,48 +782,6 @@ Section GroupMulWNAF.
 
   Qed.
 
-  Theorem Zmod_mod_gen : forall a b c,
-    0 < b ->
-    0 < c ->
-    b mod c = 0 ->
-    (a mod b) mod c = a mod c.
-
-    intuition.
-    
-    rewrite (Zdiv.Zmod_eq _ b); trivial.
-    rewrite <- Zdiv.Zminus_mod_idemp_r.
-    rewrite <- Zdiv.Zmult_mod_idemp_r.
-    rewrite H1.
-    rewrite Z.mul_0_r.
-    rewrite Z.mod_0_l.
-    rewrite Z.sub_0_r.
-    reflexivity.
-    lia.
-    lia.
-
-  Qed.
-
- 
-  Theorem zDouble_n_id : forall n,
-    zDouble_n n 0 = 0.
-
-    intuition.
-    apply Z.shiftl_0_l.
-  Qed.
-  
-  Theorem Zdouble_shiftl : forall x y,
-    0 <= y ->
-    Z.double (Z.shiftl x y) = Z.shiftl x (y + 1).
-
-    intros.
-    rewrite <- Z_shiftl_1.
-    rewrite Z.shiftl_shiftl.
-    reflexivity.
-    trivial.
-
-  Qed.
-
-
   Theorem zDouble_n_wsize : forall x,
     zDouble_n wsize x = twoToWsize * x.
 
@@ -1123,76 +789,6 @@ Section GroupMulWNAF.
     unfold zDouble_n, twoToWsize.
     repeat rewrite Z.shiftl_mul_pow2;
     lia.
-  Qed.
-
-
-
-  Theorem mod_clear_lt : forall a b n,
-    0 < b ->
-    (b | n) ->
-    a < n ->
-    a - (a mod b) <= n - b.
-
-    intros.
-    rewrite Z.mod_eq.
-    rewrite Z.sub_sub_distr.
-    rewrite Z.sub_diag.
-    rewrite Z.add_0_l.
-    assert (a / b <= (n / b) - 1).
-    assert (a / b < n / b).
-    destruct H0; subst.
-    rewrite Zdiv.Z_div_mult.
-    apply Z.div_lt_upper_bound.
-    trivial.
-    rewrite Z.mul_comm.
-    trivial.
-    lia.
- 
-    lia.
-    eapply Z.le_trans.
-    apply Z.mul_le_mono_nonneg_l.
-    lia.
-    eauto.
-    rewrite Z.mul_sub_distr_l.
-    rewrite Z.mul_1_r.
-    apply Z.sub_le_mono_r.
-    apply Zdiv.Z_mult_div_ge.
-    lia.
-    lia.
-    
-  Qed.
-
-  Theorem Zshiftl_divide : forall x1 x2 z,
-    0 <= x1 ->
-    0 <= x2 ->
-    x1 <= x2 ->
-    Z.divide (Z.shiftl z x1) (Z.shiftl z x2).
-
-    intros.
-    replace x2 with (x1 + (x2 - x1)).
-    rewrite <- Z.shiftl_shiftl.
-    rewrite (Z.shiftl_mul_pow2 _ (x2 - x1)); [idtac | lia].
-    apply Z.divide_factor_l.
-    trivial.
-    lia.
- 
-  Qed.
-
-  Theorem Zdiv_lt_compat : forall a b c,
-    (c | b) ->
-    0 < c ->
-    a < b ->
-    a / c < b / c.
-
-    intros.
-    destruct H. subst.
-    rewrite Z.div_mul.
-    apply Z.div_lt_upper_bound;
-    trivial.
-    rewrite Z.mul_comm.
-    trivial.
-    lia.
-
   Qed.
 
   Theorem recodeWindows_rwnaf_odd_correct : forall nw z,
@@ -1449,6 +1045,48 @@ Section GroupMulWNAF.
 
   Qed.
 
+  Theorem recode_rwnaf_length : forall z,
+    List.length (recode_rwnaf z) = numWindows.
+
+    intros.
+    unfold recode_rwnaf.
+    rewrite recode_rwnaf_odd_length.
+    lia.
+
+  Qed.
+
+  Theorem recode_rwnaf_bound_In : forall x z,
+    (BinInt.Z.of_nat x < BinInt.Z.shiftl 1 (BinInt.Z.of_nat (numWindows * wsize)))%Z ->
+    List.In z (recode_rwnaf (Z.of_nat x)) ->
+    (-2^(Z.of_nat wsize) < z < (2^(Z.of_nat wsize)))%Z.
+
+    intros.
+    apply Z.abs_lt.
+    rewrite <- Z.shiftl_1_l.
+    eapply recode_rwnaf_correct; eauto.
+
+  Qed.
+
+  Theorem recode_rwnaf_bound_nth : forall n x,
+    (BinInt.Z.of_nat x < BinInt.Z.shiftl 1 (BinInt.Z.of_nat (numWindows * wsize)))%Z ->
+    (-2^(Z.of_nat wsize) < (List.nth n
+   (recode_rwnaf (Z.of_nat x)) 0) < (2^(Z.of_nat wsize)))%Z.
+
+    intros.
+    destruct (PeanoNat.Nat.lt_decidable n numWindows).
+    eapply recode_rwnaf_bound_In; eauto.
+    apply nth_In.
+    rewrite recode_rwnaf_length; lia.
+
+    rewrite nth_overflow.
+    intuition idtac.
+    apply Z.opp_neg_pos.
+    apply Z.pow_pos_nonneg; lia.
+    apply Z.pow_pos_nonneg; lia.
+    rewrite recode_rwnaf_length; lia.
+
+  Qed.
+
   Definition groupMul_signedRegular n :=
     groupMul_signedRegularWindows (even n) (recode_rwnaf (Z.of_nat n)).
 
@@ -1477,38 +1115,12 @@ Section GroupMulWNAF.
   End SignedOddWindows.
 
   (* precomputation and table lookup with signed integers *)
-
-  Fixpoint forNats n :=
-    match n with
-      | O => nil
-      | S n' => n' :: (forNats n')
-    end.
-
-  Theorem forNats_length : forall n,
-    List.length (forNats n) = n.
-
-    induction n; intros; simpl in *; trivial.
-    congruence.
-
-  Qed.
-
   Definition tableSize : nat := shiftl 1 (wsize - 1).
   
   Definition preCompTable_h n ls e :=
     fold_left (fun ls _ => ls ++ (groupAdd e (last ls idElem))::nil) (forNats n) ls.
 
   Definition preCompTable x := preCompTable_h (pred tableSize) (x::nil) (groupDouble x).
-
-  Theorem fold_app_length : forall (A B : Type) f (ls : list B) (acc : list A),
-    length (fold_left (fun x y => x ++ ((f x y)::nil)) ls acc) = (List.length ls + List.length acc)%nat.
-  
-    induction ls; intros; simpl in *.
-    trivial.
-    rewrite IHls.
-    rewrite app_length.
-    simpl.
-    lia.
-  Qed.
 
   Theorem tableSize_correct : forall x, 
       List.length (preCompTable x)  = tableSize.
@@ -1525,29 +1137,6 @@ Section GroupMulWNAF.
     apply nat_shiftl_nz.
     lia.
     lia.
-
-  Qed.
-
-
-  Theorem last_nth_equiv : forall (A : Type)(def : A)(ls : list A),
-    last ls def = nth (pred (length ls)) ls def.
-
-    induction ls; intuition; simpl in *.
-    rewrite IHls.
-    destruct ls; simpl in *; trivial.
-
-  Qed.
-
-  Theorem last_nth_equiv_gen
-   : forall (A : Type) (def : A) (ls : list A) n,
-    n = (Nat.pred (Datatypes.length ls)) ->
-     List.last ls def =
-     List.nth n ls
-       def.
-
-    intros. 
-    subst.
-    apply last_nth_equiv.
 
   Qed.
 
@@ -1585,24 +1174,6 @@ Section GroupMulWNAF.
     reflexivity.
     destruct ls; simpl in *; lia.
     lia.
-
-  Qed.
-
-  Theorem groupMul_groupAdd_distr : forall n e1 e2,
-    groupMul n (groupAdd e1 e2) == groupAdd (groupMul n e1) (groupMul n e2).
-
-    induction n; intuition; simpl in *.
-    rewrite groupAdd_id.
-    reflexivity.
-    rewrite IHn.
-    repeat rewrite groupAdd_assoc.
-    apply groupAdd_proper.
-    reflexivity.
-    rewrite groupAdd_comm.
-    repeat rewrite groupAdd_assoc.
-    apply groupAdd_proper.
-    reflexivity.
-    eapply groupAdd_comm.
 
   Qed.
 
@@ -1656,20 +1227,6 @@ Section GroupMulWNAF.
       (Z.to_nat (Z.shiftr (Z.pos x) 1) < tableSize)%nat ->
       nth (Z.to_nat (Z.shiftr (Z.pos x) 1)) t idElem == groupMul_doubleAdd_pos x e.
 
-  Theorem Z_ldiff_1_odd_sub : forall x,
-    Z.odd (Z.pos x) = true -> 
-    (Z.ldiff (Z.pos x) 1) = (Z.pos x)-1.
-
-    intros.
-    replace 1 with (2^0).
-    rewrite <- Z.clearbit_spec'.
-    destruct x; simpl in *. reflexivity.
-    discriminate.
-    trivial.
-    trivial.
- 
-  Qed.
-
   Theorem preCompTable_correct : forall x,
     PreCompTable_for_elem (preCompTable x) x.
 
@@ -1705,152 +1262,6 @@ Section GroupMulWNAF.
     trivial.
 
   Qed.
-
-
-  Theorem lt_id_double_lt : forall n1 n2,
-    (double n1 < double n2)%nat ->
-    (n1 < n2)%nat.
-
-    induction n1; intros; unfold double in *; simpl in *.
-    destruct n2; simpl in *; intuition eauto.
-    lia.
-    destruct n2; simpl in *.
-    lia.
-    apply lt_n_S.
-    eapply IHn1.
-    lia.
-
-  Qed.
-  
-  Theorem lt_if_shiftl_lt : forall n3 n1 n2,
-    (shiftl n1 n3 < shiftl n2 n3)%nat ->
-    (n1 < n2)%nat.
-
-    induction n3; intuition; simpl in *.
-    eapply IHn3.
-    eapply lt_id_double_lt.
-    trivial.
-
-  Qed.
-
-
-  Theorem double_div2_le : forall n,
-    (double (div2 n) <= n)%nat.
-
-    intros.
-    rewrite (@Nat.div2_odd n) at 2.
-    rewrite <- plus_0_r at 1.
-    apply plus_le_compat.
-    unfold double. simpl.
-    rewrite Nat.add_0_r.
-    reflexivity.
-    lia.
-
-  Qed.
-
-  Theorem div2_shiftr_swap : forall n2 n1,
-    div2 (shiftr n1 n2) = shiftr (div2 n1) n2.
-
-    induction n2; intuition; simpl in *.
-    rewrite IHn2.
-    reflexivity.
-  Qed.
-
-
-  Theorem double_le_compat : forall a b,
-    (a <= b)%nat ->
-    (double a <= double b)%nat.
-
-    unfold double. intros. simpl.
-    eapply plus_le_compat; trivial.
-
-  Qed.
-
-  Theorem shiftl_shiftr_le : forall n1 n2,
-    (shiftl (shiftr n2 n1) n1 <= n2)%nat.
-
-    induction n1; intros; simpl in *.
-    reflexivity.
-    rewrite div2_shiftr_swap.
-    specialize (IHn1 (div2 n2)).
-    eapply le_trans.
-    eapply double_le_compat; eauto.
-    apply double_div2_le.
-
-  Qed.
-
-  Theorem nat_ind_strong :
-   forall P,
-    (forall n, (forall m, m < n -> P m)%nat -> P n) ->
-    forall n, P n.
-
-    intros.
-    assert (forall x, (x <= n)%nat -> P x).
-    induction n; intros.
-    eapply X.
-    intros.
-    lia.
-
-    eapply X.
-    intros.
-    eapply IHn. 
-    lia.
-
-    eapply X0.
-    trivial.
-
-  Qed.
-
-  Theorem div2_to_nat_eq : forall n,
-    div2 n = Z.to_nat (Z.div2 (Z.of_nat n)).
-
-    induction n using nat_ind_strong; intros.
-    destruct n. simpl. reflexivity.
-    destruct n. simpl. reflexivity.
-    repeat rewrite Znat.Nat2Z.inj_succ.
-    simpl.
-    rewrite H.
-    repeat rewrite Z.div2_div.
-    replace (Z.succ (Z.succ (Z.of_nat n))) with (1*2 + (Z.of_nat n)).
-    rewrite Zdiv.Z_div_plus_full_l.
-    rewrite Znat.Z2Nat.inj_add.
-    simpl.
-    reflexivity.
-    lia.
-    apply Z.div_pos.
-    lia.
-    lia.
-    lia.
-    lia.
-    lia.   
-
-  Qed.
-
-  Theorem shiftr_to_nat_eq : forall n2 n1,
-    0 <= n1 ->
-    (Z.to_nat (Z.shiftr n1 (Z.of_nat n2))) = shiftr (Z.to_nat n1) n2.
-
-    induction n2; intros.
-    simpl in *.
-    rewrite Z.shiftr_0_r.
-    reflexivity.
-    
-    rewrite Znat.Nat2Z.inj_succ.
-    simpl.
-    rewrite <- IHn2.
-    rewrite <- Z.add_1_r.
-    rewrite <- Z.shiftr_shiftr.
-    rewrite <- Z.div2_spec.
-    rewrite div2_to_nat_eq. 
-    rewrite Znat.Z2Nat.id.
-    reflexivity.
-    apply Z.shiftr_nonneg.
-    trivial.
-    lia.
-    trivial.
-
-  Qed.
-
 
   Theorem shiftr_window_small : forall p,
     Z.pos p < Z.shiftl 1 (Z.of_nat wsize) ->
@@ -1954,34 +1365,10 @@ Section GroupMulWNAF.
 
     Qed.
 
-    Theorem groupDouble_n_groupMul_equiv : forall m x,
-        (groupDouble_n m x) == (groupMul (2 ^ m) x).
-
-      induction m; intros; simpl in *.
-      rewrite groupAdd_comm.
-      rewrite groupAdd_id.
-      reflexivity.
-      rewrite groupMul_distr.
-      rewrite plus_0_r.
-      rewrite groupDouble_correct.
-      apply groupAdd_proper; eauto.
-
-    Qed.
-
 
   End SignedWindowsWithTable.
 
 End GroupMulWNAF.
 
-Theorem recode_rwnaf_length : forall w nw z,
-  nw <> 0%nat -> 
-  List.length (recode_rwnaf w nw z) = nw.
-
-  intros.
-  destruct nw.
-  lia.
-  apply recode_rwnaf_odd_length.
-
-Qed.
 
 

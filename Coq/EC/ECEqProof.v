@@ -39,7 +39,6 @@ From Crypto Require Import Curves.Weierstrass.AffineProofs.
 
 
 From EC Require Import GroupMulWNAF.
-From EC Require Import Zfacts.
 From EC Require Import EC_P384_5.
 From EC Require Import EC_P384_Abstract.
 From EC Require Import CryptolToCoq_equiv.
@@ -49,46 +48,6 @@ From EC Require Import GeneratorMul.
 Set Implicit Arguments.
 
 Require Import CryptolToCoq.SAWCoreVectorsAsCoqVectors.
-
-
-Theorem recode_rwnaf_bound_In : forall wsize nw x z,
-  wsize <> 0%nat -> 
-  nw <> 0%nat -> 
-  (BinInt.Z.of_nat x < BinInt.Z.shiftl 1 (BinInt.Z.of_nat (nw * wsize)))%Z ->
-  List.In z (recode_rwnaf wsize nw (Z.of_nat x)) ->
-  (-2^(Z.of_nat wsize) < z < (2^(Z.of_nat wsize)))%Z.
-
-  intros.
-  apply Z.abs_lt.
-  rewrite <- Z.shiftl_1_l.
-  eapply (@recode_rwnaf_correct wsize _ nw); eauto.
-
-  Unshelve.
-  lia.
-
-Qed.
-
-Theorem recode_rwnaf_bound_nth : forall wsize nw n x,
-  wsize <>0%nat -> 
-  nw <> 0%nat -> 
-  (BinInt.Z.of_nat x < BinInt.Z.shiftl 1 (BinInt.Z.of_nat (nw * wsize)))%Z ->
-  (-2^(Z.of_nat wsize) < (List.nth n
- (recode_rwnaf wsize nw (Z.of_nat x)) 0) < (2^(Z.of_nat wsize)))%Z.
-
-  intros.
-  destruct (PeanoNat.Nat.lt_decidable n nw).
-  eapply recode_rwnaf_bound_In; [idtac | idtac | eauto | idtac]; eauto.
-  apply nth_In.
-  rewrite recode_rwnaf_length; lia.
-
-  rewrite nth_overflow.
-  intuition idtac.
-  apply Z.opp_neg_pos.
-  apply Z.pow_pos_nonneg; lia.
-  apply Z.pow_pos_nonneg; lia.
-  rewrite recode_rwnaf_length; lia.
-
-Qed.
 
 
 Section ECEqProof.
@@ -1528,29 +1487,6 @@ Section ECEqProof.
 
   Qed.
 
-  
-  Theorem Z_sub_range_le_lt_dbl_pos : forall x y,
-    (0 <= x ->
-    0 <= y < 2 * x ->
-    -x <= y - x < x)%Z.
-
-    intros.
-    lia.
-  
-  Qed.
-
-  Theorem bound_abstract : forall x1 x2 y1 y2 z,
-    (x1 <= z < y1 ->
-    x2 <= x1 ->
-    y1 <= y2 ->
-    x2 <= z < y2)%Z.
-
-    intuition idtac.
-    eapply Z.le_trans; eauto.
-    eapply Z.lt_le_trans; eauto.
-
-  Qed.
-
   Ltac bvIntSimpl_one :=
     match goal with
     | [|- ((bvToInt ?x _) < 2^(BinInt.Z.of_nat ?x))%Z] =>
@@ -2244,17 +2180,6 @@ Section ECEqProof.
 
   Qed.
 
-  Theorem bvector_eq_dec : forall n (v1 v2 : VectorDef.t bool n),
-    {v1 = v2} + {v1 <> v2}.
-
-    intros.
-    apply (Vector.eq_dec _ Bool.eqb).
-    intros.
-    apply Bool.eqb_true_iff.
-
-  Defined.
-   
-
   Theorem felem_cmovznz_equiv : forall x y z,
     felem_cmovznz x y z = if (bvEq _ x (intToBv 64 0)) then y else z.
 
@@ -2521,19 +2446,6 @@ Section ECEqProof.
     trivial.
   Qed.
 
-  Theorem groupDouble_n_zero : forall n,
-    groupDouble_n n zero_point == zero_point.
-
-    induction n; intros; simpl in *.
-    reflexivity.
-    transitivity (Jacobian.double zero_point).
-    eapply Jacobian.Proper_double.
-    eauto.
-    rewrite jac_double_correct.
-    rewrite jac_add_id_l.
-    reflexivity.
-  Qed.
-
   Definition pre_comp_table_abstract := pre_comp_table_abstract Fsquare Fmul Fsub Fadd.
 
   Theorem preCompTable_equiv_h : forall ls1 ls2 p1 p2,
@@ -2654,11 +2566,8 @@ Section ECEqProof.
     lia.
   Qed.
 
-
-  Theorem groupDouble_n_double_comm : forall n (a1 : point),
-    Jacobian.eq
-  (Jacobian.double (groupDouble_n n a1))
-  (groupDouble_n n (Jacobian.double a1)).
+  Theorem groupDouble_n_double_comm_jac : forall n a1,
+    Jacobian.eq (Jacobian.double (groupDouble_n n a1)) (groupDouble_n n (groupDouble a1)).
 
     induction n; intros; simpl in *.
     reflexivity.
@@ -2666,7 +2575,6 @@ Section ECEqProof.
     eapply IHn.
   
   Qed.
-
 
   Theorem groupDouble_n_fold_left_double_equiv : forall ws ls a1 a2,
     List.length ls = ws ->
@@ -2684,7 +2592,7 @@ Section ECEqProof.
     trivial.
     eapply jac_eq_trans; [idtac | eapply IHws].
     apply jacobian_eq_jac_eq.
-    eapply groupDouble_n_double_comm.
+    eapply groupDouble_n_double_comm_jac.
     lia.
     assert (exists a2', (seqToProd a2) = (fromPoint a2')).
     eapply jac_eq_point_ex; eauto.
@@ -2837,43 +2745,6 @@ Section ECEqProof.
     simpl.
     apply (@sbvToInt_sign_extend_equiv 16 48).
     lia.
-
-  Qed.
-
-  Theorem nat_shiftl_gt_base : forall n2 n1,
-    (0 < n2 ->
-    0 < n1 ->
-    n1 < Nat.shiftl n1 n2).
-
-    induction n2; intros; simpl in *.
-    lia.
-    destruct n2.
-    simpl.
-    unfold Nat.double.
-    lia.
-    assert (n1 < Nat.shiftl n1 (S n2)).
-    eapply IHn2; lia.
-    unfold Nat.double.
-    lia.
-    
-  Qed.
-  
-  Theorem div2_lt : forall x y ,
-    (x < 2*y ->
-    Z.div2 x < y)%Z.
-
-    intros.
-    rewrite Z.div2_div.
-    apply Z.div_lt_upper_bound; lia.
-
-  Qed.
-
-  Theorem Forall2_length_eq : forall (A B : Type)(lsa : list A)(lsb : list B) P,
-    List.Forall2 P lsa lsb ->
-    List.length lsa = List.length lsb.
-
-    induction 1; intros; simpl in *; intuition idtac.
-    congruence.
 
   Qed.
 
@@ -3076,7 +2947,7 @@ Section ECEqProof.
     lia.
     reflexivity.
 
-    erewrite <- Forall2_length_eq; [idtac | eapply preCompTable_equiv].
+    erewrite <- Forall2_length; [idtac | eapply preCompTable_equiv].
     rewrite tableSize_correct.
     unfold tableSize.
     rewrite shiftl_to_nat_eq.
@@ -3119,17 +2990,6 @@ Section ECEqProof.
   Qed.
 
   Definition point_mul_abstract := point_mul_abstract Fsquare Fmul Fsub Fadd Fopp.
-
-  Theorem In_tl : forall (A : Type)(ls : list A) a,
-    List.In a (List.tl ls) ->
-    List.In a ls.
-
-    intros.
-    destruct ls; simpl in *.
-    intuition idtac.
-    intuition idtac.
-
-  Qed.
 
   Section PointMulAbstract.
   Variable wsize : nat.
@@ -3182,6 +3042,20 @@ Section ECEqProof.
     rewrite bvToInt_intToBv_id.
     reflexivity.
     lia.
+
+  Qed.
+
+  Theorem groupDouble_n_zero : forall n,
+    groupDouble_n n zero_point == zero_point.
+
+    induction n; intros; simpl in *.
+    reflexivity.
+    transitivity (Jacobian.double zero_point).
+    eapply Jacobian.Proper_double.
+    eauto.
+    rewrite jac_double_correct.
+    rewrite jac_add_id_l.
+    reflexivity.
 
   Qed.
 
@@ -3330,6 +3204,7 @@ Section ECEqProof.
     rewrite recode_rwnaf_length.
     lia.
     lia.
+    lia.
     apply Z.shiftl_nonneg; lia.
 
     apply div2_lt.
@@ -3348,6 +3223,7 @@ Section ECEqProof.
     rewrite <- hd_rev_eq_last.
     apply Z.ltb_ge; eauto.
     rewrite recode_rwnaf_length.
+    lia.
     lia.
     lia.
 
@@ -3388,6 +3264,7 @@ Section ECEqProof.
     rewrite recode_rwnaf_length.
     trivial.
     lia.
+    lia.
     rewrite sbvToInt_sign_extend_16_64_equiv.
     apply bvSShr_Z_shiftr_equiv.
     trivial.
@@ -3407,6 +3284,7 @@ Section ECEqProof.
     apply Z.pow_le_mono_r; lia.
 
     lia.
+    lia.
 
     rewrite hd_rev_eq_last.
     apply recode_rwnaf_last_nonneg.
@@ -3414,7 +3292,7 @@ Section ECEqProof.
     lia.
     trivial.
     (* table is not huge *)
-    erewrite <- Forall2_length_eq; [ idtac | eapply preCompTable_equiv].
+    erewrite <- Forall2_length; [ idtac | eapply preCompTable_equiv].
     rewrite tableSize_correct.
     unfold tableSize.
     rewrite shiftl_to_nat_eq.
@@ -3463,7 +3341,7 @@ Section ECEqProof.
     apply mul_body_equiv; trivial.
     lia.
     subst.
-    eapply (@recode_rwnaf_bound_In (S n0) (S (S (S nw)))); try lia.
+    eapply (@recode_rwnaf_bound_In (S n0) _ (S (S (S nw)))); try lia.
     eauto.
     apply in_rev.
     apply In_tl.
@@ -3471,6 +3349,10 @@ Section ECEqProof.
     rewrite rev_length.
     rewrite recode_rwnaf_length.
     lia.
+    lia.
+    lia.
+
+    Unshelve.
     lia.
 
   Qed.
@@ -3516,18 +3398,6 @@ Section ECEqProof.
     reflexivity.
 
     apply point_mul_abstract_signedRegular_cases; trivial.
-
-  Qed.
-
-  Theorem hd_In : forall (A : Type)(ls : list A)(a : A),
-    ls <> List.nil ->
-    List.In (List.hd a ls) ls.
-
-    intros.
-    destruct ls.
-    intuition idtac.
-    simpl.
-    intuition idtac.
 
   Qed.
 
@@ -4034,16 +3904,6 @@ Section ECEqProof.
     eapply n. reflexivity.
   Qed.
 
-  Theorem combineOpt_f : forall (A B : Type)(f : A -> B) ls,
-    combineOpt (List.map (fun x => Some (f x)) ls) = Some (List.map f ls).
-
-    induction ls; intros; simpl in *.
-    reflexivity.
-    rewrite IHls.
-    reflexivity.
-
-  Qed.
-
  Theorem permuteAndDouble_grouped_app: forall d a b ws ls,
   permuteAndDouble_grouped ws d (a ++ b) = Some ls ->
   exists ls1 ls2 ls3,
@@ -4096,7 +3956,7 @@ Section ECEqProof.
       trivial.
       eapply jac_eq_trans; [idtac | eapply IHws].
       apply jacobian_eq_jac_eq.
-      eapply groupDouble_n_double_comm.
+      eapply groupDouble_n_double_comm_jac.
       lia.
       assert (exists a2', (seqToProd a2) = (fromPoint a2')).
       eapply jac_eq_point_ex; eauto.
@@ -4441,24 +4301,6 @@ Section ECEqProof.
     lia.
     lia.
   Qed.
-  
-  Theorem Forall_nth : forall (A : Type)(f : A -> Prop) ls n def,
-    List.Forall f ls ->
-    n < List.length ls ->
-    f (List.nth n ls def).
-
-    induction ls; intros; simpl in *.
-    destruct n; simpl in *; try lia.
-    destruct n; simpl in *; try lia.  
-    inversion H; clear H; subst.
-    trivial.
-    inversion H; clear H; subst.
-    eapply IHls.
-    eauto.
-    lia.
-    
-  Qed.
-
 
   Theorem add_base_abstract_jac_add_equiv:  forall n n' p1 p2 (rwnaf : list (t bool 16)),
     List.Forall (fun x => OddWindow wsize (sbvToInt _ x)) rwnaf -> 
@@ -4553,17 +4395,6 @@ Section ECEqProof.
     intuition idtac.
     f_equal.
     lia.
-
-  Qed.
-
-  Theorem nth_error_map_ex : forall (A B : Type)(f : A -> B) ls x n,
-    nth_error (List.map f ls) n = Some x ->
-    exists y, nth_error ls n = Some y /\ x = f y.
-
-    induction ls; destruct n; intros; simpl in *; try discriminate.
-    inversion H; clear H; subst.
-    econstructor; intuition idtac.
-    eapply IHls; eauto.
 
   Qed.
 
@@ -4759,45 +4590,6 @@ Section ECEqProof.
 
   Qed.
 
-  Theorem Forall2_map_l : forall (A B C: Type) P (f : A -> C) lsa (lsb : list B),
-    List.Forall2 (fun x y => P (f x) y) lsa lsb ->
-    List.Forall2 P (List.map f lsa) lsb.
-
-    induction 1; intros; simpl in *.
-    econstructor.
-    econstructor; eauto.
-
-  Qed.
-
-  Theorem Forall2_map_r : forall (A B C: Type) P (f : B -> C) (lsa : list A) lsb,
-    List.Forall2 (fun x y => P x (f y)) lsa lsb ->
-    List.Forall2 P lsa (List.map f lsb).
-
-    induction 1; intros; simpl in *.
-    econstructor.
-    econstructor; eauto.
-
-  Qed.
-
-
-  Theorem Forall2_same_Forall : forall (A : Type) P (ls : list A),
-    List.Forall (fun x => P x x) ls ->
-    List.Forall2 P ls ls.
-
-    induction 1; intros; simpl in *.
-    econstructor.
-    econstructor; eauto.
-
-  Qed.
-
-  Theorem Forall_I : forall (A : Type)(ls : list A),
-    List.Forall (fun x => True) ls.
-
-    induction ls; intuition idtac; econstructor; eauto.
-
-  Qed.
-
-      
   Theorem point_mul_base_abstract_list_equiv_h : forall x p p1 p2 rwnaf1 rwnaf2,
     jac_eq (fromPoint p1) (seqToProd p2) ->
     rwnaf1 = List.map (fun x => sbvToInt _ x) rwnaf2 -> 
@@ -5058,19 +4850,6 @@ Section ECEqProof.
     apply groupIndices_h_length.
   Qed.
 
-  Theorem Foralll2_impl : forall (A B : Type)(P1 P2 : A -> B -> Prop) ls1 ls2,
-    List.Forall2 P1 ls1 ls2 ->
-    (forall a b, List.In a ls1 -> List.In b ls2 -> P1 a b -> P2 a b) ->
-    List.Forall2 P2 ls1 ls2.
-
-    induction 1; intros; simpl in *.
-    econstructor.
-    econstructor.
-    eauto.
-    eauto.
-
-  Qed.
-
   Theorem mul_scalar_rwnaf_abstract_OddWindow : forall n,
      (bvToInt 384 n < 2 ^ Z.of_nat (S (S (S nw)) * wsize))%Z -> 
     List.Forall (OddWindow wsize) (List.map (fun x0 : bitvector 16 => sbvToInt 16 x0) (mul_scalar_rwnaf_abstract wsize nw n)).
@@ -5138,40 +4917,6 @@ Section ECEqProof.
     apply intToBv_sbvToInt_id.
   Qed.
 
-  Theorem Forall_flatten : forall (A : Type)(P : A -> Prop) (ls : list (list A)),
-    (forall x, List.In x ls -> List.Forall P x) ->
-    List.Forall P (flatten ls).
-
-    induction ls; intros; simpl in *.
-    econstructor.
-    eapply Forall_app.
-    intuition idtac.
-    eapply H; intuition idtac.
-    eapply IHls; intuition idtac.
-    eapply H; intuition idtac.
-
-  Qed.
-
-
-  Theorem combineOpt_In : forall (A : Type)(ls :list (option A)) ls' x,
-    combineOpt ls = Some ls' -> 
-    List.In x ls' -> 
-    List.In (Some x) ls.
-
-    induction ls; intros; simpl in *.
-    optSomeInv.
-    simpl in *.
-    intuition idtac.
-
-    optSomeInv.
-    simpl in *.
-    intuition idtac; subst.
-    left; eauto.
-    right.
-    eauto.
-
-  Qed.
-
   Theorem decrExp_ProgOddWindow: forall l l0 n x y z,
     decrExp n l = Some l0 ->
     ProgOddWindow x y z l -> 
@@ -5222,21 +4967,6 @@ Section ECEqProof.
     
   Qed.
 
-  Theorem multiSelect_In : forall (A : Type)(ls1 : list A) ls2 x y, 
-    multiSelect ls1 x = Some ls2 ->
-    List.In y ls2 -> List.In y ls1.
-
-    intros.
-    unfold multiSelect in *.
-    eapply combineOpt_In in H; eauto.
-    apply in_map_iff in H.
-    destruct H.
-    intuition idtac; simpl in *.
-    apply nth_error_In in H3.
-    trivial.
-
-  Qed.
-
   Theorem recode_rwnaf_OddWindow : forall nw n, 
     nw <> 0%nat -> 
     (Z.of_nat n < BinInt.Z.shiftl 1 (BinInt.Z.of_nat (nw * wsize)))%Z ->
@@ -5264,9 +4994,10 @@ Section ECEqProof.
     intros.
     specialize (mul_scalar_rwnaf_abstract_equiv z); intros.
     apply H0 in H.
-    apply Forall2_length_eq in H.
+    apply Forall2_length in H.
     rewrite <- H.
     apply recode_rwnaf_length.
+    lia.
     lia.
   Qed.
 
@@ -5415,6 +5146,7 @@ Section ECEqProof.
     lia.
     rewrite recode_rwnaf_length.
     unfold numPrecompExponentGroups in *.
+    lia.
     lia.
     lia.
     apply recode_rwnaf_OddWindow.
@@ -5577,6 +5309,7 @@ Section ECEqProof.
     rewrite recode_rwnaf_length.
     lia.
     lia.
+    lia.
     eapply recode_rwnaf_OddWindow.
     lia.
     rewrite bvToNat_toZ_equiv.
@@ -5594,6 +5327,7 @@ Section ECEqProof.
     eapply pMultiple_correct.
     apply recode_rwnaf_length.
     lia.
+    lia.
     apply recode_rwnaf_OddWindow.
     lia.
     rewrite bvToNat_toZ_equiv.
@@ -5605,7 +5339,6 @@ Section ECEqProof.
      (recode_rwnaf wsize (S (S (S nw))) (Z.of_nat (bvToNat 384 n))) ==
     groupMul_doubleAdd_signed (windowsToZ wsize (recode_rwnaf wsize (S (S (S nw))) (Z.of_nat (bvToNat 384 n)))) g).
     eapply groupMul_signedWindows_correct.
-    lia.
     apply pMultiple_correct.
     apply recode_rwnaf_OddWindow.
     lia.
@@ -5695,6 +5428,7 @@ Section ECEqProof.
     rewrite recode_rwnaf_length.
     eauto.
     lia.
+    lia.
     eapply recode_rwnaf_OddWindow.  
     lia.
     rewrite bvToNat_toZ_equiv.
@@ -5752,42 +5486,6 @@ Section ECEqProof.
     | wm_Double  n => True
     end.
 
-  Theorem combineOpt_map_Some : forall (A B : Type)(f : A -> option B) (x : list A)(pa : A -> Prop)(pb : A -> B -> Prop),
-    List.Forall pa x -> 
-    (forall a, pa a -> exists b, f a = Some b /\ pb a b) -> 
-    exists y, combineOpt (List.map f x) = Some y /\ List.Forall2 pb x y.
-
-    induction x; intros; simpl in *.
-    exists List.nil.
-    intuition idtac.
-    econstructor.
-
-    inversion H; clear H; subst.
-    edestruct (H0 a0); eauto.
-    intuition idtac.
-    rewrite H5.
-    edestruct IHx; intuition idtac.
-    eauto.
-    edestruct (H0 a1); intuition idtac.
-    exists x1; intuition idtac.
-    eauto.
-    rewrite H7.
-    econstructor; intuition idtac.
-    econstructor; intuition idtac.    
-
-  Qed.
-
-  Theorem nth_error_Some_ex : forall (A : Type)n (ls : list A),
-    (n < List.length ls) ->
-    exists y,
-      nth_error ls n = Some y.
-
-    induction n; destruct ls; intros; simpl in *; try lia.
-    econstructor; eauto.
-    edestruct IHn; eauto. lia. 
-
-  Qed.
-
   Theorem multiSelect_signedWindowsToProg_Some :  forall a0 ws,
     List.Forall (fun x => x < List.length ws) a0 -> 
     exists b0 : list WindowedMultOp,
@@ -5820,19 +5518,6 @@ Section ECEqProof.
     econstructor.
     reflexivity.
     apply H0.
-  Qed.
-
-  Theorem combineOpt_Some : forall (A : Type)(ls : list (option A)) x,
-    combineOpt ls = Some x ->
-    List.Forall2 (fun x y => x = Some y) ls x.
-
-    induction ls; intros; simpl in *; optSomeInv.
-    econstructor.
-
-    econstructor.
-    trivial.
-    eauto.
-
   Qed.
 
   Theorem decrExpLs'_Some_eq : forall perm perm' x,
@@ -5934,51 +5619,6 @@ Section ECEqProof.
 
    Qed.
 
-  Theorem Forall2_Forall_impl : forall (A B : Type)(lsa : list A)(lsb : list B) (P1: A -> B -> Prop) (P2 : A -> Prop),
-    List.Forall2 P1 lsa lsb ->
-    (forall a b, P1 a b -> P2 a) ->
-    List.Forall P2 lsa.
-
-    induction lsa; intros; simpl in *.
-    inversion H; clear H; subst.
-    econstructor.
-
-    inversion H; clear H; subst.
-    econstructor.
-    eauto.
-    eauto.
-
-  Qed.
-
-  Theorem Forall_Forall2_impl: forall (A B : Type)(lsa : list A)(lsb : list B) (P2 : A -> Prop),
-    List.Forall P2 lsa -> 
-    (List.length lsb = List.length lsa) ->
-    List.Forall2 (fun a b => P2 a) lsa lsb.
-
-    induction lsa; intros; simpl in *.
-    destruct lsb0; simpl in *; try lia.
-    econstructor.
-
-    inversion H; clear H; subst.
-    destruct lsb0; simpl in *; try lia.
-    econstructor; eauto.
-
-  Qed.
-
-  Theorem Forall2_impl_2 : forall (A B : Type)(P1 P2 : A -> B -> Prop) lsa lsb,
-    List.Forall2 P1 lsa lsb ->
-    List.Forall2 P2 lsa lsb ->
-    List.Forall2 (fun a b => P1 a b /\ P2 a b) lsa lsb.
-
-    induction 1; intros; simpl in *.
-    inversion H; clear H; subst.
-    econstructor.
-    inversion H1; clear H1; subst.
-    econstructor.
-    intuition idtac.
-    eauto.
-  Qed.
-
   Theorem permuteAndDouble_grouped_Some : forall d ws perm perm',
     List.Forall (List.Forall (fun x : nat => x < Datatypes.length ws)) perm -> 
     d = List.length perm -> 
@@ -6030,13 +5670,13 @@ Section ECEqProof.
     unfold wmIsMultiple.
     trivial.
     symmetry.
-    eapply Forall2_length_eq; eauto.
+    eapply Forall2_length; eauto.
     econstructor.
     unfold wmIsMultiple.
     trivial.
     econstructor.
     symmetry.
-    eapply Forall2_length_eq; eauto.
+    eapply Forall2_length; eauto.
 
   Qed.
 

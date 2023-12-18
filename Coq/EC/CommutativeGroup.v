@@ -4,6 +4,8 @@ SPDX-License-Identifier: Apache-2.0 *)
 (* Definition of a group using additive notation, along with related definitions and theory. *)
 
 Require Import SetoidClass.
+Require Import Nat.
+Require Import Arith.
 
 Class CommutativeGroup(GroupElem : Type)(GroupElem_eq : Setoid GroupElem)
 :=
@@ -119,6 +121,24 @@ Section GroupMul.
 
   Qed.
 
+  Theorem groupMul_groupAdd_distr : forall n e1 e2,
+    groupMul n (groupAdd e1 e2) == groupAdd (groupMul n e1) (groupMul n e2).
+
+    induction n; intuition; simpl in *.
+    rewrite groupAdd_id.
+    reflexivity.
+    rewrite IHn.
+    repeat rewrite groupAdd_assoc.
+    apply groupAdd_proper.
+    reflexivity.
+    rewrite groupAdd_comm.
+    repeat rewrite groupAdd_assoc.
+    apply groupAdd_proper.
+    reflexivity.
+    eapply groupAdd_comm.
+
+  Qed.
+
 End GroupMul.
 
 Global Existing Instance groupMul_proper.
@@ -134,3 +154,92 @@ Class CommutativeGroupWithDouble`(grp : CommutativeGroup)
 }.
 
 Global Existing Instance groupDouble_proper.
+
+Section GroupWithDoubleFacts.
+
+  Context `{CommutativeGroupWithDouble}.
+
+  Theorem groupDouble_distrib : 
+    forall a b,
+    groupDouble (groupAdd a b) == groupAdd (groupDouble a) (groupDouble b).
+
+    intros.
+    repeat rewrite groupDouble_correct.
+    repeat rewrite groupAdd_assoc.  
+    apply groupAdd_proper.
+    reflexivity.
+    rewrite groupAdd_comm.
+    rewrite groupAdd_assoc.
+    reflexivity.
+
+  Qed.
+
+End GroupWithDoubleFacts.
+
+Section GroupDouble_n.
+
+  Context `{CommutativeGroupWithDouble}.
+
+  Fixpoint groupDouble_n n e :=
+    match n with
+    | 0 => e
+    | S n' => groupDouble (groupDouble_n n' e)
+    end.
+
+  Theorem groupDouble_n_equiv_compat : forall n e1 e2,
+    e1 == e2 ->
+    groupDouble_n n e1 == groupDouble_n n e2.
+
+    induction n; intuition; simpl in *.
+    apply groupDouble_proper.
+    eauto.
+
+  Qed.
+
+  Theorem groupDouble_n_groupMul_equiv : forall m x,
+    (groupDouble_n m x) == (groupMul (2 ^ m) x).
+
+    induction m; intros; simpl in *.
+    rewrite groupAdd_comm.
+    rewrite groupAdd_id.
+    reflexivity.
+    rewrite groupMul_distr.
+    rewrite plus_0_r.
+    rewrite groupDouble_correct.
+    apply groupAdd_proper; eauto.
+
+  Qed.
+
+  Theorem groupDouble_n_add : forall n1 n2 e,
+    groupDouble_n (n1 + n2) e = groupDouble_n n1 (groupDouble_n n2 e).
+
+    induction n1; intros; simpl in *.
+    reflexivity.
+    rewrite IHn1.
+    reflexivity.
+  Qed.
+
+  Theorem groupAdd_groupDouble_n_distr : forall n e1 e2,
+    groupAdd (groupDouble_n n e1) (groupDouble_n n e2) == groupDouble_n n (groupAdd e1 e2).
+
+    induction n; intros; simpl in *.
+    reflexivity.
+    rewrite <- groupDouble_distrib; eauto.
+    apply groupDouble_proper.
+    eauto.
+
+  Qed.
+
+  Theorem groupDouble_n_id : forall n,
+    groupDouble_n n idElem == idElem.
+
+    induction n; intros; simpl in *.
+    reflexivity.
+    rewrite IHn.
+    rewrite groupDouble_correct.
+    apply groupAdd_id.
+
+  Qed.
+
+
+End GroupDouble_n.

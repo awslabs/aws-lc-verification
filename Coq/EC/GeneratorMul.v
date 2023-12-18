@@ -307,21 +307,6 @@ Section GeneratorMul.
     discriminate.
   Qed.
 
-  Theorem map_nth_error_Forall : forall l2  (A : Type)(l1 : list A) P,
-    Forall P l1 ->
-    Forall (fun x => match x with | Some y => P y | None => True end) (map (nth_error l1) l2).
-
-    induction l2; intros; simpl in *.
-    econstructor.
-    econstructor; eauto.
-    case_eq (nth_error l1 a); intros.
-    eapply Forall_forall.
-    eauto.
-    eapply nth_error_In; eauto.
-    apply I.
-
-  Qed.
-
   Theorem multiSelect_OddWindow : forall l1 l2 l3,
     Forall ProgOddWindow l1 -> 
     multiSelect l1 l2 = Some l3 -> 
