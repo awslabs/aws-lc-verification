@@ -1,0 +1,150 @@
+diff --git a/crypto/fipsmodule/ec/p384.c b/crypto/fipsmodule/ec/p384.c
+index 6941f2626..89c2a8a1f 100644
+--- a/crypto/fipsmodule/ec/p384.c
++++ b/crypto/fipsmodule/ec/p384.c
+@@ -1122,10 +1122,131 @@ static void ec_GFp_nistp384_point_mul_public(const EC_GROUP *group,
+   p384_to_generic(&r->Z, res[2]);
+ }
+ 
++
++// Check constant values
++static const p384_felem p384_felem_zero = {
++    0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++
++__attribute__((noinline))
++static p384_limb_t p384_felem_ne(const p384_felem f1, const p384_felem f2) {
++  p384_felem tmp;
++
++  p384_felem_sub(tmp, f1, f2);
++  return p384_felem_nz(tmp);
++}
++
++__attribute__((noinline))
++static int test_jacobian_affine_eq(
++    const p384_felem x, const p384_felem y, const p384_felem z,
++    const p384_felem ax, const p384_felem ay) {
++
++  p384_felem z_tmp;
++  p384_felem test_x;
++  p384_felem test_y;
++
++  if (!p384_felem_nz(z)) {
++    return 0;
++  }
++
++  p384_felem_sqr(z_tmp, z); // z^2
++  p384_felem_mul(test_x, ax, z_tmp); // ax * z^2
++  if (p384_felem_ne(test_x, x)) {
++    return 0;
++  }
++  
++  p384_felem_mul(z_tmp, z_tmp, z);  // z^3
++  p384_felem_mul(test_y, ay, z_tmp);   // ay * z^3
++  if (p384_felem_ne(test_y, y)) {
++    return 0;
++  }
++
++  return 1;
++  
++}
++
++__attribute__((noinline))
++static int p384_validate_base_table_row(const p384_felem row[P384_MUL_TABLE_SIZE][2], const p384_felem pow_x, const p384_felem pow_y, const p384_felem pow_z){
++  
++  p384_felem p[3] = {{0}, {0}, {0}}, p2[3] = {{0}, {0}, {0}};
++
++  p384_felem_copy(p[0], pow_x);
++  p384_felem_copy(p[1], pow_y);
++  p384_felem_copy(p[2], pow_z);
++
++  if (!test_jacobian_affine_eq(p[0], p[1], p[2], 
++      row[0][0], row[0][1])) {
++    return 0;
++  }
++
++  p384_point_double(p2[0], p2[1], p2[2], p[0], p[1], p[2]);
++
++  for (size_t j = 1; j < P384_MUL_TABLE_SIZE; j++) {
++    p384_point_add(p[0], p[1], p[2],
++                   p[0], p[1], p[2], 0 /* both Jacobian */,
++                   p2[0], p2[1], p2[2]);
++
++    if (!test_jacobian_affine_eq(p[0], p[1], p[2], 
++        row[j][0], row[j][1])) {
++      return 0;
++    }
++  }
++
++  return 1;
++}
++
++
++__attribute__((noinline))
++static void point_double_n_20(p384_felem x, p384_felem y, p384_felem z){
++
++  for (size_t j = 0; j < 20; j++) {
++    p384_point_double(x, y, z, x, y, z);
++  }
++
++}
++
++__attribute__((noinline))
++static int p384_validate_base_table(void){
++
++  p384_felem pow[3] = {{0}, {0}, {0}};
++
++  p384_felem_copy(pow[0], p384_g_pre_comp[0][0][0]);
++  p384_felem_copy(pow[1], p384_g_pre_comp[0][0][1]);
++  p384_felem_copy(pow[2], p384_felem_one);
++
++  for (size_t i = 0; i < 20; i++) {
++
++    if (!p384_validate_base_table_row(p384_g_pre_comp[i], pow[0], pow[1], pow[2])) {
++      return 0;
++    }
++
++    point_double_n_20 (pow[0], pow[1], pow[2]);
++  }
++
++  return 1;
++
++}
++
++__attribute__((noinline))
++static int p384_validate_one(void) {
++
++  p384_felem tmp = {0};
++
++  EC_GROUP* group = EC_GROUP_new_by_curve_name(NID_secp384r1);
++
++  p384_from_generic(tmp, &(group->one));
++  p384_felem_to_mont(tmp, tmp);
++
++  EC_GROUP_free(group);
++
++  return (!p384_felem_ne(tmp, p384_felem_one));
++}
++
++__attribute__((noinline))
++static int p384_validate_constants(void) {
++  return (p384_validate_one() && p384_validate_base_table());
++}
++
+ DEFINE_METHOD_FUNCTION(EC_METHOD, EC_GFp_nistp384_method) {
+-  out->group_init = ec_GFp_mont_group_init;
+-  out->group_finish = ec_GFp_mont_group_finish;
+-  out->group_set_curve = ec_GFp_mont_group_set_curve;
+   out->point_get_affine_coordinates =
+       ec_GFp_nistp384_point_get_affine_coordinates;
+   out->jacobian_to_affine_batch =
+@@ -1149,6 +1270,10 @@ DEFINE_METHOD_FUNCTION(EC_METHOD, EC_GFp_nistp384_method) {
+   out->scalar_to_montgomery_inv_vartime =
+       ec_simple_scalar_to_montgomery_inv_vartime;
+   out->cmp_x_coordinate = ec_GFp_nistp384_cmp_x_coordinate;
++
++  if (p384_validate_constants() == 0) {
++    abort();
++  }
+ }
+ 
+ // ----------------------------------------------------------------------------
