@@ -24,8 +24,6 @@ zero_felem = repeat 0
 
 primitive felem_zero : felem
 
-primitive felem_one : felem
-
 primitive felem_sqr : felem -> felem
 
 primitive felem_mul : felem -> felem -> felem

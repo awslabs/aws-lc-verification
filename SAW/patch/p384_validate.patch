@@ -1,12 +1,11 @@
 diff --git a/crypto/fipsmodule/ec/p384.c b/crypto/fipsmodule/ec/p384.c
-index 6941f2626..89c2a8a1f 100644
+index 852ceb18b..9acb5b391 100644
 --- a/crypto/fipsmodule/ec/p384.c
 +++ b/crypto/fipsmodule/ec/p384.c
-@@ -1122,10 +1122,131 @@ static void ec_GFp_nistp384_point_mul_public(const EC_GROUP *group,
+@@ -1149,6 +1149,114 @@ static void ec_GFp_nistp384_point_mul_public(const EC_GROUP *group,
    p384_to_generic(&r->Z, res[2]);
  }
  
-+
 +// Check constant values
 +static const p384_felem p384_felem_zero = {
 +    0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
@@ -111,33 +110,14 @@ index 6941f2626..89c2a8a1f 100644
 +}
 +
 +__attribute__((noinline))
-+static int p384_validate_one(void) {
-+
-+  p384_felem tmp = {0};
-+
-+  EC_GROUP* group = EC_GROUP_new_by_curve_name(NID_secp384r1);
-+
-+  p384_from_generic(tmp, &(group->one));
-+  p384_felem_to_mont(tmp, tmp);
-+
-+  EC_GROUP_free(group);
-+
-+  return (!p384_felem_ne(tmp, p384_felem_one));
-+}
-+
-+__attribute__((noinline))
 +static int p384_validate_constants(void) {
-+  return (p384_validate_one() && p384_validate_base_table());
++  return p384_validate_base_table();
 +}
 +
  DEFINE_METHOD_FUNCTION(EC_METHOD, EC_GFp_nistp384_method) {
--  out->group_init = ec_GFp_mont_group_init;
--  out->group_finish = ec_GFp_mont_group_finish;
--  out->group_set_curve = ec_GFp_mont_group_set_curve;
    out->point_get_affine_coordinates =
        ec_GFp_nistp384_point_get_affine_coordinates;
-   out->jacobian_to_affine_batch =
-@@ -1149,6 +1270,10 @@ DEFINE_METHOD_FUNCTION(EC_METHOD, EC_GFp_nistp384_method) {
+@@ -1173,6 +1281,10 @@ DEFINE_METHOD_FUNCTION(EC_METHOD, EC_GFp_nistp384_method) {
    out->scalar_to_montgomery_inv_vartime =
        ec_simple_scalar_to_montgomery_inv_vartime;
    out->cmp_x_coordinate = ec_GFp_nistp384_cmp_x_coordinate;
