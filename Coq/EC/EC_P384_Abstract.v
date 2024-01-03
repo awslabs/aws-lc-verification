@@ -46,6 +46,13 @@ Local Arguments reverse [n] [a]%type_scope {Inh_a} _.
 Local Arguments bvSub [n] _ _.
 Local Arguments SAWCorePrelude.map [a]%type_scope {Inh_a} [b]%type_scope f%function_scope _ _.
 
+Global Instance list_inhabited : forall (A : Type), Inhabited (list A).
+  intros.
+  econstructor.
+  apply List.nil.
+
+Defined.
+
 Definition mul_scalar_rwnaf_odd_loop_body_abstract (wsize : nat)(s : bitvector 384) :=
 (drop Bool 368 16
    (bvSub
@@ -1104,6 +1111,212 @@ Section PointMul.
   Qed.
 
   End PointMulBase.
+
+  (* Base point table validation function. *)
+
+
+  Definition validate_base_row := validate_base_row felem_sqr felem_mul felem_sub felem_add.
+  Definition validate_base_row_abstract (p : point)(r : list affine_point) : bool := 
+    snd
+    (fold_left (validate_base_row_body felem_sqr felem_mul felem_sub felem_add (EC_P384_5.point_double felem_sqr felem_mul felem_sub felem_add p))
+     (map (fun i : Z => nth (Z.to_nat i) r (inhabitant affine_point)) (map (Z.add 1) (toN_int 14%nat)))
+     (EC_P384_5.point_add felem_sqr felem_mul felem_sub felem_add 0 p (EC_P384_5.point_double felem_sqr felem_mul felem_sub felem_add p),
+     jacobian_affine_eq felem_sqr felem_mul felem_sub p (nth 0 r (inhabitant affine_point)))).
+
+  Theorem in_toN_excl_int : forall y x, 
+    In x (toN_excl_int y) ->
+    x >= 0 /\ x < Z.of_nat y.
+
+    induction y; intros.
+    simpl in *.
+    intuition idtac.
+    simpl in H.
+    eapply in_app_or in H.
+    destruct H.
+    apply IHy in H.
+    lia.
+    simpl in H.
+    intuition idtac;
+    subst.
+    lia.
+    lia.
+
+  Qed.
+
+  Theorem in_toN_int : forall y x, 
+    In x (toN_int y) ->
+    x >= 0 /\ x <= Z.of_nat y.
+
+    intros.
+    unfold toN_int in *.
+    eapply in_app_or in H.
+    destruct H.
+    eapply in_toN_excl_int in H.
+    lia.
+    simpl in *; intuition idtac; lia.
+
+  Qed.
+
+  Theorem validate_base_row_equiv : forall (p : point) r,
+    validate_base_row p r = validate_base_row_abstract p (to_list r).
+
+    intros.
+    unfold validate_base_row, EC_P384_5.validate_base_row, validate_base_row_abstract.
+    rewrite ecFoldl_foldl_equiv.
+    Local Opaque fold_left map inhabitant.
+    simpl.
+    rewrite toList_map_equiv.
+    cut (forall ( A B : Type)(p1 p2 : A *B), p1 = p2 -> snd p1 = snd p2).
+    intros.
+    eapply H.
+    f_equal.
+    match goal with
+    | [ |- map _ ?a = map _ ?b ] =>
+      replace a with b
+    end.
+    eapply map_ext_in_iff.
+    intros.
+    eapply in_map_iff in H0.
+    destruct H0.
+    intuition idtac. 
+    subst.
+    apply in_toN_int in H2.
+    intuition idtac.
+    
+    case_eq (intLe 0 (1 + x)); intros.
+    eapply sawAt_nth_equiv.
+    lia.
+    unfold intLe in *.
+    apply Z.leb_gt in H2.
+    lia.
+    symmetry.
+    eapply ecFromTo_m_n_equiv.
+    f_equal.
+    f_equal.
+    apply sawAt_nth_equiv.
+    lia.
+    intros. subst. reflexivity.
+
+  Qed.
+
+  Definition double_body := double_body felem_sqr felem_mul felem_sub felem_add.
+  Definition point_double_base_tsize := point_double_base_tsize felem_sqr felem_mul felem_sub felem_add.
+  Definition point_double_base_abstract (p : point)(n : nat) : point := 
+    fold_left double_body (toN_bv 64 (pred n)) p.
+  Definition point_double_base_tsize_abstract (p : point) : point := point_double_base_abstract p 20%nat.
+
+  Theorem point_double_base_tsize_equiv : forall p,
+    point_double_base_tsize p = point_double_base_tsize_abstract p.
+
+    intros.
+    unfold point_double_base_tsize, EC_P384_5.point_double_base_tsize, point_double_base_tsize_abstract.
+    rewrite ecFoldl_foldl_equiv.
+    simpl.
+    reflexivity.
+  Qed.
+  
+  Definition validate_base_table_body := validate_base_table_body felem_sqr felem_mul felem_sub felem_add.
+  Definition validate_base_table_body_abstract (st : point * bool)(r : list affine_point) : (point * bool) := 
+    (point_double_base_tsize_abstract (fst st), (snd st && validate_base_row_abstract (fst st) r)%bool).
+  
+  Theorem validate_base_table_body_equiv : forall (st : point*bool) r,
+    validate_base_table_body st r = validate_base_table_body_abstract st (to_list r).
+
+    intros.
+    unfold validate_base_table_body, EC_P384_5.validate_base_table_body, validate_base_table_body_abstract.
+    cut (forall (A B : Type) (a1 a2 : A)(b1 b2 : B), a1 = a2 -> b1 = b2 -> (a1, b1) = (a2, b2)).
+    intros.
+    eapply H.
+    apply point_double_base_tsize_equiv.
+    unfold ecAnd.
+    simpl.
+    cut (forall a b1 b2, b1 = b2 -> (a && b1 = a && b2)%bool); intros.
+    apply H0.
+    Local Opaque EC_P384_5.validate_base_row.
+    eapply validate_base_row_equiv.
+    subst. reflexivity.
+    intros.
+    subst. reflexivity.
+  Qed.
+
+  Definition affineToJac (a : affine_point) : Vec 3 felem :=
+    (Vector.append a (Vector.cons p384_felem_one (@Vector.nil felem))).
+
+  Definition validate_base_table := validate_base_table felem_sqr felem_mul felem_sub felem_add.
+  Definition validate_base_table_abstract (t : list (list affine_point)) : bool := 
+    snd
+      (fold_left validate_base_table_body_abstract t
+         (affineToJac (nth 0%nat (nth 0%nat t (inhabitant (list affine_point))) (inhabitant affine_point)), 1%bool)).
+
+  Theorem fold_left_map : forall (A B C : Type)(f1 : A -> B)(f2 : C -> B -> C) ls y,
+    fold_left f2 (map f1 ls) y = fold_left (fun x y => f2 x (f1 y)) ls y.
+
+    Local Transparent map fold_left.
+    induction ls; intros; simpl in *.
+    reflexivity.
+    eapply IHls.
+
+  Qed.
+
+  Theorem affineToJac_cons_eq : forall z,
+      affineToJac z =
+      Vector.cons (nth_order z zero_lt_two)
+        (Vector.cons (nth_order z one_lt_two)
+           (Vector.cons p384_felem_one (@Vector.nil felem))).
+
+    intros.
+    unfold affineToJac. 
+    destruct (Vec_S_cons _ _ z). destruct H.
+    destruct (Vec_S_cons _ _ x0). destruct H0.
+    subst.
+    rewrite (Vec_0_nil _ x2).
+    reflexivity.
+  Qed.
+
+  Theorem affineToJac_cons_eq_gen : forall z1 z2,   
+    z1 = z2 -> 
+    affineToJac z1 =
+    Vector.cons (nth_order z2 zero_lt_two)
+      (Vector.cons (nth_order z2 one_lt_two)
+         (Vector.cons p384_felem_one (@Vector.nil felem))).
+
+    intros.
+    subst.
+    apply affineToJac_cons_eq.
+  Qed.
+
+  Theorem validate_base_table_equiv : forall t,
+    validate_base_table t = validate_base_table_abstract (map to_list (to_list t)).
+
+    intros.
+    unfold validate_base_table, EC_P384_5.validate_base_table, validate_base_table_abstract.
+    rewrite ecFoldl_foldl_equiv.
+    simpl.
+    f_equal.
+    match goal with
+    | [|- fold_left _ _ ?a = fold_left _ _ ?b] =>
+      replace a with b
+    end.
+    rewrite fold_left_map.
+    apply fold_left_ext.
+    intros.
+    apply validate_base_table_body_equiv.
+    erewrite (@sawAt_nth_order_equiv _ _ 2%nat 0%nat).
+    erewrite (@sawAt_nth_order_equiv _ _ 2%nat 1%nat).
+    f_equal.
+    apply affineToJac_cons_eq_gen.
+    rewrite sawAt_nth_equiv.
+    f_equal.
+    rewrite sawAt_nth_equiv.
+    erewrite nth_indep.
+    rewrite map_nth.
+    reflexivity.
+    rewrite map_length.
+    rewrite length_to_list.
+    lia.
+    lia.
+    lia.
+  Qed.
 
 End PointMul.
 

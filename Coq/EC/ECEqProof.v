@@ -974,7 +974,7 @@ Section ECEqProof.
   Qed.
 
  
-  (* A more general form of the point add correctness proof using Jacobian equality *)
+  (* A more general form the point add/double correctness using Jacobian equality *)
   Lemma point_add_jac_eq : forall (a b:point) a' b',
     jac_eq (fromPoint a) (seqToProd a') ->
     jac_eq (fromPoint b) (seqToProd b') -> 
@@ -1040,6 +1040,29 @@ Section ECEqProof.
     repeat rewrite prodToSeq_inv.
     apply jac_eq_refl.
  
+  Qed.
+
+  Lemma point_double_eq : forall (a:point) a',
+    jac_eq (fromPoint a) (seqToProd a') ->
+    jac_eq (fromPoint (Jacobian.double a)) (seqToProd (point_double a')).
+
+    intros.
+    rewrite <- (prodToSeq_inv a').
+    edestruct (jac_eq_point_ex _ _ H).
+    rewrite H0.
+
+    eapply jac_eq_trans.
+    eapply jacobian_eq_jac_eq.
+    eapply Jacobian.Proper_double.
+    eapply jac_eq_jacobian_eq.
+    rewrite H0 in H.
+    eauto.
+    eapply jac_eq_trans.
+    eapply jacobian_eq_jac_eq.
+    apply Jacobian.double_minus_3_eq_double.
+    rewrite double_eq_minus_3_h.
+    apply jac_eq_refl.
+
   Qed.
 
 
@@ -2748,6 +2771,8 @@ Section ECEqProof.
 
   Qed.
 
+
+
   Theorem mul_body_equiv : forall pred_wsize p a1 a2 b1 b2,
     0 < pred_wsize < 15 ->
     jac_eq (fromPoint a1) (seqToProd a2) ->
@@ -3401,6 +3426,42 @@ Section ECEqProof.
 
   Qed.
 
+  Theorem groupDouble_n_fold_left_double_abstract_equiv
+     : forall (ws : nat) (A: Type)(ls : list A) (a1 : point) (a2 : seq 3 F),
+       Datatypes.length ls = ws ->
+       jac_eq (fromPoint a1) (seqToProd a2) ->
+       jac_eq (fromPoint (groupDouble_n ws a1))
+         (seqToProd
+            (List.fold_left
+               (fun (x : seq 3 (seq 6 (seq 64 Bool))) (_ : A) =>
+                EC_P384_Abstract.point_double Fsquare Fmul Fsub Fadd x) ls a2)).
+
+      induction ws; destruct ls; intros; simpl in *; try lia.
+      trivial.
+      eapply jac_eq_trans; [idtac | eapply IHws].
+      apply jacobian_eq_jac_eq.
+      eapply groupDouble_n_double_comm_jac.
+      lia.
+      assert (exists a2', (seqToProd a2) = (fromPoint a2')).
+      eapply jac_eq_point_ex; eauto.
+      destruct H1. subst.
+      replace a2 with (prodToSeq (fromPoint x)).
+      rewrite <- double_eq_minus_3.
+      rewrite seqToProd_inv.
+      apply jacobian_eq_jac_eq.
+      transitivity (Jacobian.double x).
+      apply Jacobian.Proper_double.
+      eapply jac_eq_jacobian_eq.
+      eapply jac_eq_trans; eauto.
+      eapply jac_eq_refl_abstract.
+      trivial.
+
+      eapply Jacobian.double_minus_3_eq_double.
+      rewrite <- H1.
+      apply prodToSeq_inv.
+    
+  Qed.
+
 
   Definition affineOpp (x : affine_point) :=
     cons _ (nth_order x zero_lt_two) _ (cons _ (Fopp (nth_order x one_lt_two)) _ (@nil F)).
@@ -3409,17 +3470,533 @@ Section ECEqProof.
   Variable base_precomp_table : list (list affine_point).
   Definition numPrecompExponentGroups : nat := (Nat.pred wsize).
   Definition precompTableSize : nat := List.length base_precomp_table.
-  Hypothesis precompTableSize_nz : precompTableSize <> 0%nat.
+  Hypothesis precompTableSize_20 : precompTableSize = 20%nat.
   Hypothesis base_precomp_table_entry_length : 
     forall ls, List.In ls base_precomp_table -> List.length ls = Nat.pow 2 numPrecompExponentGroups.
   Variable g : point.
-  Definition affineToJac (a : affine_point) : Vec 3 F :=
-    (append _ _ _ a (cons _ Fone 0 (@nil F))).
   Definition affine_default :=  List.hd (cons _ Fone _ (cons _ Fone _ (@nil F))) (List.hd List.nil base_precomp_table ) .
-  Hypothesis base_precomp_table_correct : forall n1 n2,
+
+  (* Assume the base point table passes validation, and then prove that it is correct.*)
+  Definition validate_base_table_abstract := validate_base_table_abstract Fsquare Fmul Fsub Fadd.
+  Hypothesis base_precomp_table_validated : validate_base_table_abstract base_precomp_table = true.
+
+  Definition jacobian_affine_eq :=  jacobian_affine_eq Fsquare Fmul Fsub.
+  Definition validateGeneratorTable := validateGeneratorTable g (fun p => jacobian_affine_eq (prodToSeq (fromPoint p))) affine_default.
+
+  Theorem Fsub_0_eq : forall a0 b0,
+    Feq (a0 - b0) 0 ->
+    Feq a0 b0.
+
+    intros.
+    nsatz.
+
+  Qed.
+
+  Theorem Fsub_not_0_neq : forall a0 b0,
+    ~(Feq (a0 - b0) 0) ->
+    ~(Feq a0 b0).
+
+    intros.
+    intuition idtac.
+    eapply H.
+    nsatz.
+
+  Qed.
+
+  Theorem felem_nz_0 : forall x, 
+    felem_nz x = intToBv 64 0 ->
+    x = 0.
+
+    intros.
+    destruct (dec (Feq x 0)).
+    eapply f.
+    exfalso.
+    eapply felem_nz_neq_0.
+    intuition idtac.
+    eapply n.
+    eapply H0.
+    trivial.
+
+  Qed.
+
+  
+  Theorem felem_nz_not_0 : forall x, 
+    ~(felem_nz x = intToBv 64 0) ->
+    x <> 0.
+
+    intros.
+    intuition idtac.
+    subst.
+    eapply H.
+    reflexivity.
+
+  Qed.
+
+  Theorem felem_ne_0 : forall a b, 
+    felem_ne Fsub a b = intToBv 64 0 ->
+    a = b.
+
+    intros.
+    unfold felem_ne in *.
+    destruct (dec (Feq (a0 - b0) 0)).
+    eapply Fsub_0_eq.
+    trivial.
+
+    exfalso.
+    eapply felem_nz_neq_0.
+    intuition idtac.
+    eapply n.
+    eapply H0.
+    trivial.
+
+  Qed.
+
+  Theorem felem_ne_not_0 : forall a b, 
+    felem_ne Fsub a b <> intToBv 64 0 ->
+    a <> b.
+
+    intros.
+    eapply felem_nz_not_0 in H.
+    
+    eapply Fsub_not_0_neq.
+    eapply H.
+    
+  Qed.
+
+  Theorem jacobian_affine_eq_equiv : forall s p a,
+    jac_eq (seqToProd s) (fromPoint p) ->
+    EC_P384_5.jacobian_affine_eq Fsquare Fmul Fsub s a =
+    jacobian_affine_eq (prodToSeq (fromPoint p)) a.
+
+    intros.
+    unfold jacobian_affine_eq, EC_P384_5.jacobian_affine_eq, jac_eq in *.
+    simpl in *.
+    remember (fromPoint p) as z.
+    destruct z.
+    destruct p0.
+    destruct (Vec_S_cons _ _ s).
+    destruct H0.
+    subst.
+    destruct (Vec_S_cons _ _ x0).
+    destruct H0.
+    subst.
+    destruct (Vec_S_cons _ _ x2).
+    destruct H0.
+    subst.
+    rewrite (@Vec_0_nil _ x3) in *.
+    simpl in *.
+    repeat erewrite sawAt_nth_order_equiv.
+    unfold nth_order in *.  
+    simpl in *.
+    unfold ecNotEq, ecEq.
+    simpl.
+    generalize (nth a0 (Fin.FS Fin.F1)); intros.
+    generalize (nth a0 Fin.F1); intros.
+    destruct (dec (Feq x0 0)); 
+    repeat match goal with
+    | [|- context[ bvEq ?a ?b ?c]] => case_eq (bvEq a b c); intros
+    | [H: bvEq ?a ?b ?c = true |- _] => apply bvEq_eq in H
+    | [H: bvEq ?a ?b ?c = false |- _] => apply bvEq_neq in H
+    | [H: felem_ne Fsub ?a ?b = intToBv 64 0 |- _ ] => apply felem_ne_0 in H
+    | [H: felem_ne Fsub ?a ?b <> intToBv 64 0 |- _ ] => apply felem_ne_not_0 in H
+    | [H: felem_nz ?x = intToBv 64 0 |- _] => eapply felem_nz_0 in H
+    | [H: felem_nz ?x <> intToBv 64 0 |- _] => eapply felem_nz_not_0 in H
+    end; trivial; simpl in *; unfold Feq in *; subst; exfalso;
+    repeat match goal with
+    | [H: felem_nz 0 <> intToBv 64 0 |- _ ] => eapply H; reflexivity
+    | [H: felem_nz ?x = intToBv 64 0 |- _] => eapply felem_nz_0 in H
+    | [H: felem_nz ?x = intToBv 64 0 -> False |- _] => eapply felem_nz_not_0 in H
+    end;
+    intuition idtac.
+
+    replace (v * (Fsquare x0 * x0) * f ^ 3) with (v * f ^ 3 * (Fsquare x0 * x0) )in H7.
+    apply fmul_same_r_if in H7.
+    unfold Feq in *.
+    subst.
+    intuition idtac.
+    eapply mul_nz.
+    eapply mul_nz.
+    intuition idtac;
+    eauto.
+    intuition idtac;
+    eauto.
+    intuition idtac;
+    eauto.
+    nsatz.
+    
+    replace (v0 * Fsquare x0 * f ^ 2) with (v0 * f ^ 2 * Fsquare x0) in H.
+    apply fmul_same_r_if in H.
+    unfold Feq in *.
+    subst.
+    intuition idtac.
+    eapply mul_nz.
+    intuition idtac;
+    eauto.
+    intuition idtac;
+    eauto.
+    nsatz.
+
+    replace (v0 * Fsquare x0 * f ^ 2) with (v0 * f ^ 2 * Fsquare x0) in H.
+    apply fmul_same_r_if in H.
+    unfold Feq in *.
+    subst.
+    intuition idtac.
+    eapply mul_nz.
+    intuition idtac;
+    eauto.
+    intuition idtac;
+    eauto.
+    nsatz.
+
+    replace (v * (Fsquare f * f) * x0 ^ 3) with (v * x0 ^ 3 * (Fsquare f * f)) in H7.
+    apply fmul_same_r_if in H7.
+    unfold Feq in *.
+    subst.
+    intuition idtac.
+    eapply mul_nz.
+    rewrite felem_sqr_spec.
+    eapply mul_nz.
+    intuition idtac;
+    eauto.
+    intuition idtac;
+    eauto.
+    intuition idtac;
+    eauto.
+    nsatz.
+
+    replace (v0 * Fsquare f * x0 ^ 2) with (v0 * x0 ^ 2 * Fsquare f) in H.
+    apply fmul_same_r_if in H.
+    unfold Feq in *.
+    subst.
+    intuition idtac.
+    rewrite felem_sqr_spec.
+    eapply mul_nz.
+    intuition idtac;
+    eauto.
+    intuition idtac;
+    eauto.
+    nsatz.
+
+    replace (v0 * Fsquare f * x0 ^ 2) with (v0 * x0 ^ 2 * Fsquare f) in H.
+    apply fmul_same_r_if in H.
+    unfold Feq in *.
+    subst.
+    intuition idtac.
+    rewrite felem_sqr_spec.
+    eapply mul_nz.
+    intuition idtac;
+    eauto.
+    intuition idtac;
+    eauto.
+    nsatz.
+
+    Unshelve. 
+    lia.
+    lia.
+    lia.
+    lia.
+    lia.
+    lia.
+    lia.
+    lia.
+  Qed.
+
+  Theorem natsFrom_S : forall y x,
+    natsFrom x (S y) = (natsFrom x y) ++ [(x + y)%nat].
+
+    induction y; intros; simpl in *.
+    f_equal.
+    lia.
+    f_equal.
+    rewrite IHy.
+    f_equal.
+    f_equal.
+    lia.
+
+  Qed.
+
+  Theorem toN_excl_add_natsFrom_equiv : forall y x,
+    List.Forall2 (fun (x0 : Z) (y0 : nat) => (Z.of_nat x + x0)%Z = Z.of_nat y0)
+    (toN_excl_int y) (natsFrom x y).
+
+    induction y; intros.
+    simpl in *.
+    econstructor.
+    rewrite natsFrom_S.
+    simpl in *.
+    eapply Forall2_app.
+    eapply IHy.
+    econstructor.
+    lia.
+    econstructor.  
+
+  Qed.
+
+  Theorem toN_add_natsFrom_equiv : forall x y,
+    List.Forall2 (fun x y => x = Z.of_nat y)
+      (List.map (BinInt.Z.add (Z.of_nat x)) (toN_int y))
+      (natsFrom x (S y)).
+
+    intros.
+    unfold toN_int.
+    rewrite natsFrom_S.
+    eapply Forall2_map_l.
+    eapply Forall2_app.
+    eapply toN_excl_add_natsFrom_equiv.
+    econstructor.
+    lia.
+    econstructor.
+    
+  Qed.
+
+  Theorem In_natsFrom_range : forall z x y,
+    List.In x (natsFrom y z) ->
+    (y <= x < (y + z))%nat.
+
+    induction z; intros; simpl in *.
+    intuition idtac.
+    destruct H; subst.
+    lia.
+    eapply IHz in H.
+    lia.
+
+  Qed.
+
+  Definition first_point_generator_prop :=
+         jac_eq
+    (seqToProd
+       (affineToJac
+          (List.nth 0 (List.nth 0 base_precomp_table (inhabitant (list affine_point))) (inhabitant affine_point)))) 
+    (fromPoint g).
+
+  Hypothesis first_point_generator : first_point_generator_prop.
+
+  Hypothesis wsize_5 : wsize = 5%nat.
+
+  Theorem validate_base_table_abstract_model_equiv : 
+    validate_base_table_abstract base_precomp_table = validateGeneratorTable base_precomp_table.
+
+    intros.
+    unfold validate_base_table_abstract, EC_P384_Abstract.validate_base_table_abstract, validateGeneratorTable, GroupMulWNAF.validateGeneratorTable.
+    eapply (@fold_left_R _ _ _ _ (fun x y => jac_eq (seqToProd (fst x)) (fromPoint (fst y)) /\ snd x = snd y) eq).
+    intuition idtac.
+
+    eapply forall2_eq; eauto.
+
+    intros.
+    subst.
+    unfold validate_base_table_body_abstract, validateGeneratorTableBody.
+    Local Opaque jac_eq.
+    destruct a1. destruct a2. simpl in *.
+    destruct H; subst.
+    
+    split.
+    eapply jac_eq_symm.
+    eapply groupDouble_n_fold_left_double_abstract_equiv.
+    simpl.
+    symmetry.
+    apply precompTableSize_20.
+    apply jac_eq_symm; eauto.
+    
+    destruct b1; simpl; trivial.
+    unfold validate_base_row_abstract, validateGeneratorTableRow.
+    eapply (@fold_left_R _ _ _ _ (fun x y => jac_eq (seqToProd (fst x)) (fromPoint (fst y)) /\ snd x = snd y) eq).
+    unfold fst, snd.
+    split.
+    unfold groupAdd, groupDouble.
+    simpl.
+    eapply jac_eq_symm.
+    eapply point_add_jac_eq.
+    apply jac_eq_symm; eauto.
+    eapply point_double_eq.
+    apply jac_eq_symm.
+    eauto.
+
+    erewrite nth_indep.
+    eapply jacobian_affine_eq_equiv.
+    eauto.
+    erewrite base_precomp_table_entry_length; eauto.
+    specialize (@PeanoNat.Nat.pow_nonzero 2 numPrecompExponentGroups).
+    intuition idtac.
+    lia.
+
+    apply Forall2_map_l.
+    apply Forall2_map_r.
+    erewrite base_precomp_table_entry_length.
+    unfold numPrecompExponentGroups.
+    rewrite wsize_5.
+    eapply Foralll2_impl.
+    eapply (@toN_add_natsFrom_equiv 1%nat 14%nat).
+    intros.
+    simpl in H4; subst.
+    rewrite Znat.Nat2Z.id.
+    eapply nth_indep.
+    rewrite base_precomp_table_entry_length.
+    unfold numPrecompExponentGroups.
+    rewrite wsize_5.
+    apply In_natsFrom_range in H3.
+    lia.
+    eauto.
+    eauto.
+    
+    intros.
+    simpl.
+    destruct H0.
+    subst.
+    split.  
+    apply jac_eq_symm.
+    apply point_add_jac_eq.
+    apply jac_eq_symm; eauto.
+    apply point_double_eq.
+    apply jac_eq_symm.
+    eauto.
+    unfold ecAnd.
+    simpl.
+    rewrite <- H6.
+    f_equal.
+    subst.
+    apply jacobian_affine_eq_equiv.
+    eauto.
+  Qed.
+
+  Theorem Fzero_ne_Fone:
+    ~(Feq Fzero Fone).
+
+    intros.
+    eapply zero_neq_one.
+
+  Qed.
+
+  Theorem Fone_ne_Fzero:
+    ~(Feq Fone Fzero).
+
+    intuition idtac.
+    apply Fzero_ne_Fone.
+    symmetry.
+    eauto.
+
+  Qed.
+
+  Theorem negb_true_false : forall x,
+    negb x = true -> 
+    x = false.
+  
+    intros.
+    destruct x; simpl in *; try discriminate.
+    trivial.
+  Qed.
+
+  Theorem negb_false_true : forall x,
+    negb x = false -> 
+    x = true.
+  
+    intros.
+    destruct x; simpl in *; try discriminate.
+    trivial.
+  Qed.
+
+  Theorem jacobian_affine_eq_correct : 
+  forall p (t : affine_point),
+    Feq p384_felem_one 1 ->
+    EC_P384_5.jacobian_affine_eq Fsquare Fmul Fsub (prodToSeq p) t = 1%bool <-> jac_eq (seqToProd (affineToJac t)) p.
+
+    intros.
+    destruct p.
+    destruct p.
+    destruct (Vec_S_cons _ _ t).
+    destruct H0.
+    subst.
+    destruct (Vec_S_cons _ _ x0).
+    destruct H0.
+    subst.
+    rewrite (@Vec_0_nil _ x2).
+    unfold prodToSeq.
+    simpl.
+    Local Transparent jac_eq.
+    unfold EC_P384_5.jacobian_affine_eq, jac_eq.
+    simpl in *.
+    unfold sawAt.
+    simpl.
+    unfold affineToJac.
+    simpl.
+    unfold nth_order.
+    simpl.
+    unfold ecNotEq, ecEq.
+    simpl.
+
+    rewrite H.
+    replace (f0 * 1 ^ 2) with f0.
+    replace (f1 * 1 ^ 3) with f1.
+
+    destruct (dec (Feq 1 0)); 
+    repeat match goal with
+    | [|- context[if ?a then _ else _]] => case_eq a; intros
+    end; split; intros;
+    
+    repeat match goal with
+    | [H : false = true |- _ ] => discriminate
+    | [H : Feq 1 0 |- _] => 
+          exfalso; eapply Fone_ne_Fzero; eauto
+    | [H :  bvEq _ _ _  = true |- _] => apply bvEq_eq in H
+    | [H :  bvEq _ _ _  = false |- _] => apply bvEq_neq in H
+     | [H : felem_ne Fsub _ _ = intToBv 64 0 |- _ ] => apply felem_ne_0 in H
+    | [H : felem_ne Fsub _ _ <> intToBv 64 0 |- _ ] => apply felem_ne_not_0 in H
+    | [H : felem_nz _ = intToBv 64 0 |- _ ] => apply felem_nz_0 in H
+    | [H : felem_nz _ <> intToBv 64 0 |- _ ] => apply felem_nz_not_0 in H
+    | [H : negb _ = true |- _ ] => apply negb_true_false in H
+    | [H : negb _ = false |- _ ] => apply negb_false_true in H
+    end;
+    intuition idtac.
+
+    nsatz.
+    nsatz.
+
+  Qed.
+
+  Definition jacobian_affine_eq_point (p : point) :=
+    EC_P384_5.jacobian_affine_eq Fsquare Fmul Fsub (prodToSeq (fromPoint p)).
+
+  Theorem jacobian_affine_eq_point_correct : 
+  forall (p : point) (t : affine_point),
+    Feq p384_felem_one 1 ->
+    jacobian_affine_eq_point p t = 1%bool <-> jac_eq (seqToProd (affineToJac t)) (fromPoint p).
+
+    intros.
+    apply jacobian_affine_eq_correct.
+    trivial.
+
+  Qed.
+
+  Theorem base_precomp_table_correct  : forall n1 n2,
+    Feq p384_felem_one 1 -> 
+    wsize = 5%nat -> 
     (n1 < precompTableSize)%nat ->
     (n2 < Nat.pow 2 numPrecompExponentGroups)%nat-> 
     jac_eq (seqToProd (affineToJac (List.nth n2 (List.nth n1 base_precomp_table List.nil) affine_default))) (fromPoint (groupMul ((2 * n2 + 1) * (Nat.pow 2 (n1 * numPrecompExponentGroups * wsize))) g)).
+ 
+    intros.
+    eapply validateGeneratorTable_correct.
+    lia.
+    intros.
+    eapply jacobian_affine_eq_point_correct.
+    trivial.
+    intros.
+    eapply jac_eq_trans; eauto.
+    rewrite validate_base_table_abstract_model_equiv in *.
+    eapply base_precomp_table_validated.
+    unfold validate_base_table_abstract, EC_P384_Abstract.validate_base_table_abstract in *.
+    trivial.
+
+    eauto.
+    eauto.
+    eauto.
+    unfold numPrecompExponentGroups.
+    rewrite H0.
+    eauto.
+
+    apply base_precomp_table_entry_length.
+
+  Qed.
 
   Definition on_curve (p : affine_point ) : Prop :=
     let x := nth_order p zero_lt_two in
@@ -3457,6 +4034,8 @@ Section ECEqProof.
   Definition affinePointLookup (n m : nat) :=
     List.nth n (List.nth m base_precomp_table List.nil) affine_default.
 
+  Hypothesis p384_felem_one_correct : Feq p384_felem_one 1.
+
   Theorem is_jacobian_on_curve : forall p,
     is_jacobian (seqToProd (affineToJac p)) -> 
     on_curve p.
@@ -3472,8 +4051,9 @@ Section ECEqProof.
     subst.
     unfold nth_order in *.
     simpl in *.
-    unfold sawAt in *.
+    rewrite (@Vec_0_nil _ x2) in *.
     simpl in *.
+    rewrite p384_felem_one_correct in *.
     unfold Feq in *.
     destruct (dec (1 = 0)).
     nsatz.
@@ -3498,8 +4078,10 @@ Section ECEqProof.
     eapply jac_eq_is_jacobian; [idtac | apply jac_eq_symm; apply base_precomp_table_correct].
     eapply fromPoint_is_jacobian.
     eauto.
+    eauto.
+    eauto.
     erewrite base_precomp_table_entry_length in H1.
-    lia.
+    eauto.
     eauto.
 
   Qed.
@@ -3546,6 +4128,44 @@ Section ECEqProof.
 
   Qed.
 
+  Theorem nth_order_Vec_append_l_eq
+    : forall (A : Type) (inh : Inhabited A) (n1 : nat) (v1 : Vec n1 A) (n2 : nat) (v2 : Vec n2 A) (n' : nat) (nlt2 : (n' < n2 + n1)%nat) (nlt1 : (n' < n2)%nat),
+      nth_order (Vector.append v2 v1) nlt2 = nth_order v2 nlt1.
+
+    intros.
+    repeat rewrite (nth_order_to_list_eq (inhabitant inh)).
+    rewrite to_list_append.
+    rewrite app_nth1.
+    reflexivity.
+    rewrite length_to_list.
+    lia.
+
+  Qed.
+
+  Theorem zero_lt_one : (0<1)%nat.
+
+    lia.
+
+  Qed.
+
+  Theorem nth_order_Vec_append_eq
+    : forall (A : Type) (inh : Inhabited A) (n1 : nat) (v1 : Vec n1 A) (n2 : nat) (v2 : Vec n2 A) (n' : Nat) (nlt2 : (addNat n' n2 < n2 + n1)%nat)
+        (nlt1 : (n' < n1)%nat), nth_order (Vector.append  v2 v1) nlt2 = nth_order v1 nlt1.
+
+    intros.
+    repeat rewrite (nth_order_to_list_eq (inhabitant inh)).
+    rewrite to_list_append.
+    rewrite app_nth2.
+    repeat rewrite length_to_list.
+    f_equal.
+    rewrite addNat_add.
+    lia.
+    rewrite length_to_list.
+    repeat rewrite addNat_add in *.
+    lia.
+
+  Qed.
+
   Theorem affineIsJacobian : forall affinePt,
     on_curve affinePt -> 
     is_jacobian (seqToProd (affineToJac affinePt)).
@@ -3553,22 +4173,30 @@ Section ECEqProof.
     intros.
     unfold affineToJac, is_jacobian, on_curve in *.
     simpl.
-    replace (nth_order (append 2 1 felem affinePt (cons F 1 0 (nil F))) two_lt_three)  with 1.
+    match goal with
+    | [|- if (dec (Feq ?a _)) then _ else _ ] => replace a with Fone
+    end.
     destruct (dec (Feq 1 0)).
     trivial.
     replace (b * (1 ^ 3) ^ 2) with b.
-    replace (a * nth_order (append 2 1 felem affinePt (cons F 1 0 (nil F))) zero_lt_three * (1 ^ 2) ^ 2) with (a * nth_order (append 2 1 felem affinePt (cons F 1 0 (nil F))) zero_lt_three).
-    erewrite (@nth_order_append_l_eq _ _ 1%nat _ 2%nat _ _ _ one_lt_two ).  
-    repeat erewrite (@nth_order_append_l_eq _ _ 1%nat _ 2%nat _ _ _ zero_lt_two ).
+
+    match goal with 
+    | [|- context [?a * ?b * (1^2)^2]] => replace (a * b * (1^2)^2) with (a * b)
+    end.
+
+    rewrite p384_felem_one_correct.
+    repeat rewrite (@nth_order_Vec_append_l_eq _ _ 1%nat _ 2%nat _ _ _ zero_lt_two); intros.
+    rewrite (@nth_order_Vec_append_l_eq _ _ 1%nat _ 2%nat _ _ _ one_lt_two); intros.
+
     apply H.
     nsatz.
     nsatz.
     symmetry.
-    erewrite (@nth_order_append_eq felem _ 1%nat (cons F 1 0 (nil F)) 2%nat affinePt 0%nat two_lt_three ).
+    transitivity (nth_order (cons F 1 0 (nil F)) zero_lt_one).
+    rewrite p384_felem_one_correct.
+    apply (@nth_order_Vec_append_eq felem _ 1%nat (cons F 1 0 (nil F)) 2%nat affinePt 0%nat two_lt_three ).
     reflexivity.
 
-    Unshelve. 
-    lia.
   Qed.
 
   Definition pExpMultiple (n : nat) (x : Z) : point := 
@@ -3597,6 +4225,7 @@ Section ECEqProof.
     simpl.
     destructVec.
     simpl.
+    rewrite p384_felem_one_correct.
     destruct (dec (Feq 1 0)).
     trivial.
     intuition idtac.
@@ -3738,6 +4367,8 @@ Section ECEqProof.
     eapply jac_eq_trans.
     eapply base_precomp_table_correct.
     trivial.
+    trivial.
+    trivial.
     eapply OddWindow_precomp_abs_le; eauto.
     
     eapply jac_eq_symm.
@@ -3819,6 +4450,8 @@ Section ECEqProof.
     destruct (ZArith_dec.Z_lt_ge_dec w 0); try lia.
     eapply jac_eq_trans.
     eapply base_precomp_table_correct.
+    trivial.
+    trivial.
     trivial.
     eapply OddWindow_precomp_le; eauto.
     lia.
@@ -3942,42 +4575,6 @@ Section ECEqProof.
     eapply List.map_app.
   Qed.
 
-  Theorem groupDouble_n_fold_left_double_abstract_equiv
-     : forall (ws : nat) (A: Type)(ls : list A) (a1 : point) (a2 : seq 3 F),
-       Datatypes.length ls = ws ->
-       jac_eq (fromPoint a1) (seqToProd a2) ->
-       jac_eq (fromPoint (groupDouble_n ws a1))
-         (seqToProd
-            (List.fold_left
-               (fun (x : seq 3 (seq 6 (seq 64 Bool))) (_ : A) =>
-                EC_P384_Abstract.point_double Fsquare Fmul Fsub Fadd x) ls a2)).
-
-      induction ws; destruct ls; intros; simpl in *; try lia.
-      trivial.
-      eapply jac_eq_trans; [idtac | eapply IHws].
-      apply jacobian_eq_jac_eq.
-      eapply groupDouble_n_double_comm_jac.
-      lia.
-      assert (exists a2', (seqToProd a2) = (fromPoint a2')).
-      eapply jac_eq_point_ex; eauto.
-      destruct H1. subst.
-      replace a2 with (prodToSeq (fromPoint x)).
-      rewrite <- double_eq_minus_3.
-      rewrite seqToProd_inv.
-      apply jacobian_eq_jac_eq.
-      transitivity (Jacobian.double x).
-      apply Jacobian.Proper_double.
-      eapply jac_eq_jacobian_eq.
-      eapply jac_eq_trans; eauto.
-      eapply jac_eq_refl_abstract.
-      trivial.
-
-      eapply Jacobian.double_minus_3_eq_double.
-      rewrite <- H1.
-      apply prodToSeq_inv.
-    
-  Qed.
-
   Theorem affineToJac_cons_eq : forall z,
       affineToJac z =
       cons (seq 6 (seq 64 bool)) (nth_order z zero_lt_two) 2
@@ -3990,12 +4587,11 @@ Section ECEqProof.
     destruct (Vec_S_cons _ _ x0). destruct H0.
     subst.
     rewrite (Vec_0_nil _ x2).
-    rewrite SAWCorePrelude_proofs.append_cons.
+    unfold nth_order.
     simpl.
-    rewrite SAWCorePrelude_proofs.append_cons.
-    simpl.
-    rewrite append_nil_eq.
-    f_equal.
+    
+    rewrite p384_felem_one_correct.
+    reflexivity.
 
   Qed.
 
@@ -4198,7 +4794,8 @@ Section ECEqProof.
 
     unfold affineToJac, affineOpp.
     simpl.
-    f_equal.
+    rewrite p384_felem_one_correct.
+    reflexivity.
 
     reflexivity.
     eapply ct_abs_equiv.
@@ -4243,7 +4840,7 @@ Section ECEqProof.
     unfold OddWindow, GroupMulWNAF.OddWindow in *; simpl in *.
     intuition idtac.
     eapply Z.lt_le_trans.
-    eapply H6.
+    eapply H8.
     rewrite Z.shiftl_1_l.
     rewrite Z.pow_pos_fold.
     eapply Z.pow_le_mono_r.
@@ -4863,7 +5460,7 @@ Section ECEqProof.
     specialize (@recode_rwnaf_correct wsize); intros.
     assert (wsize <> 0)%nat by lia.
     intuition idtac.
-    specialize (H5 (S (S (S nw)))). 
+    specialize (H7 (S (S (S nw)))). 
     assert (S (S (S nw)) <> 0)%nat by lia.
     intuition idtac.
 
@@ -4871,7 +5468,7 @@ Section ECEqProof.
     eapply forall2_map_eq in H3.
     rewrite H3.
 
-    specialize (H6 (bvToNat _ n)).
+    specialize (H8 (bvToNat _ n)).
     assert (BinInt.Z.of_nat (bvToNat 384 n) < BinInt.Z.shiftl 1 (BinInt.Z.of_nat (S (S (S nw)) * wsize)))%Z.
     rewrite Z.shiftl_1_l.
     rewrite bvToNat_toZ_equiv.
@@ -4880,15 +5477,15 @@ Section ECEqProof.
     rewrite bvToNat_toZ_equiv in *.
     unfold RegularReprOfNat, RegularReprOfZ in *.
     intuition idtac.  
-    clear H8.
+    clear H10.
     unfold RegularWindows in *.
     eapply List.Forall_forall.
     intros.
-    eapply in_map_iff in H7.
-    destruct H7.
+    eapply in_map_iff in H9.
+    destruct H9.
     intuition idtac.
     subst.
-    specialize (H6 x0).
+    specialize (H8 x0).
     intuition idtac.
     rewrite sbvToInt_intToBv_id.
     trivial.
@@ -4896,7 +5493,7 @@ Section ECEqProof.
     unfold OddWindow, GroupMulWNAF.OddWindow in *.
     rewrite Z.shiftl_1_l in *.
     intuition idtac.
-    apply Z.abs_lt in H8.
+    apply Z.abs_lt in H10.
     intuition idtac.
     eapply (Z.le_trans _ (- 2 ^ BinInt.Z.of_nat wsize)).
     eapply (Z.opp_le_mono (2 ^ BinInt.Z.of_nat wsize)).
@@ -4904,7 +5501,7 @@ Section ECEqProof.
     lia.
     lia.
     lia.
-    apply Z.abs_lt in H8.
+    apply Z.abs_lt in H10.
     intuition idtac.
     eapply Z.lt_le_trans; eauto.
     eapply Z.pow_le_mono_r.
@@ -4978,7 +5575,7 @@ Section ECEqProof.
     intuition idtac.
     specialize (H5 nw0).
     intuition idtac.
-    specialize (H1 n).
+    specialize (H7 n).
     intuition idtac.
     eapply List.Forall_forall.
     intros.
@@ -5222,10 +5819,13 @@ Section ECEqProof.
     
     eapply jac_eq_trans.
     eapply base_precomp_table_correct.
+    eauto.
     lia.
     unfold numPrecompExponentGroups.
     specialize (PeanoNat.Nat.pow_nonzero 2 (Nat.pred wsize)).
     intuition idtac.
+    lia.
+    specialize (NPeano.Nat.pow_nonzero 2%nat numPrecompExponentGroups); intros.
     lia.
     rewrite NPeano.Nat.mul_0_r.
     rewrite NPeano.Nat.mul_0_l.
@@ -5241,16 +5841,15 @@ Section ECEqProof.
     simpl in *.
     unfold Vec in *.
     unfold Bool in *.
-    eapply eq_trans.
-    eapply H0.
+    rewrite p384_felem_one_correct.
     reflexivity.
 
     rewrite H7 in H0.
     optSomeInv.
     eauto.
+    reflexivity.
 
     Unshelve.
-    lia.
     lia.
 
   Qed.
@@ -5783,6 +6382,7 @@ Section ECEqProof.
 
   End PointMulAbstract.
 
+
    (**
   The point multiplication spec extracted from Cryptol is equivalent to the basic group
   multiplication operation on points. 
@@ -5821,22 +6421,40 @@ Section ECEqProof.
 
   Qed.
 
+
   (**
   The base point multiplication spec extracted from Cryptol is equivalent to the basic group
   multiplication operation on the base point. 
   *)
+
+  Definition validate_base_table := validate_base_table Fsquare Fmul Fsub Fadd.
+  (* Assume that the hard-coded table containing multiples of the base point has been validated.
+  This validation can occur during testing using a C program that is verified against this functional spec. *)
+  Hypothesis validate_base_table_true : validate_base_table p384_g_pre_comp = true.
+
   Definition preCompTable := (List.map (fun x => to_list x) (to_list p384_g_pre_comp)).
+
+  Local Opaque preCompTable validate_base_table p384_g_pre_comp validate_base_table_abstract.
+  Theorem validate_preCompTable_true : validate_base_table_abstract preCompTable = true.
+
+    match goal with
+    | [H : ?a = true |- ?b = true] => rewrite <- H
+    end.
+    symmetry.
+
+    Local Transparent validate_base_table.
+
+    apply validate_base_table_equiv.
+    Local Opaque validate_base_table.
+
+  Qed.
 
   Section PointMulBase.
   Variable g : point.
 
-  Hypothesis preCompTable_on_curve: forall (ls : list affine_point) (p : affine_point), List.In p ls -> List.In ls preCompTable -> on_curve p.
+  Hypothesis first_point_generator : first_point_generator_prop preCompTable g.
 
   Definition wsize := 5.
-  Hypothesis preCompTable_correct : forall n1 n2,
-    (n1 < List.length preCompTable)%nat ->
-    (n2 < Nat.pow 2 (numPrecompExponentGroups wsize))%nat-> 
-    jac_eq (seqToProd (affineToJac (List.nth n2 (List.nth n1 preCompTable List.nil) (affine_default preCompTable)))) (fromPoint (groupMul ((2 * n2 + 1) * (Nat.pow 2 (n1 * (numPrecompExponentGroups wsize) * wsize))) g)).
 
   Theorem to_list_entry_length_h : forall (A : Type)(n2 : nat)(v : list (Vec n2 A)) (ls : list A),
     List.In ls (List.map (fun x => to_list x) v) ->
@@ -5870,8 +6488,10 @@ Section ECEqProof.
     Datatypes.length ls = Nat.pow 2 (numPrecompExponentGroups wsize).
 
     intros.
+    Local Transparent preCompTable.
     unfold preCompTable in *.
     erewrite to_list_entry_length; eauto.
+    Local Opaque preCompTable.
 
   Qed.
 
@@ -5886,6 +6506,7 @@ Section ECEqProof.
   (* Assume the multiplicative identity element of the field is equal to the hard-coded "one" value in the code. *)
   Hypothesis Fone_eq : 
     p384_felem_one = 1.
+
 
   (* The base point multiplication operation using a hard-coded table is equivalent to multiplication by the base point. *)
   Theorem point_mul_base_correct : forall (n : seq 384 Bool),
@@ -5903,7 +6524,9 @@ Section ECEqProof.
     unfold wsize; lia.
     assert (List.Forall2 (fun (x : list affine_point) (y : t affine_point 16) => x = to_list y) preCompTable
          (to_list p384_g_pre_comp)).
+    Local Transparent preCompTable.
     unfold preCompTable.
+    Local Opaque preCompTable.
     eapply Forall2_map_l.
     eapply Forall2_same_Forall.
     eapply List.Forall_impl; [idtac | eapply Forall_I].
@@ -5933,13 +6556,19 @@ Section ECEqProof.
     Unshelve.
     lia.
     lia.
-    match goal with 
-    | [ |- (?a <> 0)%nat] => replace a with 20%nat
-    end.
-    lia.
-    symmetry.
-    apply preCompTable_length.
+    reflexivity.
     apply preCompTable_entry_length.
+    apply validate_preCompTable_true.
+    eauto.
+    match goal with
+    | [H : ?a = true |- ?b = true] => rewrite <- H
+    end.
+    symmetry.
+
+    Local Transparent validate_base_table.
+    apply validate_base_table_equiv.
+    eauto.
+    reflexivity.
     eauto.
 
   Qed.
@@ -5947,4 +6576,6 @@ Section ECEqProof.
   End PointMulBase.
 
 End ECEqProof.
+
+
 
