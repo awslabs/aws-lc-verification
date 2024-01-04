@@ -1112,16 +1112,84 @@ Section PointMul.
 
   End PointMulBase.
 
-  (* Base point table validation function. *)
+  Theorem two_lt_three : (2 < 3)%nat.
+    lia.
+  Qed.
 
+  Theorem one_lt_three : (1 < 3)%nat.
+    lia.
+  Qed.
+
+  Theorem zero_lt_three : (0 < 3)%nat.
+    lia.
+  Qed.
+
+  (* Base point table validation function. *)
+  Definition jacobian_affine_eq_abstract (jp : point) (ap : affine_point) := 
+    (if bvEq 64 (felem_nz (nth_order jp two_lt_three)) (intToBv 64 0)
+     then 0%bool
+     else
+      if
+       negb
+         (bvEq 64
+            (felem_ne felem_sub (felem_mul (nth_order ap zero_lt_two) (felem_sqr (nth_order jp two_lt_three))) (nth_order jp zero_lt_three))
+            (intToBv 64 0))
+      then 0%bool
+      else
+       if
+        negb
+          (bvEq 64
+             (felem_ne felem_sub
+                (felem_mul (nth_order ap one_lt_two) (felem_mul (felem_sqr (nth_order jp two_lt_three)) (nth_order jp two_lt_three)))
+                (nth_order jp one_lt_three)) (intToBv 64 0))
+       then 0%bool
+       else 1%bool).
+
+  Theorem jacobian_affine_eq_abstract_equiv : forall jp ap,
+    jacobian_affine_eq felem_sqr felem_mul felem_sub jp ap = jacobian_affine_eq_abstract jp ap.
+
+    intros.
+    unfold jacobian_affine_eq.
+    simpl.
+    unfold ecNotEq, ecEq.
+    simpl.
+    repeat erewrite sawAt_nth_order_equiv in *.
+    simpl in *.
+    reflexivity.
+
+    Unshelve.
+    lia.
+    lia.
+    lia.
+    lia.
+    lia.
+
+  Qed.
+
+
+  Definition validate_base_row_body := validate_base_row_body felem_sqr felem_mul felem_sub felem_add.
+  Definition validate_base_row_body_abstract g x y := 
+    (point_add 0 (fst x) g, (snd x && jacobian_affine_eq_abstract (fst x) y)%bool).
+
+  Theorem validate_base_row_body_abstract_equiv : forall g x y,
+    validate_base_row_body g x y = validate_base_row_body_abstract g x y.
+
+    intros.
+    unfold validate_base_row_body, EC_P384_5.validate_base_row_body.
+    unfold ecAnd.
+    simpl.
+    rewrite jacobian_affine_eq_abstract_equiv.
+    reflexivity.
+
+  Qed.
 
   Definition validate_base_row := validate_base_row felem_sqr felem_mul felem_sub felem_add.
-  Definition validate_base_row_abstract (p : point)(r : list affine_point) : bool := 
+  Definition validate_base_row_abstract (wsize : nat)(p : point)(r : list affine_point) : bool := 
     snd
-    (fold_left (validate_base_row_body felem_sqr felem_mul felem_sub felem_add (EC_P384_5.point_double felem_sqr felem_mul felem_sub felem_add p))
-     (map (fun i : Z => nth (Z.to_nat i) r (inhabitant affine_point)) (map (Z.add 1) (toN_int 14%nat)))
+    (fold_left (validate_base_row_body_abstract (EC_P384_5.point_double felem_sqr felem_mul felem_sub felem_add p))
+     (map (fun i : Z => nth (Z.to_nat i) r (inhabitant affine_point)) (map (Z.add 1) (toN_int (pred (pred (Nat.pow 2 (pred wsize)))))))
      (EC_P384_5.point_add felem_sqr felem_mul felem_sub felem_add 0 p (EC_P384_5.point_double felem_sqr felem_mul felem_sub felem_add p),
-     jacobian_affine_eq felem_sqr felem_mul felem_sub p (nth 0 r (inhabitant affine_point)))).
+     jacobian_affine_eq_abstract p (nth 0 r (inhabitant affine_point)))).
 
   Theorem in_toN_excl_int : forall y x, 
     In x (toN_excl_int y) ->
@@ -1157,8 +1225,21 @@ Section PointMul.
 
   Qed.
 
+  Theorem fold_left_f_equal : forall (A B : Type)(f1 f2 : A -> B -> A) ls1 ls2 a1 a2,
+    ls1 = ls2 ->
+    a1 = a2 ->
+    (forall a b, f1 a b = f2 a b) ->
+    fold_left f1 ls1 a1 = fold_left f2 ls2 a2.
+
+    intros.
+    subst.
+    eapply fold_left_ext.
+    trivial.
+
+  Qed.
+
   Theorem validate_base_row_equiv : forall (p : point) r,
-    validate_base_row p r = validate_base_row_abstract p (to_list r).
+    validate_base_row p r = validate_base_row_abstract 5 p (to_list r).
 
     intros.
     unfold validate_base_row, EC_P384_5.validate_base_row, validate_base_row_abstract.
@@ -1169,7 +1250,7 @@ Section PointMul.
     cut (forall ( A B : Type)(p1 p2 : A *B), p1 = p2 -> snd p1 = snd p2).
     intros.
     eapply H.
-    f_equal.
+    eapply fold_left_f_equal.
     match goal with
     | [ |- map _ ?a = map _ ?b ] =>
       replace a with b
@@ -1192,9 +1273,11 @@ Section PointMul.
     symmetry.
     eapply ecFromTo_m_n_equiv.
     f_equal.
+    rewrite jacobian_affine_eq_abstract_equiv.
     f_equal.
     apply sawAt_nth_equiv.
     lia.
+    intros. apply validate_base_row_body_abstract_equiv.
     intros. subst. reflexivity.
 
   Qed.
@@ -1203,10 +1286,10 @@ Section PointMul.
   Definition point_double_base_tsize := point_double_base_tsize felem_sqr felem_mul felem_sub felem_add.
   Definition point_double_base_abstract (p : point)(n : nat) : point := 
     fold_left double_body (toN_bv 64 (pred n)) p.
-  Definition point_double_base_tsize_abstract (p : point) : point := point_double_base_abstract p 20%nat.
+  Definition point_double_base_tsize_abstract (tsize : nat)(p : point) : point := point_double_base_abstract p tsize.
 
   Theorem point_double_base_tsize_equiv : forall p,
-    point_double_base_tsize p = point_double_base_tsize_abstract p.
+    point_double_base_tsize p = point_double_base_tsize_abstract 20 p.
 
     intros.
     unfold point_double_base_tsize, EC_P384_5.point_double_base_tsize, point_double_base_tsize_abstract.
@@ -1216,11 +1299,11 @@ Section PointMul.
   Qed.
   
   Definition validate_base_table_body := validate_base_table_body felem_sqr felem_mul felem_sub felem_add.
-  Definition validate_base_table_body_abstract (st : point * bool)(r : list affine_point) : (point * bool) := 
-    (point_double_base_tsize_abstract (fst st), (snd st && validate_base_row_abstract (fst st) r)%bool).
+  Definition validate_base_table_body_abstract (wsize : nat)(st : point * bool)(r : list affine_point) : (point * bool) := 
+    (point_double_base_tsize_abstract (wsize * (pred wsize)) (fst st), (snd st && validate_base_row_abstract wsize (fst st) r)%bool).
   
   Theorem validate_base_table_body_equiv : forall (st : point*bool) r,
-    validate_base_table_body st r = validate_base_table_body_abstract st (to_list r).
+    validate_base_table_body st r = validate_base_table_body_abstract 5 st (to_list r).
 
     intros.
     unfold validate_base_table_body, EC_P384_5.validate_base_table_body, validate_base_table_body_abstract.
@@ -1243,9 +1326,9 @@ Section PointMul.
     (Vector.append a (Vector.cons p384_felem_one (@Vector.nil felem))).
 
   Definition validate_base_table := validate_base_table felem_sqr felem_mul felem_sub felem_add.
-  Definition validate_base_table_abstract (t : list (list affine_point)) : bool := 
+  Definition validate_base_table_abstract wsize (t : list (list affine_point)) : bool := 
     snd
-      (fold_left validate_base_table_body_abstract t
+      (fold_left (validate_base_table_body_abstract wsize) t
          (affineToJac (nth 0%nat (nth 0%nat t (inhabitant (list affine_point))) (inhabitant affine_point)), 1%bool)).
 
   Theorem fold_left_map : forall (A B C : Type)(f1 : A -> B)(f2 : C -> B -> C) ls y,
@@ -1286,7 +1369,7 @@ Section PointMul.
   Qed.
 
   Theorem validate_base_table_equiv : forall t,
-    validate_base_table t = validate_base_table_abstract (map to_list (to_list t)).
+    validate_base_table t = validate_base_table_abstract 5 (map to_list (to_list t)).
 
     intros.
     unfold validate_base_table, EC_P384_5.validate_base_table, validate_base_table_abstract.
