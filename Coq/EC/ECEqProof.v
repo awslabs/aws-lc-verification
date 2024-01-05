@@ -3426,6 +3426,38 @@ Section ECEqProof.
 
   Qed.
 
+  
+  Theorem point_mul_abstract_correct : forall (p : point) (n : seq 384 Bool),
+      (384 <= (S (S (S nw))) * wsize)%nat -> 
+      jac_eq (fromPoint (groupMul (bvToNat _ n) p))
+      (seqToProd (point_mul_abstract wsize nw (Nat.pred (Nat.pred (tableSize wsize))) (prodToSeq (fromPoint p)) n)).
+
+    intros.
+    eapply jac_eq_trans; [idtac | eapply point_mul_abstract_signedRegular_equiv].
+    unfold groupMul.
+    eapply jacobian_eq_jac_eq.
+
+    rewrite groupMul_signedRegular_table_correct.
+    reflexivity.
+
+    lia.
+    lia.
+
+    eapply Z.lt_le_trans.
+    apply bvToNat_lt_word.
+    rewrite Z.shiftl_1_l.
+    eapply Z.pow_le_mono_r.
+    lia.
+    lia.
+    eapply Z.lt_le_trans.
+    apply bvToNat_lt_word.
+    rewrite Z.shiftl_1_l.
+    eapply Z.pow_le_mono_r.
+    lia.
+    lia.
+
+  Qed.
+
   Theorem groupDouble_n_fold_left_double_abstract_equiv
      : forall (ws : nat) (A: Type)(ls : list A) (a1 : point) (a2 : seq 3 F),
        Datatypes.length ls = ws ->
@@ -3473,8 +3505,18 @@ Section ECEqProof.
   Definition precompTableSize : nat := List.length base_precomp_table.
   Hypothesis base_precomp_table_entry_length : 
     forall ls, List.In ls base_precomp_table -> List.length ls = Nat.pow 2 numPrecompExponentGroups.
+  Definition affine_g := 
+    List.nth 0 (List.nth 0 base_precomp_table (inhabitant (list affine_point))) (inhabitant affine_point).
+  Definition affine_default := affine_g.
+
+  Definition on_curve (p : affine_point ) : Prop :=
+    let x := nth_order p zero_lt_two in
+    let y := nth_order p one_lt_two in 
+    Feq (y^2) (x^3 + a * x + b).
+
   Variable g : point.
-  Definition affine_default :=  List.hd (cons _ Fone _ (cons _ Fone _ (@nil F))) (List.hd List.nil base_precomp_table ) .
+  Hypothesis g_affine_jac_equiv :   
+    jac_eq (seqToProd (affineToJac affine_g)) (fromPoint g).
 
   (* Assume the base point table passes validation, and then prove that it is correct.*)
   Definition validate_base_table_abstract := validate_base_table_abstract Fsquare Fmul Fsub Fadd.
@@ -3750,15 +3792,6 @@ Section ECEqProof.
 
   Qed.
 
-  Definition first_point_generator_prop :=
-         jac_eq
-    (seqToProd
-       (affineToJac
-          (List.nth 0 (List.nth 0 base_precomp_table (inhabitant (list affine_point))) (inhabitant affine_point)))) 
-    (fromPoint g).
-
-  Hypothesis first_point_generator : first_point_generator_prop.
-
   Theorem toN_bv_length : forall x n,
     List.length (toN_bv x n) = S n.
 
@@ -4000,11 +4033,6 @@ Section ECEqProof.
     apply base_precomp_table_entry_length.
 
   Qed.
-
-  Definition on_curve (p : affine_point ) : Prop :=
-    let x := nth_order p zero_lt_two in
-    let y := nth_order p one_lt_two in 
-    Feq (y^2) (x^3 + a * x + b).
 
   Theorem affineOpp_on_curve : forall p,
     on_curve p -> 
@@ -5803,7 +5831,7 @@ Section ECEqProof.
     eapply point_add_mixed_eq.
     rewrite nth_order_opp_eq; try lia.
     
-    unfold affine_g.
+    unfold EC_P384_Abstract.affine_g.
     remember (List.nth 0 (List.nth 0 base_precomp_table []) affine_default) as z.
     erewrite (@nth_order_append_vec_ge _ 2%nat 1%nat z).
     rewrite nth_order_0_cons.
@@ -5811,7 +5839,7 @@ Section ECEqProof.
     lia.
     
     eauto.
-    unfold affine_g.
+    unfold EC_P384_Abstract.affine_g.
     eapply jac_eq_symm.
     eapply jac_eq_fromPoint_opp.
     replace ((Vector.append
@@ -6397,34 +6425,12 @@ Section ECEqProof.
     intros.
     unfold point_mul.
     rewrite point_mul_abstract_equiv.
-    eapply jac_eq_trans; [idtac | eapply point_mul_abstract_signedRegular_equiv].
-    unfold groupMul.
-    eapply jacobian_eq_jac_eq.
-
-    rewrite groupMul_signedRegular_table_correct.
-    reflexivity.
-
-    lia.
-    lia.
-
-    eapply Z.lt_le_trans.
-    apply bvToNat_lt_word.
-    rewrite Z.shiftl_1_l.
-    eapply Z.pow_le_mono_r.
+    eapply point_mul_abstract_correct.
     lia.
     lia.
     lia.
-    lia.
-    eapply Z.lt_le_trans.
-    apply bvToNat_lt_word.
-    rewrite Z.shiftl_1_l.
-    eapply Z.pow_le_mono_r.
-    lia.
-    lia.
-
   Qed.
-
-
+    
   (**
   The base point multiplication spec extracted from Cryptol is equivalent to the basic group
   multiplication operation on the base point. 
@@ -6450,8 +6456,8 @@ Section ECEqProof.
 
   Section PointMulBase.
   Variable g : point.
-
-  Hypothesis first_point_generator : first_point_generator_prop preCompTable g.
+  Hypothesis g_eq : 
+    jac_eq (seqToProd (affineToJac (affine_g preCompTable))) (fromPoint g).
 
   Theorem to_list_entry_length_h : forall (A : Type)(n2 : nat)(v : list (Vec n2 A)) (ls : list A),
     List.In ls (List.map (fun x => to_list x) v) ->
@@ -6510,9 +6516,6 @@ Section ECEqProof.
         (seqToProd (point_mul_base n)).
 
     intros.
-    assert ( Datatypes.length preCompTable <> 0%nat).
-    pose proof preCompTable_length.
-    lia.
     edestruct (groupedMul_scalar_precomp_Some_P384_concrete); eauto.
     unfold point_mul_base.
     assert (List.Forall2 (fun (x : list affine_point) (y : t affine_point 16) => x = to_list y) preCompTable
@@ -6524,7 +6527,7 @@ Section ECEqProof.
     intros.
     trivial.
 
-    rewrite (@point_mul_base_abstract_equiv _ _ _ _ _ preCompTable H1 (affine_default preCompTable)).
+    rewrite (@point_mul_base_abstract_equiv _ _ _ _ _ preCompTable H0 (affine_default preCompTable)).
     rewrite Fone_eq.
     eapply point_mul_base_abstract_correct; eauto.
     eapply Z.lt_le_trans.
@@ -6548,13 +6551,14 @@ Section ECEqProof.
     lia.
     reflexivity.
     apply preCompTable_entry_length.
-    apply validate_preCompTable_true.
     eauto.
+    apply validate_preCompTable_true.
     eauto.
 
   Qed.
 
   End PointMulBase.
+
 
 End ECEqProof.
 
