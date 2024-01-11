@@ -1517,4 +1517,52 @@ Theorem bvector_eq_dec : forall n (v1 v2 : VectorDef.t bool n),
 
 Defined.
 
+Theorem zero_lt_three : (0 < 3)%nat.
+  lia.
+Qed.
+
+Theorem one_lt_three : (1 < 3)%nat.
+  lia.
+Qed.
+
+Theorem two_lt_three : (2 < 3)%nat.
+  lia.
+Qed.
+
+Theorem zero_lt_two : (0 < 2)%nat.
+  lia.
+Qed.
+
+Theorem one_lt_two : (1 < 2)%nat.
+  lia.
+Qed.
+
+Theorem zero_lt_one : (0 < 1)%nat.
+  lia.
+Qed.
+
+
+Theorem fold_left_ext : forall (A B : Type)(f1 f2 : A -> B -> A) ls a,
+    (forall a b, f1 a b = f2 a b) ->
+    List.fold_left f1 ls a = List.fold_left f2 ls a.
+
+  induction ls; intuition idtac; simpl in *.
+  rewrite H.
+  apply IHls.
+  intuition idtac.  
+Qed.
+
+Theorem fold_left_f_equal : forall (A B : Type)(f1 f2 : A -> B -> A) ls1 ls2 a1 a2,
+  ls1 = ls2 ->
+  a1 = a2 ->
+  (forall a b, f1 a b = f2 a b) ->
+  List.fold_left f1 ls1 a1 = List.fold_left f2 ls2 a2.
+
+  intros.
+  subst.
+  eapply fold_left_ext.
+  trivial.
+
+Qed.
+
 

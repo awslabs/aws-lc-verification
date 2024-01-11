@@ -14,6 +14,7 @@ From Coq Require Import String.
 From Coq Require Import Vectors.Vector.
 From Coq Require Import Vectors.VectorSpec.
 From Coq Require Import Lia.
+From Coq Require Import ZArith.
 
 
 From CryptolToCoq Require Import SAWCoreScaffolding.
@@ -37,6 +38,8 @@ From CryptolToCoq Require Import Everything.
 From Bits Require Import operations.
 From Bits Require Import operations.properties.
 From Bits Require Import spec.properties.
+
+From EC Require Import Util.
 
 
 Ltac ecSimpl_one :=
@@ -114,6 +117,41 @@ Fixpoint toN_excl_int n :=
 
 Definition toN_int n :=
   (toN_excl_int n) ++ ((Z.of_nat n) :: List.nil).
+
+
+Theorem in_toN_excl_int : forall (y : nat) (x : Z), 
+  List.In x (toN_excl_int y) ->
+  (x >= 0 /\ x < Z.of_nat y)%Z.
+
+  induction y; intros.
+  simpl in *.
+  intuition idtac.
+  simpl in H.
+  eapply in_app_or in H.
+  destruct H.
+  apply IHy in H.
+  lia.
+  simpl in H.
+  intuition idtac;
+  subst.
+  lia.
+  lia.
+
+Qed.
+
+Theorem in_toN_int : forall y x, 
+  List.In x (toN_int y) ->
+  (x >= 0 /\ x <= Z.of_nat y)%Z.
+
+  intros.
+  unfold toN_int in *.
+  eapply in_app_or in H.
+  destruct H.
+  eapply in_toN_excl_int in H.
+  lia.
+  simpl in *; intuition idtac; lia.
+
+Qed.
 
 
 Fixpoint toN_excl_bv s n :=
@@ -512,17 +550,6 @@ Theorem toList_zip_equiv : forall (A B : Type)(inha : Inhabited A)(inhb: Inhabit
   repeat rewrite to_list_cons.
   rewrite IHlsa.
   reflexivity. 
-Qed.
-
-
-Theorem fold_left_ext : forall (A B : Type)(f1 f2 : A -> B -> A) ls a,
-    (forall a b, f1 a b = f2 a b) ->
-    fold_left f1 ls a = fold_left f2 ls a.
-
-  induction ls; intuition idtac; simpl in *.
-  rewrite H.
-  apply IHls.
-  intuition idtac.  
 Qed.
 
 Theorem drop_cons_eq : forall (A : Type)(inh : Inhabited A) n1 n2 ls a,
