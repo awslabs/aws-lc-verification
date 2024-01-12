@@ -1122,6 +1122,22 @@ Section GroupMulWNAF.
 
   Definition preCompTable x := preCompTable_h (pred tableSize) (x::nil) (groupDouble x).
 
+  Theorem preCompTable_h_cons : forall tsize p ls p2, 
+    ls <> List.nil -> 
+    (preCompTable_h tsize (p :: ls) p2) = 
+    p :: (preCompTable_h tsize ls p2).
+
+      induction tsize; unfold preCompTable_h in *; intuition; simpl in *.
+      rewrite <- IHtsize.
+      destruct ls; simpl in *. intuition.
+      reflexivity.
+      intuition.
+      eapply app_cons_not_nil.
+      symmetry.
+      eauto.
+
+  Qed.
+
   Theorem tableSize_correct : forall x, 
       List.length (preCompTable x)  = tableSize.
 

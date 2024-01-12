@@ -80,7 +80,6 @@ Ltac removeCoerce :=
     replace (coerce t1 t2 p a) with a; [idtac | reflexivity]
   end.
 
-
 Theorem vec_0_eq : forall (A : Type)(v1 v2 : Vector.t A 0%nat),
   v1 = v2.
 
@@ -7928,5 +7927,27 @@ Theorem bvUDiv_nat_equiv : forall  n v1 v2,
 
 Qed.
 
+Theorem Vector_eq_dec : forall (A : Type)(n : nat)(v1 v2 : VectorDef.t A n),
+  (forall (a1 a2 : A), {a1 = a2} + {a1 <> a2}) ->
+  {v1 = v2} + {v1 <> v2}.
 
+  induction n; intros; simpl in *.
+  left.
+  apply vec_0_eq.
+  rewrite (eta v1).
+  rewrite (eta v2).
+  destruct (X (Vector.hd v1) (Vector.hd v2)).
+  destruct (IHn (Vector.tl v1) (Vector.tl v2)); eauto.
+  left.
+  f_equal; eauto.
+  right.
+  intuition idtac.
+  apply cons_inj in H.
+  intuition idtac.
+  right.
+  intuition idtac.
+  apply cons_inj in H.
+  intuition idtac.
+
+Qed.
 

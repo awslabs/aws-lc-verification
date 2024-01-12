@@ -119,6 +119,28 @@ Fixpoint decrExpsLs n ps :=
     end
   end.
 
+Theorem decrExpsLs_length : forall d x y,
+  decrExpsLs d x = Some y ->
+  Datatypes.length x = Datatypes.length y.
+
+  induction x; intros; simpl in *.
+  inversion H; clear H; subst.
+  reflexivity.
+  case_eq (decrExpsLs d x); intros;
+  rewrite H0 in H.
+  case_eq (combineOpt (List.map (decrExpLs d) l)); intros;
+  rewrite H1 in H.
+  inversion H; clear H; subst.
+  simpl.
+  f_equal.
+  apply combineOpt_length in H1.
+  rewrite map_length in *.
+  rewrite <- H1.
+  eapply IHx; eauto.
+  discriminate.
+  discriminate.
+
+Qed.
 
 (* A specialization of permuteAndDouble that only inserts doublings after each grouping *)
 Definition permuteAndDouble_grouped ws d (perm : list (list nat)) :=

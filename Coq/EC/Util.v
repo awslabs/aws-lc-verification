@@ -1565,4 +1565,74 @@ Theorem fold_left_f_equal : forall (A B : Type)(f1 f2 : A -> B -> A) ls1 ls2 a1 
 
 Qed.
 
+Theorem pow_add_lt : forall k x a b : Z,
+  ((2^x) * a < 2^k ->
+  b < x ->
+  0 <= x ->
+  k >= x ->
+  (2^x)*a + 2^b < 2^k)%Z.  
 
+  intros.
+  remember (k - x)%Z as y.
+  assert (a <= 2^y - 1)%Z.
+  assert (a < 2^y)%Z.
+  eapply (@Z.mul_lt_mono_pos_l (2^x)).
+  eapply Z.pow_pos_nonneg; lia.
+  eapply Z.lt_le_trans; eauto.
+  subst.  
+  rewrite <- Z.pow_add_r.
+  rewrite Zplus_minus.
+  reflexivity.
+  lia.
+  lia.
+
+  lia.
+  eapply Z.le_lt_trans.
+  eapply (@Z.add_le_mono_r (2 ^ x * a)).
+  eapply Z.mul_le_mono_nonneg_l.
+  eapply Z.pow_nonneg; lia.
+  eauto.
+  eapply Z.lt_le_trans.
+  eapply (@Z.add_lt_mono_l (2 ^ b)).
+  eapply Z.pow_lt_mono_r; eauto.
+  lia.
+  eauto.
+  rewrite Z.mul_sub_distr_l.
+  rewrite Z.mul_1_r.
+  rewrite Z.sub_simpl_r.
+  subst.
+  rewrite <- Z.pow_add_r.
+  rewrite Zplus_minus.
+  reflexivity.
+  trivial.
+  lia.
+
+Qed.
+
+
+Theorem sub_window_lt : forall n w k,
+  (Z.of_nat (w + 1) <= k)%Z ->
+  (0 <= n < 2^k)%Z ->
+  ((n - (n mod 2 ^ Z.of_nat (w + 1) - 2^Z.of_nat w)) < 2^k)%Z.
+
+  intros.
+  rewrite Z.sub_sub_distr.
+  assert (n = (2^Z.of_nat (w + 1) * (n / (2^Z.of_nat (w + 1) )) + n mod (2^Z.of_nat (w + 1) )))%Z.
+  apply Z.div_mod.
+  assert (0 < 2 ^ Z.of_nat (w + 1))%Z.
+  eapply Z.pow_pos_nonneg; lia.
+  lia.
+  rewrite H1 at 1.
+  rewrite <- Z.add_sub_assoc.
+  rewrite Zminus_diag.
+  rewrite Z.add_0_r.
+
+  apply pow_add_lt.
+  eapply Z.le_lt_trans; [idtac | apply H0].
+  apply Z.mul_div_le.
+  eapply Z.pow_pos_nonneg; lia.
+  lia.
+  lia.
+  lia.
+
+Qed.
