@@ -47,6 +47,7 @@ From Crypto Require Import Curves.Weierstrass.Affine.
 From Crypto Require Import Curves.Weierstrass.AffineProofs.
 
 From EC Require Import Util.
+From EC Require Import Curve.
 From EC Require Import WindowedMulMachine.
 From EC Require Import CryptolToCoq_equiv.
 From EC Require Import GroupMulWNAF.
@@ -122,17 +123,27 @@ Require Import Coq.Logic.EqdepFacts.
 
 Section EC_P384_Abstract.
 
-  Definition felem := Vector.t (bitvector 64) 6.
-  Definition prodPoint := (felem * felem * felem)%type.
-  Definition point := Vector.t felem 3.
-  Definition felem_eq := (@eq felem).
-  Variable felem_sqr : felem -> felem.
-  Variable felem_mul felem_sub felem_add : felem -> felem -> felem.
-  Variable felem_opp : felem -> felem.
-  Variable felem_zero : felem.
+  Definition F := Vec 6 (Vec 64 Bool).
+  Definition Feq := (@eq F).
+  Definition Fzero : F := (replicate 6 _ (replicate 64 _ false)).
 
-  Variable felem_cmovznz : (bitvector 64) -> felem -> felem -> felem.
+  Instance Feq_dec : DecidableRel Feq.
 
+    unfold Decidable.
+    intros.
+    apply Vector_eq_dec.
+    intros.
+    apply Vector_eq_dec.
+    intros.
+    decide equality.
+  Defined.
+
+  Context `{curve : Curve F Feq Fzero}.
+
+
+  Variable F_cmovznz : (bitvector 64) -> F -> F -> F.
+
+  Definition point := Vec 3 F.
   Variable select_point_loop_body : (bitvector 64) -> point -> (bitvector 64) -> point -> point.
   Variable point_add : bool -> point -> point -> point.
   Variable point_double : point -> point.
@@ -144,12 +155,12 @@ Section EC_P384_Abstract.
     fold_left
     (fun acc p =>
      select_point_loop_body x acc (fst p) (snd p))
-    (combine (toN_excl_bv 64%nat (length t)) t) (of_list [felem_zero; felem_zero; felem_zero]).
+    (combine (toN_excl_bv 64%nat (length t)) t) (of_list [Fzero; Fzero; Fzero]).
 
   Definition point_opp_abstract (p : point) : point :=
     Vector.cons (Vector.nth_order p zero_lt_three) 
-      (Vector.cons (felem_opp (Vector.nth_order p one_lt_three)  ) 
-        (Vector.cons (Vector.nth_order p two_lt_three)   (Vector.nil felem))).
+      (Vector.cons (Fopp (Vector.nth_order p one_lt_three)  ) 
+        (Vector.cons (Vector.nth_order p two_lt_three)   (Vector.nil F))).
 
   Definition pre_comp_table_abstract pred_tsize p :=
     scanl
@@ -163,7 +174,7 @@ Section EC_P384_Abstract.
   (map (BinIntDef.Z.add (BinIntDef.Z.of_nat 1)) (toN_int pred_tsize)) p .
 
   Definition conditional_point_opp_abstract (t : bitvector 64) (p : point): point :=
-    Vector.cons (Vector.nth_order p zero_lt_three)  (Vector.cons (felem_cmovznz t (Vector.nth_order p one_lt_three)  (felem_opp (Vector.nth_order p one_lt_three) )) (Vector.cons (Vector.nth_order p two_lt_three)  (Vector.nil _))).
+    Vector.cons (Vector.nth_order p zero_lt_three)  (Vector.cons (F_cmovznz t (Vector.nth_order p one_lt_three)  (Fopp (Vector.nth_order p one_lt_three) )) (Vector.cons (Vector.nth_order p two_lt_three)  (Vector.nil _))).
 
   Definition double_add_body_abstract pred_wsize t p id :=
     point_add false
@@ -208,7 +219,7 @@ Section EC_P384_Abstract.
 
   Section PointMulBase.
 
-    Definition affine_point := Vector.t felem 2.
+    Definition affine_point := Vector.t F 2.
 
     Variable base_precomp_table : list (list affine_point).
 
@@ -220,14 +231,14 @@ Section EC_P384_Abstract.
       fold_left
       (fun acc p =>
        select_point_affine_loop_body x acc (fst p) (snd p))
-      (combine (toN_excl_bv 64%nat (length t)) t) (of_list [felem_zero; felem_zero]).
+      (combine (toN_excl_bv 64%nat (length t)) t) (of_list [Fzero; Fzero]).
 
     Definition add_base_abstract one pred_wsize (rnaf : list (Vector.t bool 16))(p : point)(j : nat) : point :=
       let window  := nth j rnaf (vecRepeat false 16) in
       let selected   := select_point_affine_abstract (sign_extend_16_64 (bvSShr _ (bvAdd _ (shiftR _ _ false window 15) (bvXor _ window (bvSShr _ window 15%nat))) 1%nat)) (nth (Nat.div j pred_wsize) base_precomp_table nil) in
       let x_coord   :=nth_order  selected zero_lt_two in
       let y_coord   :=nth_order  selected one_lt_two in
-      point_add true p [x_coord; felem_cmovznz (point_id_to_limb (bvShr _ window 15)) y_coord (felem_opp y_coord); one].
+      point_add true p [x_coord; F_cmovznz (point_id_to_limb (bvShr _ window 15)) y_coord (Fopp y_coord); one].
 
     Import VectorNotations. 
     
@@ -266,26 +277,27 @@ Section EC_P384_Abstract.
 
   End PointMulBase.
 
-  Variable felem_nz : felem -> bitvector 64.
-  Variable felem_ne : felem -> felem -> bitvector 64.
+  Variable F_nz : F -> bitvector 64.
+  Variable F_ne : F -> F -> bitvector 64.
+  Definition Fsquare x := Fmul x x.
 
   (* Base point table validation function. *)
   Definition jacobian_affine_eq_abstract (jp : point) (ap : affine_point) := 
-    (if bvEq 64 (felem_nz (nth_order jp two_lt_three)) (intToBv 64 0)
+    (if bvEq 64 (F_nz (nth_order jp two_lt_three)) (intToBv 64 0)
      then 0%bool
      else
       if
        negb
          (bvEq 64
-            (felem_ne (felem_mul (nth_order ap zero_lt_two) (felem_sqr (nth_order jp two_lt_three))) (nth_order jp zero_lt_three))
+            (F_ne (Fmul (nth_order ap zero_lt_two) (Fsquare (nth_order jp two_lt_three))) (nth_order jp zero_lt_three))
             (intToBv 64 0))
       then 0%bool
       else
        if
         negb
           (bvEq 64
-             (felem_ne
-                (felem_mul (nth_order ap one_lt_two) (felem_mul (felem_sqr (nth_order jp two_lt_three)) (nth_order jp two_lt_three)))
+             (F_ne
+                (Fmul (nth_order ap one_lt_two) (Fmul (Fsquare (nth_order jp two_lt_three)) (nth_order jp two_lt_three)))
                 (nth_order jp one_lt_three)) (intToBv 64 0))
        then 0%bool
        else 1%bool).
@@ -308,10 +320,8 @@ Section EC_P384_Abstract.
   Definition validate_base_table_body_abstract (wsize : nat)(st : point * bool)(r : list affine_point) : (point * bool) := 
     (point_double_base_tsize_abstract (wsize * (Nat.pred wsize)) (fst st), (snd st && validate_base_row_abstract wsize (fst st) r)%bool).
 
-  Variable one_felem : felem.
-
-  Definition affineToJac (a : affine_point) : Vec 3 felem :=
-    (Vector.append a (Vector.cons one_felem (@Vector.nil felem))).
+  Definition affineToJac (a : affine_point) : Vec 3 F :=
+    (Vector.append a (Vector.cons Fone (@Vector.nil F))).
 
   Definition validate_base_table_abstract wsize (t : list (list affine_point)) : bool := 
     snd
@@ -332,7 +342,7 @@ Section EC_P384_Abstract.
       affineToJac z =
       Vector.cons (nth_order z zero_lt_two)
         (Vector.cons (nth_order z one_lt_two)
-           (Vector.cons one_felem (@Vector.nil felem))).
+           (Vector.cons Fone (@Vector.nil F))).
 
     intros.
     unfold affineToJac. 
@@ -348,7 +358,7 @@ Section EC_P384_Abstract.
     affineToJac z1 =
     Vector.cons (nth_order z2 zero_lt_two)
       (Vector.cons (nth_order z2 one_lt_two)
-         (Vector.cons one_felem (@Vector.nil felem))).
+         (Vector.cons Fone (@Vector.nil F))).
 
     intros.
     subst.

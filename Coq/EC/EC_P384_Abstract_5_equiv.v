@@ -33,6 +33,7 @@ From CryptolToCoq Require Import SAWCoreBitvectors.
 Require Import CryptolToCoq.SAWCoreVectorsAsCoqVectors.
 
 From EC Require Import Util.
+From EC Require Import Curve.
 From EC Require Import EC_P384_Abstract.
 From EC Require Import EC_P384_5.
 From EC Require Import CryptolToCoq_equiv.
@@ -49,9 +50,12 @@ Local Arguments SAWCorePrelude.map [a]%type_scope {Inh_a} [b]%type_scope f%funct
 
 Section EC_P384_Abstract_5_equiv.
 
-  Variable felem_sqr : felem -> felem.
-  Variable felem_mul felem_sub felem_add : felem -> felem -> felem.
-  Variable felem_opp : felem -> felem.
+  Definition F := Vec 6 (Vec 64 Bool).
+  Definition Feq := (@eq F).
+  Definition Fzero : F := (replicate 6 _ (replicate 64 _ false)).
+  Existing Instance Feq_dec.
+
+  Context `{curve : Curve F Feq Fzero}.
 
   Theorem mul_scalar_rwnaf_odd_loop_body_abstract_equiv : forall s,
     mul_scalar_rwnaf_odd_loop_body_abstract 5 s = mul_scalar_rwnaf_odd_loop_body s.
@@ -121,7 +125,7 @@ Section EC_P384_Abstract_5_equiv.
 
   Qed.
 
-  Definition select_point_abstract := select_point_abstract zero_felem select_point_loop_body.
+  Definition select_point_abstract := select_point_abstract select_point_loop_body.
 
   Theorem select_point_abstract_equiv : forall x t,
     select_point x t = select_point_abstract x (to_list t).
@@ -142,19 +146,19 @@ Section EC_P384_Abstract_5_equiv.
     apply (@ecFromTo_0_n_bv_excl_equiv 64%nat 15%nat).
   Qed.
 
-  Definition point_mul := point_mul felem_sqr felem_mul felem_sub felem_add felem_opp.
+  Definition Fsquare x := (Fmul x x).
+  Definition point_mul := point_mul Fsquare Fmul Fsub Fadd Fopp.
  
 
-
   Definition conditional_subtract_if_even := 
-    conditional_subtract_if_even felem_sqr felem_mul felem_sub felem_add felem_opp.
+    conditional_subtract_if_even Fsquare Fmul Fsub Fadd Fopp.
 
   Definition point_add := 
-    point_add felem_sqr felem_mul felem_sub felem_add.
+    point_add Fsquare Fmul Fsub Fadd.
   Definition point_double := 
-    point_double felem_sqr felem_mul felem_sub felem_add.
+    point_double Fsquare Fmul Fsub Fadd.
 
-  Definition point_opp_abstract := point_opp_abstract felem_opp.
+  Definition point_opp_abstract := @point_opp_abstract Fopp.
 
   Theorem conditional_subtract_if_even_equiv : forall (p1 : point) n (p2 : point),
     conditional_subtract_if_even p1 n p2 = 
@@ -243,7 +247,7 @@ Section EC_P384_Abstract_5_equiv.
 
   Qed.
 
-  Definition pre_comp_table := pre_comp_table felem_sqr felem_mul felem_sub felem_add.
+  Definition pre_comp_table := pre_comp_table Fsquare Fmul Fsub Fadd.
   Definition pre_comp_table_abstract := pre_comp_table_abstract point_add point_double.
 
   Theorem pre_comp_table_abstract_equiv : forall p,
@@ -261,9 +265,9 @@ Section EC_P384_Abstract_5_equiv.
   Qed.
 
   Definition double_add_body := 
-    double_add_body felem_sqr felem_mul felem_sub felem_add felem_opp.
+    double_add_body Fsquare Fmul Fsub Fadd Fopp.
   Definition double_add_body_abstract := 
-    double_add_body_abstract felem_opp zero_felem felem_cmovznz select_point_loop_body point_add point_double sign_extend_16_64 point_id_to_limb.
+    @double_add_body_abstract Fopp felem_cmovznz select_point_loop_body point_add point_double sign_extend_16_64 point_id_to_limb.
   
   Local Opaque sign_extend_16_64 shiftR bvSShr select_point select_point_abstract bvAdd bvXor EC_P384_5.point_add List.fold_left.
 
@@ -290,7 +294,7 @@ Section EC_P384_Abstract_5_equiv.
   Qed.
 
   Definition point_mul_abstract := 
-    point_mul_abstract felem_opp zero_felem felem_cmovznz select_point_loop_body point_add point_double sign_extend_16_64 point_id_to_limb conditional_subtract_if_even.
+    @point_mul_abstract Fopp felem_cmovznz select_point_loop_body point_add point_double sign_extend_16_64 point_id_to_limb conditional_subtract_if_even.
 
   Theorem point_mul_abstract_equiv : forall p s,
     point_mul p s = point_mul_abstract 5 74 14 p s.
@@ -334,9 +338,9 @@ Section EC_P384_Abstract_5_equiv.
   Qed.
 
 
-  Definition double_add_base := double_add_base felem_sqr felem_mul felem_sub felem_add felem_opp.
-  Definition point_mul_base := point_mul_base felem_sqr felem_mul felem_sub felem_add felem_opp.
-  Definition add_base := add_base felem_sqr felem_mul felem_sub felem_add felem_opp.
+  Definition double_add_base := double_add_base Fsquare Fmul Fsub Fadd Fopp.
+  Definition point_mul_base := point_mul_base Fsquare Fmul Fsub Fadd Fopp.
+  Definition add_base := add_base Fsquare Fmul Fsub Fadd Fopp.
 
   Definition base_precomp_table := List.map (to_list) (to_list p384_g_pre_comp).
   Global Opaque p384_g_pre_comp.
@@ -373,7 +377,7 @@ Section EC_P384_Abstract_5_equiv.
 
   Qed.
 
-  Definition select_point_affine_abstract := select_point_affine_abstract zero_felem select_point_affine_loop_body.
+  Definition select_point_affine_abstract := @select_point_affine_abstract select_point_affine_loop_body.
 
   Theorem select_point_affine_abstract_equiv : forall x t,
     select_point_affine x t = select_point_affine_abstract x (to_list t).
@@ -395,7 +399,7 @@ Section EC_P384_Abstract_5_equiv.
   Qed.
 
   Definition add_base_abstract :=  
-    add_base_abstract felem_opp zero_felem felem_cmovznz point_add sign_extend_16_64 point_id_to_limb base_precomp_table select_point_affine_loop_body.
+    @add_base_abstract Fopp felem_cmovznz point_add sign_extend_16_64 point_id_to_limb base_precomp_table select_point_affine_loop_body.
 
   Local Opaque vecRepeat.
 
@@ -556,7 +560,7 @@ Section EC_P384_Abstract_5_equiv.
   Qed.
 
   Definition conditional_subtract_if_even_mixed := 
-    conditional_subtract_if_even_mixed felem_sqr felem_mul felem_sub felem_add felem_opp.
+    conditional_subtract_if_even_mixed Fsquare Fmul Fsub Fadd Fopp.
 
   Theorem conditional_subtract_if_even_mixed_eq_compat : forall x1 x2 y1 y2 z1 z2,
     x1 = x2 ->
@@ -571,7 +575,7 @@ Section EC_P384_Abstract_5_equiv.
   Qed.
 
   Definition conditional_subtract_if_even_mixed_abstract := 
-    conditional_subtract_if_even_mixed_abstract felem_opp point_add.
+    @conditional_subtract_if_even_mixed_abstract Fopp point_add.
 
   Theorem conditional_subtract_if_even_mixed_equiv : forall (p1 : point) n (p2 : point),
     conditional_subtract_if_even_mixed p1 n p2 = 
@@ -659,9 +663,8 @@ Section EC_P384_Abstract_5_equiv.
 
   Qed.
 
-  Print double_add_base_abstract.
   Definition double_add_base_abstract := 
-    double_add_base_abstract felem_opp zero_felem felem_cmovznz point_add point_double sign_extend_16_64 point_id_to_limb base_precomp_table select_point_affine_loop_body.
+    @double_add_base_abstract Fopp felem_cmovznz point_add point_double sign_extend_16_64 point_id_to_limb base_precomp_table select_point_affine_loop_body.
 
   Theorem double_add_base_abstract_equiv : forall x y z,
     (bvToNat _ z < 4)%nat ->
@@ -851,7 +854,7 @@ Section EC_P384_Abstract_5_equiv.
   Qed.
 
   Definition point_mul_base_abstract := 
-    point_mul_base_abstract felem_opp zero_felem felem_cmovznz point_add point_double sign_extend_16_64 point_id_to_limb base_precomp_table select_point_affine_loop_body.
+    @point_mul_base_abstract Fopp felem_cmovznz point_add point_double sign_extend_16_64 point_id_to_limb base_precomp_table select_point_affine_loop_body.
 
   Definition g := g base_precomp_table p384_felem_one.
 
@@ -872,7 +875,7 @@ Section EC_P384_Abstract_5_equiv.
     rewrite ecFoldl_foldl_equiv.
     unfold g.
     match goal with
-    | [|- conditional_subtract_if_even_mixed_abstract ?a1 ?b ?c = EC_P384_Abstract.conditional_subtract_if_even_mixed_abstract _ _ ?a2 ?b ?c] =>
+    | [|- conditional_subtract_if_even_mixed_abstract ?a1 ?b ?c = EC_P384_Abstract.conditional_subtract_if_even_mixed_abstract _ ?a2 ?b ?c] =>
       replace a1 with a2
     end.  
     reflexivity.
@@ -908,13 +911,13 @@ Section EC_P384_Abstract_5_equiv.
 
   Qed.
 
-  Definition felem_ne := felem_ne felem_sub.
+  Definition felem_ne := felem_ne Fsub.
 
   Definition jacobian_affine_eq_abstract := 
-    jacobian_affine_eq_abstract felem_sqr felem_mul felem_nz felem_ne.
+    @jacobian_affine_eq_abstract Fmul felem_nz felem_ne.
 
   Theorem jacobian_affine_eq_abstract_equiv : forall jp ap,
-    jacobian_affine_eq felem_sqr felem_mul felem_sub jp ap = jacobian_affine_eq_abstract jp ap.
+    jacobian_affine_eq Fsquare Fmul Fsub jp ap = jacobian_affine_eq_abstract jp ap.
 
     intros.
     unfold jacobian_affine_eq.
@@ -935,9 +938,9 @@ Section EC_P384_Abstract_5_equiv.
   Qed.
 
 
-  Definition validate_base_row_body := validate_base_row_body felem_sqr felem_mul felem_sub felem_add.
+  Definition validate_base_row_body := validate_base_row_body Fsquare Fmul Fsub Fadd.
   Definition validate_base_row_body_abstract :=
-    validate_base_row_body_abstract felem_sqr felem_mul point_add felem_nz felem_ne.
+    @validate_base_row_body_abstract Fmul point_add felem_nz felem_ne.
 
   Theorem validate_base_row_body_abstract_equiv : forall g x y,
     validate_base_row_body g x y = validate_base_row_body_abstract g x y.
@@ -951,9 +954,9 @@ Section EC_P384_Abstract_5_equiv.
 
   Qed.
 
-  Definition validate_base_row := validate_base_row felem_sqr felem_mul felem_sub felem_add.
+  Definition validate_base_row := validate_base_row Fsquare Fmul Fsub Fadd.
   Definition validate_base_row_abstract :=
-    validate_base_row_abstract felem_sqr felem_mul point_add point_double felem_nz felem_ne.
+    @validate_base_row_abstract Fmul point_add point_double felem_nz felem_ne.
   
   Theorem validate_base_row_equiv : forall (p : point) r,
     validate_base_row p r = validate_base_row_abstract 5 p (to_list r).
@@ -1000,8 +1003,8 @@ Section EC_P384_Abstract_5_equiv.
 
   Qed.
 
-  Definition double_body := double_body felem_sqr felem_mul felem_sub felem_add.
-  Definition point_double_base_tsize := point_double_base_tsize felem_sqr felem_mul felem_sub felem_add.
+  Definition double_body := double_body Fsquare Fmul Fsub Fadd.
+  Definition point_double_base_tsize := point_double_base_tsize Fsquare Fmul Fsub Fadd.
 
   Definition point_double_base_tsize_abstract :=
     point_double_base_tsize_abstract point_double.
@@ -1016,9 +1019,9 @@ Section EC_P384_Abstract_5_equiv.
     reflexivity.
   Qed.
 
-  Definition validate_base_table_body := validate_base_table_body felem_sqr felem_mul felem_sub felem_add.
+  Definition validate_base_table_body := validate_base_table_body Fsquare Fmul Fsub Fadd.
   Definition validate_base_table_body_abstract :=
-    validate_base_table_body_abstract felem_sqr felem_mul point_add point_double felem_nz felem_ne.
+    @validate_base_table_body_abstract Fmul point_add point_double felem_nz felem_ne.
 
 
   Theorem validate_base_table_body_equiv : forall (st : point*bool) r,
@@ -1041,9 +1044,9 @@ Section EC_P384_Abstract_5_equiv.
     subst. reflexivity.
   Qed.
 
-  Definition validate_base_table := validate_base_table felem_sqr felem_mul felem_sub felem_add.
+  Definition validate_base_table := validate_base_table Fsquare Fmul Fsub Fadd.
   Definition validate_base_table_abstract :=
-    validate_base_table_abstract felem_sqr felem_mul point_add point_double felem_nz felem_ne p384_felem_one.
+    @validate_base_table_abstract p384_felem_one Fmul point_add point_double felem_nz felem_ne.
 
   Theorem validate_base_table_equiv : forall t,
     validate_base_table t = validate_base_table_abstract 5 (List.map to_list (to_list t)).
