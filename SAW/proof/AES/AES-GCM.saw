@@ -7,6 +7,8 @@ import "../../../cryptol-specs/Primitive/Symmetric/Cipher/Block/AES.cry";
 import "../../../cryptol-specs/Primitive/Symmetric/Cipher/Authenticated/AES_256_GCM.cry";
 import "../../spec/AES/X86.cry";
 import "../../spec/AES/AES-GCM.cry";
+import "../../spec/AES/AES-GCM-implementation.cry";
+import "../../spec/AES/AES-GCM-unbounded.cry";
 
 
 enable_experimental;
@@ -93,6 +95,21 @@ let aes_block_size = 1;
 // the IV for AES-GCM consists of 12 32-bit integers
 let aes_iv_len = 12;
 
+// This computes the total number of message blocks that can be
+// handeled by a single AES/GCM mode session. The GCM counter is
+// a 32-bit counter which starts at 1, and we need to leave a block at
+// the end for the authentication tag. This gives us a total of
+// slightly fewer than 2^^32 blocks we can handle.
+let TOTAL_MESSAGE_BLOCKS = eval_size {| 2^^32 - 2 |};
+
+// This is the minimum number of blocks that can be processed by the bulk
+// encrypt/decrypt phase.  This is due to the fact that the bulk encryption
+// phase processes 6 block chunks, and has a pipeline setup which is three
+// stages deep. Thus, 18 blocks is the minimum number of blocks it will
+// process; fewer than that and it will simply rely on the separate AES/CTR32
+// and GHASH routines.
+let MIN_BULK_BLOCKS = 18;
+
 
 /*
  * Architecture features for the AVX+shrd code path
@@ -104,39 +121,8 @@ let {{ ia32cap = [0xffffffff, 0xffffffff, 0x3ffcffff, 0xffffffff] : [4][32] }};
 
 include "AES.saw";
 include "GHASH.saw";
+include "AES-CTR32.saw";
 include "AESNI-GCM.saw";
-
-/*
-When verifying aes_hw_ctr32_encrypt_blocks, the binary analysis must locally
-treat r11 as callee-preserved. This is necessary because this routine saves
-the original stack pointer in r11 and then calls helper routines, preventing
-the binary analysis from inferring that the return address is still on the stack
-when the routine returns. The called helper routines do not modify r11.
-*/
-
-let aes_hw_ctr32_tactic = do {
-  simplify (cryptol_ss ());
-  simplify (addsimps slice_384_thms basic_ss);
-  simplify (addsimps [cmp_sub_thm] empty_ss);
-  goal_eval_unint ["AESRound", "AESFinalRound", "aesenc", "aesenclast"];
-  simplify (addsimps add_xor_slice_thms basic_ss);
-  simplify (addsimps aesenclast_thms basic_ss);
-  w4_unint_yices ["AESRound", "AESFinalRound"];
-};
-
-add_x86_preserved_reg "r11";
-aes_hw_ctr32_encrypt_blocks_encrypt_ov <- llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "aes_hw_ctr32_encrypt_blocks"
-  []
-  true
-  (aes_hw_ctr32_encrypt_blocks_spec whole_blocks_after_bulk_encrypt)
-  aes_hw_ctr32_tactic;
-
-aes_hw_ctr32_encrypt_blocks_decrypt_ov <- llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "aes_hw_ctr32_encrypt_blocks"
-  []
-  true
-  (aes_hw_ctr32_encrypt_blocks_spec whole_blocks_after_bulk_decrypt)
-  aes_hw_ctr32_tactic;
-default_x86_preserved_reg;
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -157,6 +143,10 @@ let EVP_CIPH_CTRL_INIT = 0x200;
 let EVP_CIPH_FLAG_CUSTOM_CIPHER = 0x400;
 let EVP_CIPH_FLAG_AEAD_CIPHER = 0x800;
 let EVP_CIPH_CUSTOM_COPY = 0x1000;
+
+// This is the total number of bytes that can be in the plain/cyphertext
+// for AES-GCM.
+let TOTAL_MESSAGE_MAX_LENGTH = eval_size {| TOTAL_MESSAGE_BLOCKS * AES_BLOCK_SIZE |};
 
 let points_to_evp_cipher_st ptr = do {
   crucible_points_to (crucible_elem ptr 0) (crucible_term {{ `NID_aes_256_gcm : [32] }});
@@ -193,13 +183,21 @@ let fresh_aes_gcm_ctx len = do {
   return {{ { key = key, iv = iv, Xi = Xi, len = `len } : AES_GCM_Ctx }};
 };
 
+let fresh_aes_gcm_ctx' mres = do {
+  key <- fresh_aes_key_st;
+  iv <- crucible_fresh_var "iv" (llvm_array aes_iv_len (llvm_int 8));
+  Xi <- crucible_fresh_var "Xi" (llvm_array AES_BLOCK_SIZE (llvm_int 8));
+  len_60 <- llvm_fresh_var "ctx.len" (llvm_int 60);
+  let len = {{ (len_60 # `mres): [64] }};
+  return {{ { key = key, iv = iv, Xi = Xi, len = len } : AES_GCM_Ctx }};
+};
+
 let points_to_gcm128_key_st ptr ctx = do {
-  crucible_points_to_untyped (crucible_elem ptr 1) (crucible_term {{ get_Htable ctx }});
-  crucible_points_to_untyped (crucible_elem ptr 0) (crucible_term {{ get_H ctx }});
-  crucible_points_to (crucible_elem ptr 2) (crucible_global "gcm_gmult_avx");
-  crucible_points_to (crucible_elem ptr 3) (crucible_global "gcm_ghash_avx");
-  crucible_points_to (crucible_elem ptr 4) (crucible_global "aes_hw_encrypt");
-  crucible_points_to (crucible_elem ptr 5) (crucible_term {{ 1 : [8] }});
+  crucible_points_to_untyped (crucible_elem ptr 0) (crucible_term {{ get_Htable ctx.key }});
+  crucible_points_to (crucible_elem ptr 1) (crucible_global "gcm_gmult_avx");
+  crucible_points_to (crucible_elem ptr 2) (crucible_global "gcm_ghash_avx");
+  crucible_points_to (crucible_elem ptr 3) (crucible_global "aes_hw_encrypt");
+  crucible_points_to (crucible_elem ptr 4) (crucible_term {{ 1 : [8] }});
 };
 
 let points_to_GCM128_CONTEXT ptr ctx mres = do {
@@ -297,6 +295,77 @@ llvm_verify m "EVP_DecryptUpdate"
   (EVP_CipherUpdate_spec {{ 0 : [32] }} evp_cipher_update_gcm_len evp_cipher_update_len)
   evp_cipher_tactic;
 
+enable_what4_eval;
+
+llvm_verify m "EVP_EncryptUpdate"
+  [ aes_gcm_from_cipher_ctx_ov
+  , aes_hw_encrypt_ov
+  , aes_hw_ctr32_encrypt_blocks_bounded_array_ov
+  , gcm_gmult_avx_ov
+  , gcm_ghash_avx_bounded_array_ov
+  , aesni_gcm_encrypt_array_ov
+  , aesni_gcm_decrypt_array_ov
+  ]
+  true
+  (EVP_CipherUpdate_array_spec {{ 1 : [32] }} 1 15)
+  (do {
+    simplify (cryptol_ss ());
+    goal_eval_unint ["aesni_gcm_encrypt", "aes_ctr32_encrypt_blocks_array", "aes_hw_encrypt", "gcm_ghash_blocks_array", "gcm_polyval", "pmult", "pmod"];
+    simplify (addsimps [aesni_gcm_encrypt_Yi_thm] empty_ss);
+    goal_eval_unint ["aesni_gcm_encrypt", "aes_ctr32_encrypt_blocks_array", "aes_hw_encrypt", "gcm_ghash_blocks_array", "gcm_polyval", "pmult", "pmod"];
+    simplify (addsimps [bvand_bvudiv_thm, bvudiv_bvmul_bvudiv_thm, bvurem_16_append_thm] basic_ss);
+    simplify (addsimps [arrayLookupUnint_thm, arrayUpdateUnint_thm, arrayCopyUnint_thm, arrayConstantUnint_thm] empty_ss);
+    simplify (addsimps add_xor_slice_thms basic_ss);
+    goal_eval_unint ["aesni_gcm_encrypt", "aes_ctr32_encrypt_blocks_array", "aes_hw_encrypt", "gcm_ghash_blocks_array", "gcm_polyval", "pmult", "pmod", "arrayLookupUnint", "arrayUpdateUnint", "arrayCopyUnint", "arrayConstantUnint"];
+    simplify (addsimps [ite_bveq_0_thm, ite_bveq_1_thm, bveq_ite_bv8_0_thm, bveq_ite_bv8_1_thm, arrayeq_ite_0_thm, arrayeq_ite_1_thm, foo_thm, bar_thm] basic_ss);
+    goal_eval_unint ["aesni_gcm_encrypt", "aes_ctr32_encrypt_blocks_array", "aes_hw_encrypt", "gcm_ghash_blocks_array", "gcm_polyval", "pmult", "pmod", "arrayLookupUnint", "arrayUpdateUnint", "arrayCopyUnint", "arrayConstantUnint"];
+    print_goal;
+    is_out_post <- goal_has_some_tag ["output buffer postcondition"];
+    is_Xi_post <- goal_has_some_tag ["Xi postcondition"];
+    if is_out_post then do {
+      w4_unint_yices ["aesni_gcm_encrypt", "aes_ctr32_encrypt_blocks_array", "aes_hw_encrypt", "gcm_ghash_blocks_array", "gcm_polyval", "pmult", "pmod", "arrayLookupUnint", "arrayUpdateUnint", "arrayCopyUnint", "arrayConstantUnint"];
+    } else if is_Xi_post then do {
+      w4_unint_z3_using "qfufbv" ["aesni_gcm_encrypt", "aes_ctr32_encrypt_blocks_array", "aes_hw_encrypt", "gcm_ghash_blocks_array", "gcm_polyval", "pmult", "pmod", "arrayLookupUnint", "arrayUpdateUnint", "arrayCopyUnint", "arrayConstantUnint"];
+    } else do {
+      w4_unint_z3 ["aesni_gcm_encrypt", "aes_ctr32_encrypt_blocks_array", "aes_hw_encrypt", "gcm_ghash_blocks_array", "gcm_polyval", "pmult", "pmod", "arrayLookupUnint", "arrayUpdateUnint", "arrayCopyUnint", "arrayConstantUnint"];
+    };
+  });
+
+llvm_verify m "EVP_DecryptUpdate"
+  [ aes_gcm_from_cipher_ctx_ov
+  , aes_hw_encrypt_ov
+  , aes_hw_ctr32_encrypt_blocks_bounded_array_ov
+  , gcm_gmult_avx_ov
+  , gcm_ghash_avx_bounded_array_ov
+  , aesni_gcm_encrypt_array_ov
+  , aesni_gcm_decrypt_array_ov
+  ]
+  true
+  (EVP_CipherUpdate_array_spec {{ 0 : [32] }} 1 15)
+  (do {
+    simplify (cryptol_ss ());
+    goal_eval_unint ["aesni_gcm_decrypt", "aes_ctr32_encrypt_blocks_array", "aes_hw_encrypt", "gcm_ghash_blocks_array", "gcm_polyval", "pmult", "pmod"];
+    simplify (addsimps [aesni_gcm_decrypt_Yi_thm] empty_ss);
+    goal_eval_unint ["aesni_gcm_decrypt", "aes_ctr32_encrypt_blocks_array", "aes_hw_encrypt", "gcm_ghash_blocks_array", "gcm_polyval", "pmult", "pmod"];
+    simplify (addsimps [bvand_bvudiv_thm, bvudiv_bvmul_bvudiv_thm, bvurem_16_append_thm] basic_ss);
+    simplify (addsimps [arrayLookupUnint_thm, arrayUpdateUnint_thm, arrayCopyUnint_thm, arrayConstantUnint_thm] empty_ss);
+    simplify (addsimps add_xor_slice_thms basic_ss);
+    goal_eval_unint ["aesni_gcm_decrypt", "aes_ctr32_encrypt_blocks_array", "aes_hw_encrypt", "gcm_ghash_blocks_array", "gcm_polyval", "pmult", "pmod", "arrayLookupUnint", "arrayUpdateUnint", "arrayCopyUnint", "arrayConstantUnint"];
+    simplify (addsimps [ite_bveq_0_thm, ite_bveq_1_thm, bveq_ite_bv8_0_thm, bveq_ite_bv8_1_thm, arrayeq_ite_0_thm, arrayeq_ite_1_thm, foo_thm, bar_thm] basic_ss);
+    goal_eval_unint ["aesni_gcm_decrypt", "aes_ctr32_encrypt_blocks_array", "aes_hw_encrypt", "gcm_ghash_blocks_array", "gcm_polyval", "pmult", "pmod", "arrayLookupUnint", "arrayUpdateUnint", "arrayCopyUnint", "arrayConstantUnint"];
+    print_goal;
+    is_out_post <- goal_has_some_tag ["output buffer postcondition"];
+    is_Xi_post <- goal_has_some_tag ["Xi postcondition"];
+    if is_out_post then do {
+      w4_unint_yices ["aesni_gcm_decrypt", "aes_ctr32_encrypt_blocks_array", "aes_hw_encrypt", "gcm_ghash_blocks_array", "gcm_polyval", "pmult", "pmod", "arrayLookupUnint", "arrayUpdateUnint", "arrayCopyUnint", "arrayConstantUnint"];
+    } else if is_Xi_post then do {
+      w4_unint_z3_using "qfufbv" ["aesni_gcm_decrypt", "aes_ctr32_encrypt_blocks_array", "aes_hw_encrypt", "gcm_ghash_blocks_array", "gcm_polyval", "pmult", "pmod", "arrayLookupUnint", "arrayUpdateUnint", "arrayCopyUnint", "arrayConstantUnint"];
+    } else do {
+      w4_unint_z3 ["aesni_gcm_decrypt", "aes_ctr32_encrypt_blocks_array", "aes_hw_encrypt", "gcm_ghash_blocks_array", "gcm_polyval", "pmult", "pmod", "arrayLookupUnint", "arrayUpdateUnint", "arrayCopyUnint", "arrayConstantUnint"];
+    };
+  });
+
+disable_what4_eval;
 disable_what4_hash_consing;
 
 
