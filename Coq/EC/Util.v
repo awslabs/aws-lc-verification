@@ -1609,6 +1609,14 @@ Theorem pow_add_lt : forall k x a b : Z,
 
 Qed.
 
+Theorem Z_odd_abs_eq : forall z,
+  Z.odd (Z.abs z) = Z.odd z.
+
+  intros.
+  destruct z; simpl in *;
+  reflexivity.
+
+Qed.
 
 Theorem sub_window_lt : forall n w k,
   (Z.of_nat (w + 1) <= k)%Z ->
@@ -1634,5 +1642,111 @@ Theorem sub_window_lt : forall n w k,
   lia.
   lia.
   lia.
+
+Qed.
+
+Theorem negb_true_false : forall x,
+  negb x = true -> 
+  x = false.
+
+  intros.
+  destruct x; simpl in *; try discriminate.
+  trivial.
+Qed.
+
+Theorem negb_false_true : forall x,
+  negb x = false -> 
+  x = true.
+
+  intros.
+  destruct x; simpl in *; try discriminate.
+  trivial.
+Qed.
+
+Theorem nth_order_0_cons : forall (A : Type) a n (v : Vector.t A n) (pf : (0 < S n)%nat),
+  Vector.nth_order (Vector.cons a v) pf = a.
+
+  intros.
+  reflexivity.
+Qed.
+
+Theorem nth_order_S_cons : forall (A : Type) a n (v : Vector.t A n) n' (pf : (S n' < S n)%nat)(pf' : (n' < n)%nat),
+  nth_order (Vector.cons a v) pf = nth_order v pf'.
+
+  intros.
+  unfold nth_order.
+  simpl.
+  eapply Vector.eq_nth_iff; trivial.
+  apply Fin.of_nat_ext.
+Qed.
+
+Theorem nth_order_append_vec_lt : forall (A : Type) n1 n2 (v1 : Vector.t A n1)(v2 : Vector.t A n2) x (pf1 : (x < n1 + n2)%nat)(pf2 : (x < n1)%nat),
+  nth_order (Vector.append v1 v2) pf1 = nth_order v1 pf2.
+
+  induction v1; intros; simpl in *.
+  lia.
+  destruct x; simpl in *.
+  rewrite nth_order_0_cons.
+  rewrite nth_order_0_cons.
+  reflexivity.
+  erewrite nth_order_S_cons.
+  erewrite nth_order_S_cons.
+  eapply IHv1.
+
+  Unshelve.
+  lia.
+  lia.
+
+Qed.
+
+Theorem nth_order_append_vec_ge : forall (A : Type) n1 n2 (v1 : Vector.t A n1)(v2 : Vector.t A n2) x (pf1 : (x < n1 + n2)%nat)(pf2 : ((x - n1) < n2)%nat),
+  (x >= n1)%nat -> 
+  nth_order (Vector.append v1 v2) pf1 = nth_order v2 pf2.
+
+  induction v1; intros; simpl in *.
+  destruct x; simpl in *.
+  eapply VectorSpec.nth_order_ext.
+  eapply VectorSpec.nth_order_ext.
+
+  destruct x; simpl in *.
+  lia.
+  eapply IHv1.
+  lia.
+
+Qed.
+
+Theorem forall2_symm : forall (A B : Type)(P : B -> A -> Prop) lsa lsb,
+  List.Forall2 (fun a b => P b a) lsa lsb ->
+  List.Forall2 P lsb lsa.
+
+  induction 1; intros;
+  econstructor; eauto.
+
+Qed.
+
+Theorem to_list_entry_length_h : forall (A : Type)(n2 : nat)(v : list (Vector.t A n2)) (ls : list A),
+  List.In ls (List.map (fun x => to_list x) v) ->
+  List.length ls = n2.
+
+  induction v; intros.
+  simpl in H.
+  intuition idtac.
+
+  simpl in H.
+  intuition idtac.
+  subst.
+  apply length_to_list.
+  eapply IHv.
+  eauto.
+
+Qed.
+
+Theorem to_list_entry_length : forall (A : Type)(n1 n2 : nat)(v : Vector.t (Vector.t A n2) n1) (ls : list A),
+  List.In ls (List.map (fun x => to_list x) (to_list v)) ->
+  List.length ls = n2.
+
+  intros.
+  eapply to_list_entry_length_h.
+  eauto.
 
 Qed.

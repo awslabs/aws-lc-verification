@@ -5,14 +5,17 @@ From Coq Require Import Ring.
 From Coq Require Import ZArith.BinInt.
 From Coq Require Import Lia.
 From Coq Require Import Classes.SetoidClass.
+From Coq Require Import Setoid.
 
 From Crypto Require Import Algebra.Hierarchy.
 From Crypto Require Import Algebra.Field.
 From Crypto Require Import Algebra.Nsatz.
 From Crypto Require Import Curves.Weierstrass.Jacobian.
 From Crypto Require Import Curves.Weierstrass.Affine.
+
 From Crypto Require Import Curves.Weierstrass.AffineProofs.
 
+From EC Require Import Util.
 From EC Require Import CommutativeGroup.
 
 (* An elliptic curve over a finite field. *)
@@ -57,6 +60,17 @@ Definition double_minus_3 `{Curve}{Feq_dec : DecidableRel Feq}  := @Jacobian.dou
 Definition double `{Curve}{Feq_dec : DecidableRel Feq}  := @Jacobian.double F Feq Fzero Fone Fopp Fadd Fsub Fmul Finv Fdiv a b F_field Feq_dec.
 Definition add `{Curve}{Feq_dec : DecidableRel Feq}  := @Jacobian.add F Feq Fzero Fone Fopp Fadd Fsub Fmul Finv Fdiv a b F_field Fchar_3 Feq_dec.
 Definition to_affine `{Curve}{Feq_dec : DecidableRel Feq}  := @Jacobian.to_affine F Feq Fzero Fone Fopp Fadd Fsub Fmul Finv Fdiv a b F_field Feq_dec.
+
+Definition jac_eq`{Curve}{Feq_dec : DecidableRel Feq} (p1 p2 : F * F * F) :=
+  let '(X1, Y1, Z1) := p1 in
+  let '(X2, Y2, Z2) := p2 in
+    if dec (Feq Z1 Fzero)
+    then Feq Z2 Fzero
+    else
+     ~ Feq Z2 Fzero /\
+     Feq (Fmul X1 (Fmul Z2 Z2)) (Fmul X2 (Fmul Z1 Z1)) /\
+     Feq (Fmul Y1 (Fmul (Fmul Z2 Z2) Z2)) (Fmul Y2 (Fmul (Fmul Z1 Z1) Z1)).
+
 Definition opp `{Curve}{Feq_dec : DecidableRel Feq} : point -> point := Jacobian.opp.
 
 Definition is_jacobian `{Curve}{Feq_dec : DecidableRel Feq} (p : F * F * F) :=
@@ -76,6 +90,26 @@ Definition is_jacobian `{Curve}{Feq_dec : DecidableRel Feq} (p : F * F * F) :=
              (Fmul 
                 (Fmul (Fmul Z Z) Z)
                 (Fmul (Fmul Z Z) Z)))).
+
+Definition affine_point `{Curve} := Vector.t F 2.
+
+Definition on_curve `{Curve}(p : affine_point ) : Prop :=
+    let x := Vector.nth_order p zero_lt_two in
+    let y := Vector.nth_order p one_lt_two in 
+    Feq (Fmul y y) (Fadd (Fmul x (Fmul x x)) (Fadd (Fmul a x) b)).
+
+
+Definition fromPoint `{Curve}{Feq_dec : DecidableRel Feq} (p:point) : (F*F*F) :=
+  proj1_sig p.
+
+Definition prodToSeq`{Curve}{Feq_dec : DecidableRel Feq} (p : F * F * F) : Vector.t F 3 :=
+  Vector.cons _ (fst (fst p)) _ (Vector.cons _ (snd (fst p)) _ (Vector.cons _ (snd p) _ (@Vector.nil F))).
+
+Definition seqToProd`{Curve}{Feq_dec : DecidableRel Feq} (p : Vector.t F 3) : F * F * F :=
+  (Vector.nth_order p zero_lt_three, Vector.nth_order p one_lt_three, Vector.nth_order p two_lt_three).
+
+Definition toPoint`{Curve}{Feq_dec : DecidableRel Feq} (p : F * F * F)(pf : is_jacobian p) : point :=
+  exist _ p pf.
 
 Definition zero_point_h`{Curve} : F * F * F := (Fzero, Fone, Fzero).
 Theorem zero_point_is_jacobian : forall `{Curve}{Feq_dec : DecidableRel Feq} , is_jacobian zero_point_h.
@@ -434,6 +468,173 @@ Section CurveFacts.
     reflexivity.
   Qed.
 
+  Theorem Fsub_0_eq : forall a0 b0,
+    Feq (a0 - b0) 0 ->
+    Feq a0 b0.
+
+    intros.
+    nsatz.
+
+  Qed.
+
+  Theorem Fsub_not_0_neq : forall a0 b0,
+    ~(Feq (a0 - b0) 0) ->
+    ~(Feq a0 b0).
+
+    intros.
+    intuition idtac.
+    eapply H.
+    nsatz.
+
+  Qed.
+
+  Theorem Fzero_ne_Fone:
+    ~(Feq Fzero Fone).
+
+    intros.
+    eapply zero_neq_one.
+
+  Qed.
+
+  Theorem Fone_ne_Fzero:
+    ~(Feq Fone Fzero).
+
+    intuition idtac.
+    apply Fzero_ne_Fone.
+    symmetry.
+    eauto.
+
+  Qed.
+
+  (* Facts about jac_eq *)
+  Theorem jac_eq_refl : forall p, jac_eq p p.
+
+    intros.
+    unfold jac_eq.
+    destruct p.
+    destruct p.
+    destruct (dec (Feq f 0)).
+    trivial.
+    intuition idtac.
+    reflexivity.
+    reflexivity.
+  Qed.
+
+  Theorem jac_eq_refl_abstract : forall p1 p2,
+    p1 = p2 ->
+    jac_eq p1 p2.
+
+    intros.
+    rewrite H.
+    apply jac_eq_refl.
+
+  Qed.
+
+  Theorem jac_eq_trans : forall p1 p2 p3,
+    jac_eq p1 p2 ->
+    jac_eq p2 p3 ->
+    jac_eq p1 p3.
+
+    intros.
+    unfold jac_eq in *.
+    destruct p1. destruct p. destruct p2. destruct p.
+    destruct p3. destruct p.
+    destruct (dec (Feq f 0)).
+    destruct (dec (Feq f2 0));
+    intuition idtac.
+    destruct (dec (Feq f2 0)); intuition idtac.
+
+    eapply (fmul_same_r (Finv (f^2))) in H0.
+    rewrite <- (associative f3) in H0.
+    rewrite (commutative (f^2)) in H0.
+    rewrite left_multiplicative_inverse in H0.
+    rewrite right_identity in H0.
+    rewrite <- H0 in H2.
+    eapply (fmul_same_r (Finv (f2^2))) in H2.
+    rewrite <- (associative f6) in H2.
+    rewrite (commutative (f2^2)) in H2.
+    rewrite left_multiplicative_inverse in H2.
+    rewrite right_identity in H2.
+    rewrite (commutative _ (Finv (f2^2))) in H2.
+    rewrite (commutative f0) in H2.
+    do 3 rewrite (associative (Finv (f2^2))) in H2.    
+    rewrite left_multiplicative_inverse in H2.
+    rewrite left_identity in H2.
+    eapply (fmul_same_r (f^2)) in H2.
+    rewrite (commutative _ (f^2)) in H2.
+    rewrite (commutative f0) in H2.
+    do 2 rewrite (associative (f^2)) in H2.
+    rewrite (commutative (f^2)) in H2.
+    rewrite left_multiplicative_inverse in H2.
+    rewrite left_identity in H2.
+    trivial.
+
+    eapply square_nz; eauto with typeclass_instances; intuition idtac.
+    eapply square_nz; eauto with typeclass_instances; intuition idtac.
+    eapply square_nz; eauto with typeclass_instances; intuition idtac.
+    eapply square_nz; eauto with typeclass_instances; intuition idtac.
+    
+    eapply (fmul_same_r (Finv (f^3))) in H4.
+    rewrite <- (associative f4) in H4.
+    rewrite (commutative (f^3)) in H4.
+    rewrite left_multiplicative_inverse in H4.
+    rewrite right_identity in H4.
+    rewrite <- H4 in H5.
+    eapply (fmul_same_r (Finv (f2^3))) in H5.
+    rewrite <- (associative f7) in H5.
+    rewrite (commutative (f2^3)) in H5.
+    rewrite left_multiplicative_inverse in H5.
+    rewrite right_identity in H5.
+    rewrite (commutative _ (Finv (f2^3))) in H5.
+    rewrite (commutative f1) in H5.
+    do 3 rewrite (associative (Finv (f2^3))) in H5.    
+    rewrite left_multiplicative_inverse in H5.
+    rewrite left_identity in H5.
+    eapply (fmul_same_r (f^3)) in H5.
+    rewrite (commutative _ (f^3)) in H5.
+    rewrite (commutative f1) in H5.
+    do 2 rewrite (associative (f^3)) in H5.
+    rewrite (commutative (f^3)) in H5.
+    rewrite left_multiplicative_inverse in H5.
+    rewrite left_identity in H5.
+    trivial.
+    
+    eapply cube_nz; eauto with typeclass_instances; intuition idtac.
+    eapply cube_nz; eauto with typeclass_instances; intuition idtac.
+    eapply cube_nz; eauto with typeclass_instances; intuition idtac.
+    eapply cube_nz; eauto with typeclass_instances; intuition idtac.
+
+  Qed.
+  
+  Theorem jac_eq_symm : forall p1 p2,
+    jac_eq p1 p2 ->
+    jac_eq p2 p1.
+
+    intros. 
+    unfold jac_eq in *.
+    destruct p1. destruct p.
+    destruct p2. destruct p.
+    destruct (dec (Feq f 0)).
+    destruct (dec (Feq f2 0));
+    intuition idtac.
+    destruct (dec (Feq f2 0)); 
+    intuition idtac.
+    symmetry.
+    trivial.
+    symmetry.
+    trivial.
+  Qed.
+
+  Theorem jacobian_eq_jac_eq : forall p1 p2,
+    Jacobian.eq p1 p2 ->
+    jac_eq (fromPoint p1) (fromPoint p2).
+
+    intros.
+    unfold jac_eq, fromPoint, Jacobian.eq in *.
+    apply H.
+
+  Qed.
+
 
   Theorem double_minus_3_eq_double : forall P,
       Jacobian.eq (double P) (double_minus_3 P).
@@ -636,6 +837,167 @@ Section CurveFacts.
     apply w_opp_involutive.
   Qed.
 
+  Theorem jac_eq_jacobian_eq:
+    forall p1 p2 : Jacobian.point,
+    jac_eq (fromPoint p1) (fromPoint p2) -> Jacobian.eq p1 p2.
+
+    intros.
+    eauto.
+
+  Qed.
+
+  Theorem fromPoint_is_jacobian : forall p,
+    is_jacobian (fromPoint p).
+
+    intros.
+    unfold is_jacobian, fromPoint.
+    destruct p.
+    simpl.
+    trivial.
+  Qed.
+
+  Theorem jac_eq_is_jacobian : forall p1 p2,
+    is_jacobian p1 ->
+    jac_eq p1 p2 ->
+    is_jacobian p2.
+
+    intros.
+    unfold is_jacobian, jac_eq in *.
+    destruct p1. destruct p.
+    destruct p2. destruct p.
+    destruct (dec (Feq f2 0)).
+    trivial.
+
+    destruct (dec (Feq f 0)).
+    intuition idtac.
+    intuition idtac.
+
+    apply (fmul_same_r (Finv (f2^2))) in H0.
+    rewrite <- associative in H0.
+    rewrite (commutative (f2^2) (Finv (f2^2))) in H0.
+    rewrite left_multiplicative_inverse in H0.
+    rewrite right_identity in H0.
+
+    apply (fmul_same_r (Finv (f2^3))) in H3.
+    rewrite <- associative in H3.
+    rewrite (commutative (f2^3) (Finv (f2^3))) in H3.
+    rewrite left_multiplicative_inverse in H3.
+    rewrite right_identity in H3.
+
+    rewrite H0 in H.
+    rewrite H3 in H.
+    repeat rewrite cube_mul_eq in H.
+    repeat rewrite square_mul_eq in H.
+
+    apply (fmul_same_r (Finv ((f^2)^3))) in H.
+    rewrite (commutative (f4^2) ((f^2)^3)) in H.
+    rewrite (commutative _ (Finv _)) in H.
+    do 2 rewrite (associative (Finv ((f ^ 2) ^ 3))) in H.
+    rewrite left_multiplicative_inverse in H.
+    rewrite left_identity in H.
+    repeat rewrite right_distributive in H.
+    rewrite (commutative _ (Finv ((f^2)^3))) in H.
+    rewrite (commutative (f3^3)) in H.
+    do 2 rewrite (associative (Finv ((f ^ 2) ^ 3))) in H.
+    rewrite left_multiplicative_inverse in H.
+    rewrite left_identity in H.
+    rewrite <- (associative b) in H.
+    rewrite (commutative ((f^2)^3)) in H.
+    rewrite left_multiplicative_inverse in H.
+    rewrite right_identity in H.
+    setoid_replace (a * (f3 * f ^ 2 * Finv (f2 ^ 2)) * (f ^ 2) ^ 2 * Finv ((f ^ 2) ^ 3))
+        with (a * (f3 * Finv (f2 ^ 2)))
+        in H.
+    apply (fmul_same_r ((f2^3)^2)) in H.
+    rewrite <- (associative) in H.
+    rewrite inv_square_eq in H.
+    rewrite left_multiplicative_inverse in H.
+    rewrite right_identity in H.
+    rewrite H.
+    repeat rewrite right_distributive.
+    rewrite <- (associative (f3^3)).
+    repeat rewrite inv_cube_eq.
+    repeat rewrite cube_square_eq.
+    rewrite left_multiplicative_inverse.
+    rewrite right_identity.
+    apply fadd_same_r.
+    repeat rewrite (commutative (f3^3)).
+    apply fadd_same_r.
+    repeat rewrite <- (associative a).
+    repeat rewrite (commutative a).
+    apply fmul_same_r.
+    rewrite <- (associative f3).
+    repeat rewrite (commutative f3).
+    apply fmul_same_r.
+    setoid_replace ((f2^2)^3) with ((f2^2) * ((f2^2)^2)).
+    rewrite (associative (Finv (f2^2))).
+    rewrite left_multiplicative_inverse.
+    rewrite left_identity.
+    reflexivity.
+    apply square_nz; trivial.
+    repeat rewrite associative.
+    reflexivity.
+    eauto using square_nz, cube_nz.
+    eauto using square_nz, cube_nz.
+    eauto using square_nz, cube_nz.
+    eauto using square_nz, cube_nz.
+
+    repeat rewrite <- (associative a).
+    repeat rewrite (commutative a).
+    apply fmul_same_r.
+    repeat rewrite <- (associative f3).
+    repeat rewrite (commutative f3).
+    apply fmul_same_r.
+    rewrite (commutative (f^2)).
+    repeat rewrite <- (associative (Finv (f2^2))).
+    setoid_replace (f ^ 2 * (f ^ 2) ^ 2) with ((f ^ 2) ^ 3).
+    rewrite (commutative ((f^2)^3)).
+    rewrite left_multiplicative_inverse.
+    rewrite right_identity.
+    reflexivity.
+    eauto using square_nz, cube_nz.
+    repeat rewrite associative.
+    reflexivity.
+
+    eauto using square_nz, cube_nz.
+    eauto using square_nz, cube_nz.
+    eauto using square_nz, cube_nz.
+    eauto using square_nz, cube_nz.
+    eauto using square_nz, cube_nz.
+
+  Qed.
+
+  Theorem fromPoint_toPoint_id : forall p (H : is_jacobian p),
+    p = fromPoint (toPoint _ H).
+  
+    intros.
+    reflexivity.
+  Qed.
+
+  Theorem jac_eq_point_ex : forall p1 p2,
+    jac_eq (fromPoint p1) p2 ->
+    exists p2', p2 = fromPoint p2'.
+
+    intros.
+    assert (is_jacobian p2).
+    eapply jac_eq_is_jacobian; eauto.
+    apply fromPoint_is_jacobian.
+    exists (toPoint _ H0).
+    reflexivity.
+  Qed.
+
+  Theorem Proper_double_minus_3: forall (x y : point),
+    Jacobian.eq x y -> 
+    Jacobian.eq (Jacobian.double_minus_3 a_is_minus_3 x) (Jacobian.double_minus_3 a_is_minus_3 y).
+
+    intros.
+    repeat rewrite <- Jacobian.double_minus_3_eq_double.
+    apply Jacobian.Proper_double.
+    trivial.
+
+  Qed.
+
+
 End CurveFacts.
 
 Global Instance EC_CommutativeGroup : forall `{Curve}{Feq_dec : DecidableRel Feq}, 
@@ -659,4 +1021,6 @@ Global Instance EC_CommutativeGroupWithDouble : forall `{Curve}{Feq_dec : Decida
   apply jac_double_correct.
 
 Defined.
+
+
 

@@ -1055,6 +1055,18 @@ Section GroupMulWNAF.
 
   Qed.
 
+  
+  Theorem recode_rwnaf_OddWindow : forall n, 
+    (Z.of_nat n < BinInt.Z.shiftl 1 (BinInt.Z.of_nat (numWindows * wsize)))%Z ->
+    List.Forall (OddWindow) (recode_rwnaf (Z.of_nat n)).
+
+    intros.   
+    eapply List.Forall_forall.
+    intros.
+    eapply recode_rwnaf_correct; eauto.
+
+  Qed.
+
   Theorem recode_rwnaf_bound_In : forall x z,
     (BinInt.Z.of_nat x < BinInt.Z.shiftl 1 (BinInt.Z.of_nat (numWindows * wsize)))%Z ->
     List.In z (recode_rwnaf (Z.of_nat x)) ->
@@ -1409,6 +1421,33 @@ Section GroupMulWNAF.
       | S n2' => n1 :: (natsFrom (S n1) n2')
       end.
 
+    Theorem natsFrom_S : forall y x,
+      natsFrom x (S y) = (natsFrom x y) ++ List.cons (x + y)%nat List.nil.
+
+      induction y; intros; simpl in *.
+      f_equal.
+      lia.
+      f_equal.
+      rewrite IHy.
+      f_equal.
+      f_equal.
+      lia.
+
+    Qed.
+
+    Theorem In_natsFrom_range : forall z x y,
+      List.In x (natsFrom y z) ->
+      (y <= x < (y + z))%nat.
+
+      induction z; intros; simpl in *.
+      intuition idtac.
+      destruct H; subst.
+      lia.
+      eapply IHz in H.
+      lia.
+
+    Qed.
+
     Definition validateGeneratorTableRowBody (two : GroupElem)(p : GroupElem * bool)(a : TableGroupElem) :=
       (groupAdd (fst p) two, snd p && TableGroupElem_eqb (fst p) a).
 
@@ -1746,7 +1785,6 @@ Section GroupMulWNAF.
  
     Qed.
 
-    
   End ValidateGeneratorTable.
 
 End GroupMulWNAF.

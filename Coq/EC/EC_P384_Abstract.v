@@ -148,8 +148,11 @@ Section EC_P384_Abstract.
   Variable point_add : bool -> point -> point -> point.
   Variable point_double : point -> point.
   Variable sign_extend_16_64 : (bitvector 16) -> (bitvector 64).
-  Variable point_id_to_limb : (bitvector 16) -> (bitvector 64).
+
   Variable conditional_subtract_if_even :  point -> (bitvector 384) -> point -> point.
+
+  Definition point_id_to_limb_abstract (id : Vector.t bool 16) : Vector.t bool 64 := 
+    Vector.append (vecRepeat false 48) id.
 
   Definition select_point_abstract x t :=
     fold_left
@@ -187,7 +190,7 @@ Section EC_P384_Abstract.
       point_double x)
      (toN_int pred_wsize) p)
   (conditional_point_opp_abstract
-     (point_id_to_limb
+     (point_id_to_limb_abstract
         (shiftR 16 bool false id 15))
      (select_point_abstract
         (sign_extend_16_64
@@ -219,7 +222,6 @@ Section EC_P384_Abstract.
 
   Section PointMulBase.
 
-    Definition affine_point := Vector.t F 2.
 
     Variable base_precomp_table : list (list affine_point).
 
@@ -238,7 +240,7 @@ Section EC_P384_Abstract.
       let selected   := select_point_affine_abstract (sign_extend_16_64 (bvSShr _ (bvAdd _ (shiftR _ _ false window 15) (bvXor _ window (bvSShr _ window 15%nat))) 1%nat)) (nth (Nat.div j pred_wsize) base_precomp_table nil) in
       let x_coord   :=nth_order  selected zero_lt_two in
       let y_coord   :=nth_order  selected one_lt_two in
-      point_add true p [x_coord; F_cmovznz (point_id_to_limb (bvShr _ window 15)) y_coord (Fopp y_coord); one].
+      point_add true p [x_coord; F_cmovznz (point_id_to_limb_abstract (bvShr _ window 15)) y_coord (Fopp y_coord); one].
 
     Import VectorNotations. 
     
@@ -278,7 +280,7 @@ Section EC_P384_Abstract.
   End PointMulBase.
 
   Variable F_nz : F -> bitvector 64.
-  Variable F_ne : F -> F -> bitvector 64.
+  Definition F_ne x y := F_nz (Fsub x y).
   Definition Fsquare x := Fmul x x.
 
   (* Base point table validation function. *)
