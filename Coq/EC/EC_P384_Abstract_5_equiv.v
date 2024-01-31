@@ -363,12 +363,20 @@ Section EC_P384_Abstract_5_equiv.
   Definition point_mul_base := point_mul_base Fsquare Fmul Fsub Fadd Fopp.
   Definition add_base := add_base Fsquare Fmul Fsub Fadd Fopp.
 
-  Definition base_precomp_table := List.map (to_list) (to_list p384_g_pre_comp).
+  (* To avoid problems related to conversion performance, we assume a table using lists that is equivalent
+  to the pre-computed table using vectors*)
+  Variable base_precomp_table : list (list affine_point).
+  Definition list_vec_eq (A : Type) n a (b : Vector.t A n) :=
+    a = (to_list b).
+  Hypothesis base_precomp_table_correct : 
+    List.Forall2 (@list_vec_eq _ _) base_precomp_table (to_list p384_g_pre_comp).
+
   Global Opaque p384_g_pre_comp.
 
   Theorem base_precomp_table_length :
     List.length base_precomp_table = 20%nat.
 
+   erewrite Forall2_length; eauto.
    reflexivity.
   Qed.
 
@@ -378,15 +386,19 @@ Section EC_P384_Abstract_5_equiv.
     to_list (@sawAt  _ _ _ p384_g_pre_comp i1).
 
     intros.
+    eapply Forall2_nth_lt in base_precomp_table_correct.
+    unfold list_vec_eq in *.
+    rewrite base_precomp_table_correct.
     erewrite sawAt_nth_equiv.
-    unfold base_precomp_table.
     erewrite nth_indep.
-    rewrite map_nth.
     reflexivity.
-    rewrite map_length.
-    rewrite length_to_list.
+    eapply H.
     lia.
+    rewrite base_precomp_table_length.
     lia.
+   
+    Unshelve.
+    apply (vecRepeat (cons Fzero (cons Fzero (@nil _)))).
  
   Qed.
 
@@ -443,10 +455,7 @@ Section EC_P384_Abstract_5_equiv.
     erewrite sawAt_nth_equiv.
     erewrite nth_indep.
     f_equal.
-    unfold base_precomp_table.
-    erewrite sawAt_nth_equiv.
-    erewrite nth_indep.
-    rewrite map_nth.
+    rewrite base_precomp_table_nth_eq.
     f_equal.
     f_equal.
     unfold ecDiv.
@@ -477,44 +486,12 @@ Section EC_P384_Abstract_5_equiv.
     replace (fst (Nat.divmod (bvToNat 64 i) 3 0 3)) with ((bvToNat 64 i) / 4)%nat.
     apply Nat.div_lt_upper_bound; intros.
     lia.
-    rewrite map_length.
+    lia.
+    reflexivity.
     rewrite length_to_list.
-    simpl.
     lia.
-    reflexivity.
-    replace ((ecDiv (bitvector 64) (PIntegralWord 64) i (intToBv 64 4))) with (bvUDiv _ i (intToBv 64 4)).
-    rewrite bvUDiv_nat_equiv.
-    rewrite bvToNat_bvNat.
-    apply Nat.div_lt_upper_bound. 
-    replace (bvToNat 64 (intToBv 64 4)) with 4%nat.
     lia.
-    reflexivity.
-    replace (bvToNat 64 (intToBv 64 4)) with 4%nat.
-    simpl.
-    lia.
-    reflexivity.
-    apply Nat.div_lt_upper_bound. 
-    replace (bvToNat 64 (intToBv 64 4)) with 4%nat.
-    lia.
-    reflexivity.
-    
-    replace (bvToNat 64 (intToBv 64 4)) with 4%nat.
-    replace (bvToNat 64 i) with (1 * bvToNat 64 i).
-    eapply le_lt_trans.
-    eapply mult_le_compat_r.
-    assert (1 <= 4)%nat by lia. eauto.
-    eapply mult_lt_compat_l.
-    apply bvToNat_bounds.
-    lia.
-    simpl.
-    lia.
-    reflexivity.
 
-    reflexivity.
-    rewrite length_to_list.
-    trivial.
-    trivial.
-    
     simpl.
     repeat rewrite select_point_affine_abstract_equiv.
     replace (fst (Nat.divmod (bvToNat 64 i) 3 0 3))%nat with ((bvToNat 64 i) / 4)%nat.
@@ -522,33 +499,42 @@ Section EC_P384_Abstract_5_equiv.
     replace ((ecDiv (bitvector 64) (PIntegralWord 64) i (intToBv 64 4))) with (bvUDiv _ i (intToBv 64 4)).
     rewrite bvUDiv_nat_equiv.
     rewrite bvToNat_bvNat.
-    unfold Op_modulez20Uparameterz20Up384zugzuprezucomp.
     rewrite (sawAt_nth_order_equiv _ _ one_lt_two).
     rewrite sawAt_nth_equiv.
     repeat rewrite <- bvShr_shiftR_equiv.
-    unfold base_precomp_table.
     f_equal.
     f_equal.
     f_equal.
     unfold select_point_affine_abstract.
     f_equal.
-    erewrite nth_indep.
-    rewrite map_nth.
+    f_equal.
+    rewrite base_precomp_table_nth_eq.
+    unfold Op_modulez20Uparameterz20Up384zugzuprezucomp.
+    f_equal.
+    rewrite sawAt_nth_equiv.
     reflexivity.
-    rewrite map_length.
-    rewrite length_to_list.
-    apply Nat.div_lt_upper_bound; simpl; lia.
+    apply Nat.div_lt_upper_bound. 
+    lia.
+    lia.
+    apply Nat.div_lt_upper_bound. 
+    lia.
+    lia.
     
     f_equal.
     unfold select_point_affine_abstract.
     f_equal.
     f_equal.
-    erewrite nth_indep.
-    rewrite map_nth.
+    rewrite base_precomp_table_nth_eq.
+    unfold Op_modulez20Uparameterz20Up384zugzuprezucomp.
+    f_equal.
+    rewrite sawAt_nth_equiv.
     reflexivity.
-    rewrite map_length.
-    rewrite length_to_list.
-    apply Nat.div_lt_upper_bound; simpl; lia.
+    apply Nat.div_lt_upper_bound. 
+    lia.
+    lia.
+    apply Nat.div_lt_upper_bound. 
+    lia.
+    lia.
 
     apply Nat.div_lt_upper_bound. 
     replace (bvToNat 64 (intToBv 64 4)) with 4%nat.

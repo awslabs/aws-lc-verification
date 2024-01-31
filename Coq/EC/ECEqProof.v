@@ -589,164 +589,8 @@ Section ECEqProof.
   Qed.
 
   Definition point_mul_abstract := @point_mul_abstract Fopp point_double point_add sign_extend_16_64 felem_cmovznz select_point_loop_body conditional_subtract_if_even.
-(*
-  Section PointMulAbstract.
-  Variable wsize : nat.
-  Hypothesis wsize_range : (1 < wsize < 16)%nat.
-  Variable nw : nat.
-  Hypothesis nw_range : nw <> 0%nat.
-
-  Definition point_mul_base := @point_mul_base Fadd Fsub Fmul Fopp.
-  Definition base_precomp_table : list (list affine_point) := List.map to_list (to_list p384_g_pre_comp).
-  Local Opaque p384_g_pre_comp.
-  Hypothesis base_precomp_table_length : List.length base_precomp_table = (wsize * (Nat.pred wsize))%nat.
-  Definition numPrecompExponentGroups : nat := (Nat.pred wsize).
-  Definition precompTableSize : nat := List.length base_precomp_table.
-  Hypothesis base_precomp_table_entry_length : 
-    forall ls, List.In ls base_precomp_table -> List.length ls = Nat.pow 2 numPrecompExponentGroups.
-  Definition affine_g := 
-    List.nth 0 (List.nth 0 base_precomp_table (inhabitant (list affine_point))) (inhabitant affine_point).
-  (* We need a default point for some lookup operations. It simplifies the proof a bit if this point is on the curve. *)
-  Definition affine_default : affine_point := affine_g.
-
-  Variable g : point. 
-  Definition affineToJac := @affineToJac p384_felem_one.
-  Hypothesis g_affine_jac_equiv :   
-    jac_eq (seqToProd (affineToJac affine_g)) (fromPoint g).
-*)
-
-(*
-  (* Assume the base point table passes validation, and then prove that it is correct.*)
-  Definition validate_base_table_abstract := @validate_base_table_abstract Fadd Fsub Fmul.
-  Hypothesis base_precomp_table_validated : validate_base_table_abstract wsize base_precomp_table = true.
-
-  Definition jacobian_affine_eq_abstract :=  @jacobian_affine_eq_abstract Fsub Fmul.
-  Definition validateGeneratorTable := validateGeneratorTable g (fun p => jacobian_affine_eq_abstract (prodToSeq (fromPoint p))) affine_default.
-*)
-
-(*
-  Definition jacobian_affine_eq_abstract := @jacobian_affine_eq_abstract Fone Fadd Fsub Fmul Fdiv Fopp Finv _ a b _ felem_nz.
-  Definition jacobian_affine_eq_point (p : point) :=
-    jacobian_affine_eq_abstract (prodToSeq (fromPoint p)).
-
-  Theorem jacobian_affine_eq_point_correct : 
-  forall (p : point) (t : affine_point),
-    Feq p384_felem_one 1 ->
-    jacobian_affine_eq_point p t = 1%bool <-> jac_eq (seqToProd (affineToJac t)) (fromPoint p).
-
-    intros.
-    eapply jacobian_affine_eq_abstract_correct; eauto.
-    apply felem_nz_0.
-    apply felem_nz_not_0.
-    apply felem_nz_neq_0.
-
-  Qed.
- 
-
-  Theorem base_precomp_table_correct  : forall n1 n2,
-    Feq p384_felem_one 1 -> 
-    (n1 < precompTableSize)%nat ->
-    (n2 < Nat.pow 2 numPrecompExponentGroups)%nat-> 
-    jac_eq (seqToProd (affineToJac (List.nth n2 (List.nth n1 base_precomp_table List.nil) affine_default))) (fromPoint (groupMul ((2 * n2 + 1) * (Nat.pow 2 (n1 * numPrecompExponentGroups * wsize))) g)).
- 
-    intros.
-    eapply validateGeneratorTable_correct.
-    lia.
-    intros.
-    eapply jacobian_affine_eq_point_correct.
-    trivial.
-    intros.
-    eapply jac_eq_trans; eauto.
-    rewrite validate_base_table_abstract_model_equiv in base_precomp_table_validated.
-    eapply base_precomp_table_validated.
-    unfold validate_base_table_abstract, EC_P384_Abstract.validate_base_table_abstract in *.
-    trivial.
-
-    eauto.
-    unfold numPrecompExponentGroups.
-    rewrite NPeano.Nat.mul_comm.
-    rewrite base_precomp_table_length.
-    destruct wsize; simpl in *; reflexivity.
-
-    apply base_precomp_table_entry_length.
-
-  Qed.
-*)
 
 
-(*
-  Hypothesis p384_felem_one_correct : Feq p384_felem_one 1.
-*)
-
- (*
-  
-  Theorem affineToJac_cons_eq : forall z,
-      affineToJac z =
-      cons (seq 6 (seq 64 bool)) (nth_order z zero_lt_two) 2
-        (cons (seq 6 (seq 64 bool)) (nth_order z one_lt_two) 1
-           (cons (seq 6 (seq 64 bool)) 1 0 (nil (seq 6 (seq 64 bool))))).
-
-    intros.
-    unfold affineToJac. 
-    destruct (Vec_S_cons _ _ z). destruct H.
-    destruct (Vec_S_cons _ _ x0). destruct H0.
-    subst.
-    rewrite (Vec_0_nil _ x2).
-    unfold nth_order.
-    simpl.
-    
-    rewrite p384_felem_one_correct.
-    reflexivity.
-
-  Qed.
-*)
-
-(*
-  Definition add_base_abstract := @add_base_abstract Fadd Fsub Fmul Fopp 1.
-*)
-
-
-  (*
-
-  Local Opaque jac_eq.
-
-  Definition groupedMul_scalar_precomp := @groupedMul_scalar_precomp Fone Fadd Fsub Fmul Fdiv Fopp Finv _  a b _ 
-    5 wsize_range nw nw_range base_precomp_table base_precomp_table_length base_precomp_table_entry_length g base_precomp_table_correct.
-
-  Theorem groupedMul_scalar_precomp_Some_P384_concrete : forall n, exists x, 
-    groupedMul_scalar_precomp 4 5 77 1 n = Some x.
-
-    intros.
-    unfold groupedMul_scalar_precomp.
-    unfold groupedMul_precomp.
-
-    assert  (exists x, permuteAndDouble_grouped (recode_rwnaf 5 77 (Z.of_nat n)) 1 (groupIndices 77 4) = Some x /\
-        List.Forall (List.Forall (wmIsMultiple 4)) x).
-    eapply permuteAndDouble_grouped_Some.
-    apply groupIndices_all_lt.
-    rewrite groupIndices_length. reflexivity.
-    reflexivity.
-    repeat econstructor.
-
-    destruct H.
-    destruct H.
-    erewrite permuteAndDouble_grouped_equiv; eauto.
-    edestruct (groupMul_signedWindows_precomp_Some).
-    eapply Forall_flatten.
-    intros.
-    eapply (@List.Forall_forall _ _ x).
-    trivial.
-    eauto.
-    
-    unfold idElem.
-    simpl.
-    rewrite H1.
-    destruct (Nat.even n); econstructor; eauto.
-
-  Qed.
-
-  End PointMulAbstract.
-*)
 
 
    (**
@@ -785,75 +629,123 @@ Section ECEqProof.
   multiplication operation on the base point. 
   *)
 
-  Definition validate_base_table := @validate_base_table Fadd Fsub Fmul.
+  Local Opaque EC_P384_5.validate_base_table.
+  Definition validate_base_table := @EC_P384_5.validate_base_table Fsquare Fmul Fsub Fadd.
   (* Assume that the hard-coded table containing multiples of the base point has been validated.
   This validation can occur during testing using a C program that is verified against this functional spec. *)
+(*
   Hypothesis validate_base_table_true : validate_base_table p384_g_pre_comp = true.
+*)
 
-  Definition preCompTable := (List.map (fun x => to_list x) (to_list p384_g_pre_comp)).
+  Variable preCompTable : (list (list affine_point)).
+  Hypothesis preCompTable_correct : 
+    List.Forall2 (@list_vec_eq _ _) preCompTable (to_list p384_g_pre_comp).
 
-  Definition validate_base_table_abstract := @validate_base_table_abstract Fone Fadd Fsub Fmul Fdiv Fopp Finv _ a b _ 
-    point_double point_add felem_nz.
+(*
+  Definition preCompTable : (list (list affine_point)) := (List.map (to_list) (to_list p384_g_pre_comp)).
+*)
+  
+  Definition validate_base_table_abstract := @EC.EC_P384_Abstract.validate_base_table_abstract Fone Fadd Fsub Fmul Fdiv Fopp Finv _ a b _ 
+    point_add point_double felem_nz.
+  
+  (*
   Theorem validate_preCompTable_true : validate_base_table_abstract 5 preCompTable = true.
 
-    match goal with
-    | [H : ?a = true |- ?b = true] => rewrite <- H
-    end.
-    symmetry.
 
-    apply validate_base_table_equiv.
+    specialize (@validate_base_table_equiv Fadd Fsub Fmul Fdiv Fopp Finv _  a b _  
+      p384_g_pre_comp
+    ); intros.
+    transitivity (validate_base_table p384_g_pre_comp).
+    symmetry.
+    apply H.
+    apply validate_base_table_true.
 
   Qed.
+  *)
+
+  Hypothesis validate_preCompTable_true : validate_base_table_abstract 5 preCompTable = true.
+  Local Opaque EC_P384_Abstract.validate_base_table_abstract.
+
 
   Section PointMulBase.
+
+  Theorem Forall2_In_ex : forall (A B : Type)(P : A -> B -> Prop) lsa lsb,
+    List.Forall2 P lsa lsb -> 
+    forall a,
+    List.In a lsa -> 
+    exists b, List.In b lsb /\ P a b.
+
+    induction 1; intros; simpl in *.
+    intuition idtac.
+    destruct H1; subst.
+    exists y.
+    intuition idtac.  
+    edestruct IHForall2; eauto.
+    intuition idtac.
+    exists x0.
+    intuition idtac.
+
+  Qed.
 
   Theorem preCompTable_entry_length : forall ls,
     List.In ls preCompTable ->
     Datatypes.length ls = Nat.pow 2 (Nat.pred 5).
 
     intros.
-    unfold preCompTable in *.
-    erewrite to_list_entry_length; eauto.
-
+    assert (exists y, List.In y (to_list p384_g_pre_comp) /\ list_vec_eq ls y).
+    eapply Forall2_In_ex; eauto.
+    destruct H0.
+    destruct H0.
+    unfold list_vec_eq in *.
+    subst.
+    rewrite length_to_list.
+    reflexivity.
   Qed.
 
   Theorem preCompTable_length : 
     Datatypes.length preCompTable = 20%nat.
 
     intros.
+    erewrite Forall2_length; eauto.
+    rewrite length_to_list.
     reflexivity.
 
    Qed.
 
-  (* Assume the multiplicative identity element of the field is equal to the hard-coded "one" value in the code. *)
-  Hypothesis Fone_eq : 
-    p384_felem_one = 1.
+
   Local Opaque p384_felem_one.
   Local Opaque felem_nz.
+  Local Opaque preCompTable.
 
   (* The base point multiplication operation using a hard-coded table is equivalent to multiplication by the base point. *)
 
   Local Opaque groupedMul_scalar_precomp.
 
-  Hypothesis g_point : Curve.point.
-  Variable g_point_eq : jac_eq (seqToProd g) (fromPoint g_point).
-  Variable g_point_affine_jac_equiv : jac_eq (seqToProd (affineToJac (affine_g base_precomp_table))) (fromPoint g_point).
+  Variable g_point : Curve.point.
+  Hypothesis g_point_eq : jac_eq (seqToProd (g preCompTable)) (fromPoint g_point).
+  Hypothesis g_point_affine_jac_equiv : jac_eq (seqToProd (affineToJac (affine_g preCompTable))) (fromPoint g_point).
 
   Definition point_mul_base := @point_mul_base Fadd Fsub Fmul Fopp.  
+
   Theorem point_mul_base_correct : forall (n : seq 384 Bool),
       jac_eq 
         (fromPoint (groupMul (bvToNat _ n) g_point))
         (seqToProd (point_mul_base n)).
 
     intros.
-    specialize (@groupedMul_scalar_precomp_Some_P384_5 Fone Fadd Fsub Fmul Fdiv Fopp Finv _  a b _  
-      point_double point_add point_add_jac_eq point_double_minus_3_jac_eq
-      felem_nz felem_nz_0 felem_nz_not_0 felem_nz_eq_0 felem_nz_neq_0 base_precomp_table
-      g_point g_point_affine_jac_equiv 
-      preCompTable_length preCompTable_entry_length validate_preCompTable_true
-      (bvToNat _ n)); intros.
+    specialize (@groupedMul_scalar_precomp_Some_P384_5 Fone Fadd Fsub Fmul Fdiv Fopp Finv _  a b _ 
+    point_double point_add point_add_jac_eq point_double_minus_3_jac_eq
+    felem_nz felem_nz_0 felem_nz_not_0 felem_nz_eq_0 felem_nz_neq_0 preCompTable
+    g_point g_point_affine_jac_equiv  preCompTable_length
+    ); intros.
+    specialize (H preCompTable_entry_length).
+    unfold validate_base_table_abstract in *.
+    unfold EC_P384_Abstract_Model_equiv.validate_base_table_abstract in *.
+    specialize (H validate_preCompTable_true).
+    specialize (H (bvToNat _ n)).
     destruct H.
     unfold point_mul_base.
+(*
     assert (List.Forall2 (fun (x : list affine_point) (y : t affine_point 16) => x = to_list y) preCompTable
          (to_list p384_g_pre_comp)).
     unfold preCompTable.
@@ -862,9 +754,14 @@ Section ECEqProof.
     eapply List.Forall_impl; [idtac | eapply Forall_I].
     intros.
     trivial.
+*)
+    specialize (@point_mul_base_abstract_equiv
+    Fadd Fsub Fmul Fdiv Fopp Finv _  a b _  
 
-    rewrite point_mul_base_abstract_equiv.
-    rewrite Fone_eq.
+    ); intros.
+    unfold EC_P384_Abstract_5_equiv.point_mul_base_abstract in *.
+    erewrite H0.
+
     specialize (@point_mul_base_abstract_correct
       Fone Fadd Fsub Fmul Fdiv Fopp Finv _  a b _  
       point_double point_add sign_extend_16_64 point_id_to_limb
@@ -872,13 +769,16 @@ Section ECEqProof.
       point_add_jac_eq point_add_mixed_eq
       point_double_minus_3_jac_eq
       sbvToInt_sign_extend_16_64_equiv
-      felem_nz felem_nz_0 felem_nz_not_0 felem_nz_eq_0 felem_nz_neq_0 base_precomp_table
+      felem_nz felem_nz_0 felem_nz_not_0 felem_nz_eq_0 felem_nz_neq_0 preCompTable
       g_point g_point_affine_jac_equiv 
       wsize wsize_range nw nw_range
       preCompTable_length preCompTable_entry_length validate_preCompTable_true
       select_point_affine_loop_body
       select_point_affine_loop_body_equiv
     ); intros.
+    unfold point_mul_base_abstract, EC_P384_Abstract_5_equiv.point_mul_base_abstract in *.
+    unfold point_add, EC_P384_Abstract_5_equiv.point_add in *.
+    unfold point_double, EC_P384_Abstract_5_equiv.point_double in *.
     eapply H1.
     eapply Z.lt_le_trans.
     eapply bvToInt_bound.
@@ -895,7 +795,10 @@ Section ECEqProof.
     lia.
     apply H.
 
+    apply preCompTable_correct.
+
   Qed.
+
 
   End PointMulBase.
 
