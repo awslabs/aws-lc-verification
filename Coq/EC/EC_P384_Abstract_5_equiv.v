@@ -1055,8 +1055,9 @@ Section EC_P384_Abstract_5_equiv.
   Definition validate_base_table_abstract :=
     @validate_base_table_abstract Fone Fadd Fsub Fmul Fdiv Fopp Finv _ a b _ point_add point_double felem_nz.
 
-  Theorem validate_base_table_equiv : forall t,
-    validate_base_table t = validate_base_table_abstract 5 (List.map to_list (to_list t)).
+  Theorem validate_base_table_equiv : forall t ls,
+    List.Forall2 (@list_vec_eq _ _) ls (to_list t) ->
+    validate_base_table t = validate_base_table_abstract 5 ls.
 
     intros.
     unfold validate_base_table, EC_P384_5.validate_base_table, validate_base_table_abstract, EC_P384_Abstract.validate_base_table_abstract.
@@ -1067,9 +1068,14 @@ Section EC_P384_Abstract_5_equiv.
     | [|- List.fold_left _ _ ?a = List.fold_left _ _ ?b] =>
       replace a with b
     end.
-    rewrite fold_left_map.
-    apply fold_left_ext.
+    symmetry.
+    eapply fold_left_R; eauto.
     intros.
+    subst.
+
+    unfold list_vec_eq in *.
+    subst.
+    symmetry.
     apply validate_base_table_body_equiv.
     erewrite (@sawAt_nth_order_equiv _ _ 2%nat 0%nat).
     erewrite (@sawAt_nth_order_equiv _ _ 2%nat 1%nat).
@@ -1078,15 +1084,15 @@ Section EC_P384_Abstract_5_equiv.
     rewrite sawAt_nth_equiv.
     f_equal.
     rewrite sawAt_nth_equiv.
-    erewrite nth_indep.
-    rewrite map_nth.
-    reflexivity.
-    rewrite map_length.
+    eapply Forall2_nth_lt in H.
+    unfold list_vec_eq in *.
+    eapply H.
+    erewrite Forall2_length; eauto.
     rewrite length_to_list.
     lia.
     lia.
     lia.
-  Qed.
 
+  Qed.
 
 End EC_P384_Abstract_5_equiv.
