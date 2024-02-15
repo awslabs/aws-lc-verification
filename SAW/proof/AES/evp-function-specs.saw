@@ -74,6 +74,53 @@ let EVP_CipherUpdate_spec enc gcm_len len = do {
   crucible_return (crucible_term {{ 1 : [32] }});
 };
 
+let EVP_CipherUpdate_array_spec enc mres res_mres = do {
+  global_alloc_init "OPENSSL_ia32cap_P" {{ ia32cap }};
+
+  cipher_ptr <- crucible_alloc_readonly (llvm_struct "struct.evp_cipher_st");
+  points_to_evp_cipher_st cipher_ptr;
+
+  cipher_data_ptr <- crucible_alloc_aligned 16 (llvm_struct "struct.EVP_AES_GCM_CTX");
+  ctx <- fresh_aes_gcm_ctx' mres;
+  points_to_EVP_AES_GCM_CTX cipher_data_ptr ctx mres {{ 1 : [32] }} 0xffffffff;
+
+  ctx_ptr <- crucible_alloc (llvm_struct "struct.evp_cipher_ctx_st");
+  points_to_evp_cipher_ctx_st ctx_ptr cipher_ptr cipher_data_ptr enc;
+
+  len_28 <- llvm_fresh_var "len" (llvm_int 28);
+  let len = {{ (len_28 # (`res_mres - `mres)): [32] }};
+  crucible_precond {{ len < 2 ^^ 31 }};
+  crucible_precond {{ ctx.len < `TOTAL_MESSAGE_MAX_LENGTH }};
+  crucible_precond {{ ctx.len + (0 # len) < `TOTAL_MESSAGE_MAX_LENGTH }};
+
+  (in_, in_ptr) <- ptr_to_fresh_array_readonly "in" {{ sext len : [64] }};
+  (out, out_ptr) <- ptr_to_fresh_array "out" {{ sext len : [64] }};
+
+  out_len_ptr <- crucible_alloc (llvm_int 32);
+
+  crucible_execute_func [ctx_ptr, out_ptr, out_len_ptr, in_ptr, (crucible_term len)];
+
+  points_to_evp_cipher_ctx_st ctx_ptr cipher_ptr cipher_data_ptr enc;
+
+  let res = if eval_bool {{ enc == 1 }} then {{
+    aes_gcm_encrypt_update ctx in_ (sext len) out
+  }} else {{
+    aes_gcm_decrypt_update ctx in_ (sext len) out
+  }};
+
+  llvm_setup_with_tag "Xi postcondition" do {
+    points_to_EVP_AES_GCM_CTX cipher_data_ptr {{ res.0 }} res_mres {{ 1 : [32] }} 0xffffffff;
+  };
+
+  llvm_setup_with_tag "output buffer postcondition" do {
+    llvm_points_to_array_prefix out_ptr {{ res.1 }} {{ sext len : [64] }};
+  };
+
+  crucible_points_to out_len_ptr (crucible_term len);
+
+  crucible_return (crucible_term {{ 1 : [32] }});
+};
+
 let EVP_EncryptFinal_ex_spec gcm_len = do {
   cipher_ptr <- crucible_alloc_readonly (llvm_struct "struct.evp_cipher_st");
   points_to_evp_cipher_st cipher_ptr;

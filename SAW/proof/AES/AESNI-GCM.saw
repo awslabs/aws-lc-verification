@@ -21,15 +21,13 @@ let aesni_gcm_cipher_spec enc gcm_len len = do {
   ivec <- crucible_fresh_var "ivec" (llvm_array aes_iv_len (llvm_int 8));
   crucible_points_to_untyped (crucible_elem ivec_ptr 0) (crucible_term ivec);
   crucible_points_to_untyped (crucible_elem ivec_ptr 12) (crucible_term {{ split`{4} (`ctr : [32]) }});
-  Xi_ptr <- crucible_alloc (llvm_array 14 (llvm_int 128));
-  Xi <- crucible_fresh_var "Xi" (llvm_array AES_BLOCK_SIZE (llvm_int 8));
+  Htable_ptr <- crucible_alloc_readonly_aligned 16 (llvm_array 12 (llvm_int 128));
+  crucible_points_to Htable_ptr (crucible_term {{ get_Htable key }});
+  (Xi, Xi_ptr) <- ptr_to_fresh "Xi" (llvm_array AES_BLOCK_SIZE (llvm_int 8));
   let ctx = {{ { key = key, iv = ivec, Xi = Xi, len = `gcm_len } : AES_GCM_Ctx }};
-  crucible_points_to_untyped (crucible_elem Xi_ptr 2) (crucible_term {{ get_Htable ctx }});
-  crucible_points_to_untyped (crucible_elem Xi_ptr 1) (crucible_term {{ get_H ctx }});
-  crucible_points_to_untyped (crucible_elem Xi_ptr 0) (crucible_term Xi);
   points_to_aes_key_st key_ptr key;
 
-  crucible_execute_func [in_ptr, out_ptr, (crucible_term {{ `len : [64] }}), key_ptr, ivec_ptr, Xi_ptr];
+  crucible_execute_func [in_ptr, out_ptr, (crucible_term {{ `len : [64] }}), key_ptr, ivec_ptr, Htable_ptr, Xi_ptr];
 
   let bulk_len = eval_size {| max min_size ((len / (6 * AES_BLOCK_SIZE)) * (6 * AES_BLOCK_SIZE)) |};
   let do_bulk = eval_size {| len / bulk_len |};
@@ -37,8 +35,6 @@ let aesni_gcm_cipher_spec enc gcm_len len = do {
   let res_ctr = eval_size {| ctr + res_len / AES_BLOCK_SIZE |};
 
   crucible_points_to ivec_ptr (crucible_term {{ ivec # (split (`res_ctr : [32])) }});
-  crucible_points_to_untyped (crucible_elem Xi_ptr 2) (crucible_term {{ get_Htable ctx }});
-  crucible_points_to_untyped (crucible_elem Xi_ptr 1) (crucible_term {{ get_H ctx }});
 
   if eval_bool {{ `do_bulk == 0 }} then do {
     crucible_points_to_untyped (crucible_elem Xi_ptr 0) (crucible_term Xi);
@@ -48,6 +44,44 @@ let aesni_gcm_cipher_spec enc gcm_len len = do {
   };
 
   crucible_return (crucible_term {{ `res_len : [64] }});
+};
+
+let aesni_gcm_cipher_array_spec enc = do {
+  len <- llvm_fresh_var "len" (llvm_int 64);
+  crucible_precond {{ len < 2 ^^ 36 }};
+
+  (in_, in_ptr) <- ptr_to_fresh_array_readonly "in" len;
+  (out, out_ptr) <- ptr_to_fresh_array "out" len;
+
+  key <- fresh_aes_key_st;
+  key_ptr <- crucible_alloc_readonly (llvm_struct "struct.aes_key_st");
+  points_to_aes_key_st key_ptr key;
+  ivec_ptr <- crucible_alloc (llvm_array AES_BLOCK_SIZE (llvm_int 8));
+  ivec <- crucible_fresh_var "ivec" (llvm_array aes_iv_len (llvm_int 8));
+  ctr <- crucible_fresh_var "ctr" (llvm_array 4 (llvm_int 8));
+  crucible_points_to_untyped (crucible_elem ivec_ptr 0) (crucible_term ivec);
+  crucible_points_to_untyped (crucible_elem ivec_ptr 12) (crucible_term ctr);
+  Htable_ptr <- crucible_alloc_readonly_aligned 16 (llvm_array 12 (llvm_int 128));
+  crucible_points_to Htable_ptr (crucible_term {{ get_Htable key }});
+  (Xi, Xi_ptr) <- ptr_to_fresh "Xi" (llvm_array AES_BLOCK_SIZE (llvm_int 8));
+
+  crucible_execute_func [in_ptr, out_ptr, (crucible_term len), key_ptr, ivec_ptr, Htable_ptr, Xi_ptr];
+
+  let res = if enc then {{
+    if 288 <= len then aesni_gcm_encrypt len in_ out key ivec ctr Xi 0 out (join Xi) else (out, join Xi, join (ivec # ctr))
+  }} else {{
+    if 96 <= len then aesni_gcm_decrypt len in_ out key ivec ctr Xi 0 out (join Xi) else (out, join Xi, join (ivec # ctr))
+  }};
+
+  llvm_points_to_array_prefix out_ptr {{ res.0 }} len;
+  crucible_points_to Xi_ptr (crucible_term {{ split`{each=8} res.1 }});
+  crucible_points_to ivec_ptr (crucible_term {{ split`{each=8} res.2 }});
+
+  if enc then do {
+    llvm_return (llvm_term {{ if 288 <= len then 96 * (len / 96) else 0 }});
+  } else do {
+    llvm_return (llvm_term {{ if 96 <= len then 96 * (len / 96) else 0 }});
+  };
 };
 
 
@@ -74,5 +108,90 @@ aesni_gcm_decrypt_ov <- llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "
   (aesni_gcm_cipher_spec {{ 0 : [32] }} aesni_gcm_cipher_gcm_len aesni_gcm_cipher_len)
   aesni_gcm_cipher_tactic;
 
+enable_what4_eval;
+enable_x86_what4_hash_consing;
+
+aesni_gcm_encrypt_array_ov <- llvm_verify_fixpoint_x86' m "../../build/x86/crypto/crypto_test" "aesni_gcm_encrypt"
+  [ ("byte64_len_to_mask_table", 704) // We need .Lbswap_mask. Its location is <byte64_len_to_mask_table+0x240>. 704 bytes is an offset that would be large enough to contain the right bytes after alignment.
+  ]
+  true
+  {{ aesni_gcm_encrypt_impl_loop }}
+  (aesni_gcm_cipher_array_spec true)
+  (do {
+    simplify (addsimp_shallow aesni_gcm_encrypt_impl_loop_thm empty_ss);
+    simplify (addsimps [aesenc_key0_0_thm, aesenc_key0_1_thm, aesenclast_thm] empty_ss);
+    simplify (addsimps [aesenc_aesenclast_thm, aesenc_aesenclast_1_thm] empty_ss);
+    simplify (addsimps [aesEncryptWithKeySchedule_swap8_0_thm, aesEncryptWithKeySchedule_swap8_1_thm] empty_ss);
+    simplify (addsimps [arrayRangeLookup_impl64_0_thm, arrayRangeLookup_impl64_8_thm, arrayRangeLookup_impl64_16_thm, arrayRangeLookup_impl64_24_thm, arrayRangeLookup_impl64_32_thm, arrayRangeLookup_impl64_40_thm, arrayRangeLookup_impl64_48_thm, arrayRangeLookup_impl64_56_thm, arrayRangeLookup_impl64_64_thm, arrayRangeLookup_impl64_72_thm, arrayRangeLookup_impl64_80_thm, arrayRangeLookup_impl64_88_thm] empty_ss);
+    simplify (cryptol_ss ());
+    goal_eval_unint ["aesni_gcm_encrypt", "pmult", "pmod", "gcm_polyval", "aesEncryptWithKeySchedule", "ExpandKey", "aesni_gcm_encrypt_impl_loop", "get_H'", "get_Htable", "gcm_polyval_red_half_pmult", "loadHalfBlock"];
+    simplify (cryptol_ss ());
+    simplify (addsimps concat_assoc_0_thms empty_ss);
+    simplify (addsimps concat_assoc_1_thms empty_ss);
+    simplify (addsimps concat_assoc_2_thms empty_ss);
+    simplify (addsimps [foo_append_slice_thm, bar_append_slice_thm] empty_ss);
+    goal_eval_unint ["aesni_gcm_encrypt", "pmult", "pmod", "gcm_polyval", "aesEncryptWithKeySchedule", "ExpandKey", "aesni_gcm_encrypt_impl_loop", "get_H'", "get_Htable", "gcm_polyval_red_half_pmult", "loadHalfBlock"];
+    simplify (addsimps [slt_0_thm, slt_1_thm] empty_ss);
+    goal_eval_unint ["aesni_gcm_encrypt", "pmult", "pmod", "gcm_polyval", "aesEncryptWithKeySchedule", "ExpandKey", "aesni_gcm_encrypt_impl_loop", "get_H'", "get_Htable", "loadHalfBlock"];
+    simplify (addsimps [aesEncryptWithKeySchedule_ExpandKey_thm] empty_ss);
+    simplify (addsimps slice_slice_thms empty_ss);
+    simplify (addsimps xor_slice_append_thms basic_ss);
+    simplify (addsimps concat_assoc_0_thms empty_ss);
+    simplify (addsimps concat_assoc_1_thms empty_ss);
+    simplify (addsimps concat_assoc_2_thms empty_ss);
+    simplify (addsimps [ite_slt_1_thm, ite_slt_2_thm, ite_slt_3_thm, ite_slt_4_thm, ite_slt_5_thm, ite_slt_6_thm, ite_slt_7_thm, ite_slt_8_thm, ite_slt_9_thm, ite_slt_10_thm, ite_slt_11_thm, ite_slt_12_thm ] empty_ss);
+    goal_eval_unint ["aesni_gcm_encrypt", "pmult", "pmod", "gcm_polyval", "aesEncryptWithKeySchedule", "ExpandKey", "aesni_gcm_encrypt_impl_loop", "get_H'", "get_Htable", "loadHalfBlock"];
+    simplify (addsimps [ite_slt_1_thm, ite_slt_2_thm, ite_slt_3_thm, ite_slt_4_thm, ite_slt_5_thm, ite_slt_6_thm, ite_slt_7_thm, ite_slt_8_thm, ite_slt_9_thm, ite_slt_10_thm, ite_slt_11_thm, ite_slt_12_thm, ite_slt_12_thm'] empty_ss);
+    goal_eval_unint ["aesni_gcm_encrypt", "pmult", "pmod", "gcm_polyval", "aesEncryptWithKeySchedule", "ExpandKey", "aesni_gcm_encrypt_impl_loop", "get_H'", "get_Htable", "loadHalfBlock"];
+    simplify (addsimps [append_0_xor_thm, append_xor_0_thm, append_add_thm, append_slice_4_8_thm, append_assoc_1_thm] empty_ss);
+    goal_eval_unint ["aesni_gcm_encrypt", "pmult", "pmod", "gcm_polyval", "aesEncryptWithKeySchedule", "ExpandKey", "aesni_gcm_encrypt_impl_loop", "get_H'", "get_Htable", "loadHalfBlock"];
+    goal_eval_unint ["aesni_gcm_encrypt", "pmult", "pmod", "gcm_polyval", "aesEncryptWithKeySchedule", "ExpandKey", "aesni_gcm_encrypt_impl_loop", "get_H'", "get_Htable", "loadHalfBlock"];
+    simplify (addsimps [append_0_xor_thm, append_xor_0_thm, append_add_thm, append_slice_4_8_thm, append_assoc_1_thm] empty_ss);
+    goal_eval_unint ["aesni_gcm_encrypt", "pmult", "pmod", "gcm_polyval", "aesEncryptWithKeySchedule", "ExpandKey", "aesni_gcm_encrypt_impl_loop", "get_H'", "get_Htable", "loadHalfBlock"];
+    simplify (addsimps [add_ite_thm] empty_ss);
+    goal_eval_unint ["aesni_gcm_encrypt", "pmult", "pmod", "gcm_polyval", "aesEncryptWithKeySchedule", "ExpandKey", "aesni_gcm_encrypt_impl_loop", "get_H'", "get_Htable", "loadHalfBlock"];
+    goal_eval_unint ["aesni_gcm_encrypt", "pmult", "pmod", "gcm_polyval", "aesEncryptWithKeySchedule", "ExpandKey", "aesni_gcm_encrypt_impl_loop", "get_H'", "get_Htable", "loadHalfBlock"];
+    goal_eval_unint ["aesni_gcm_encrypt", "pmult", "pmod", "gcm_polyval", "aesEncryptWithKeySchedule", "ExpandKey", "aesni_gcm_encrypt_impl_loop", "get_H'", "gcm_init_H", "loadHalfBlock"];
+
+    goal_num_ite 3 (do {
+      w4_unint_yices ["aesni_gcm_encrypt", "pmult", "pmod", "gcm_polyval", "aesEncryptWithKeySchedule", "ExpandKey", "aesni_gcm_encrypt_impl_loop", "get_H'", "gcm_init_H", "loadHalfBlock"];
+    }) (do {
+      w4_unint_z3 ["aesni_gcm_encrypt", "pmult", "pmod", "gcm_polyval", "aesEncryptWithKeySchedule", "ExpandKey", "aesni_gcm_encrypt_impl_loop", "get_H'", "gcm_init_H", "loadHalfBlock"];
+    });
+  });
+
+aesni_gcm_decrypt_array_ov <- llvm_verify_fixpoint_x86' m "../../build/x86/crypto/crypto_test" "aesni_gcm_decrypt"
+  [ ("byte64_len_to_mask_table", 704) // We need .Lbswap_mask. Its location is <byte64_len_to_mask_table+0x240>. 704 bytes is an offset that would be large enough to contain the right bytes after alignment.
+  ]
+  true
+  {{ aesni_gcm_decrypt_impl_loop }}
+  (aesni_gcm_cipher_array_spec false)
+  (do {
+    simplify (addsimp_shallow aesni_gcm_decrypt_impl_loop_thm empty_ss);
+    simplify (addsimps [aesenc_key0_0_thm, aesenc_key0_1_thm, aesenclast_thm] empty_ss);
+    simplify (addsimps [aesenc_aesenclast_thm, aesenc_aesenclast_1_thm] empty_ss);
+    simplify (addsimps [aesEncryptWithKeySchedule_swap8_0_thm, aesEncryptWithKeySchedule_swap8_1_thm] empty_ss);
+    simplify (cryptol_ss ());
+    simplify (addsimps concat_assoc_0_thms empty_ss);
+    simplify (addsimps concat_assoc_1_thms empty_ss);
+    simplify (addsimps concat_assoc_2_thms empty_ss);
+    simplify (addsimps [foo_append_slice_thm, bar_append_slice_thm] empty_ss);
+    goal_eval_unint ["aesni_gcm_decrypt", "pmult", "pmod", "gcm_polyval", "aesEncryptWithKeySchedule", "ExpandKey", "aesni_gcm_decrypt_impl_loop", "get_H'", "get_Htable"];
+    goal_eval_unint ["aesni_gcm_decrypt", "pmult", "pmod", "gcm_polyval", "aesEncryptWithKeySchedule", "ExpandKey", "aesni_gcm_decrypt_impl_loop", "get_H'", "get_Htable"];
+    simplify (addsimps [aesEncryptWithKeySchedule_ExpandKey_thm] empty_ss);
+    simplify (addsimps xor_slice_append_thms basic_ss);
+    simplify (addsimps slice_slice_thms empty_ss);
+    simplify (addsimps xor_slice_append_thms basic_ss);
+    simplify (addsimps concat_assoc_0_thms empty_ss);
+    simplify (addsimps concat_assoc_1_thms empty_ss);
+    simplify (addsimps concat_assoc_2_thms empty_ss);
+    simplify (addsimps [append_0_xor_thm, append_xor_0_thm, append_add_thm] empty_ss);
+    goal_eval_unint ["aesni_gcm_decrypt", "pmult", "pmod", "gcm_polyval", "aesEncryptWithKeySchedule", "aesni_gcm_decrypt_impl_loop", "get_H'", "get_Htable"];
+    w4_unint_yices ["aesni_gcm_decrypt", "pmult", "pmod", "gcm_polyval", "aesEncryptWithKeySchedule", "ExpandKey", "aesni_gcm_decrypt_impl_loop", "get_H'", "get_Htable"];
+  });
+
+disable_x86_what4_hash_consing;
+disable_what4_eval;
 disable_what4_hash_consing;
 default_x86_preserved_reg;
+
