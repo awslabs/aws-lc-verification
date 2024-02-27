@@ -50,6 +50,8 @@ apply_patch "noinline-SHA384_Final"
 apply_patch "noinline-SHA384_Update"
 apply_patch "noinline-EVP_DigestSignUpdate"
 apply_patch "noinline-EVP_DigestVerifyUpdate"
+apply_patch "noinline-p384_inv_square"
+apply_patch "noinline_ec_GFp_simple_is_at_infinity"
 apply_patch "p384_validate"
 
 # ...next, check the proofs using CMake's Release settings...
