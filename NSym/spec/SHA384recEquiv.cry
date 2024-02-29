@@ -3,7 +3,7 @@
 
 module SHA384recEquiv where
 
-import Primitive::Keyless::Hash::SHA384 as SHA384
+import Primitive::Keyless::Hash::SHA2::SHA384 as SHA384
 import SHA384rec as SHA384rec
 import Array
 import Common::ByteArray
@@ -24,7 +24,7 @@ property processBlock_Common_equiv (H : [8*w]) (Mi : [16][w]) =
 // Manual inspection is only required for the loop structure.
 
 // This property could not be proved nor checked due to Cryptol's lack of support for loops and Arrays
-property processBlocks_equiv (H : [8*w]) (data : ByteArray) (data2 : WordArray) (n : [64]) = 
+property processBlocks_equiv (H : [8*w]) (data : ByteArray) (data2 : WordArray) (n : [64]) =
   // This lemma lacks a hypothesis about the equivalence between data and data2
   // This hypothesis requires quantifiers
   (join (SHA384::processBlocks (split H) data 0 n)) == (SHA384rec::processBlocks_rec H n data2)

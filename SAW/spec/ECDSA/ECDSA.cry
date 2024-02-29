@@ -7,7 +7,7 @@ module ECDSA::ECDSA where
 
 import Array
 import Common::ByteArray
-import Primitive::Keyless::Hash::SHA384
+import Primitive::Keyless::Hash::SHA2::SHA384
 import Common::EC::EC_P384
 import HASH::SHA384
 

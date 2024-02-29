@@ -1,4 +1,4 @@
-/* 
+/*
 * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 * SPDX-License-Identifier: Apache-2.0
 */
@@ -6,7 +6,7 @@
 enable_experimental;
 
 // Import cryptol specs
-import "../../../cryptol-specs/Primitive/Keyless/Hash/SHA384.cry";
+import "../../../cryptol-specs/Primitive/Keyless/Hash/SHA2/SHA384.cry";
 import "../../spec/HASH/SHA384.cry";
 import "../../spec/HASH/HMAC.cry";
 import "../../spec/HASH/HMAC_Seq.cry";
