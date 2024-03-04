@@ -57,6 +57,20 @@ Section EC_P384_Abstract_5_equiv.
   Definition Fone := p384_felem_one.
 
   Context `{curve : Curve F Feq Fzero Fone}.
+  Definition Fsquare := @Fsquare Fmul.
+
+  Definition felem_inv_sqr_abstract := @felem_inv_sqr_abstract Fmul.
+
+  Theorem felem_inv_sqr_abstract_equiv : forall x,
+    felem_inv_sqr_abstract x = felem_inv_sqr Fsquare Fmul x.
+
+    intros. 
+    unfold felem_inv_sqr_abstract, EC_P384_Abstract.felem_inv_sqr_abstract, felem_inv_sqr.
+    unfold Fsquare_n, EC_P384_Abstract.Fsquare_n.
+    unfold Fsquare.
+    reflexivity.
+
+  Qed.
 
   Theorem point_id_to_limb_abstract_equiv : forall x,
     point_id_to_limb_abstract x = point_id_to_limb x.
@@ -164,7 +178,6 @@ Section EC_P384_Abstract_5_equiv.
     apply (@ecFromTo_0_n_bv_excl_equiv 64%nat 15%nat).
   Qed.
 
-  Definition Fsquare x := (Fmul x x).
   Definition point_mul := point_mul Fsquare Fmul Fsub Fadd Fopp.
  
 
@@ -432,7 +445,7 @@ Section EC_P384_Abstract_5_equiv.
   Qed.
 
   Definition add_base_abstract :=  
-    @add_base_abstract Fone Fadd Fsub Fmul Fdiv Fopp Finv _ a b _ felem_cmovznz point_add sign_extend_16_64 base_precomp_table select_point_affine_loop_body.
+    @add_base_abstract  Fone Fadd Fsub Fmul Fdiv Fopp Finv _ a b _ felem_cmovznz point_add sign_extend_16_64 base_precomp_table select_point_affine_loop_body.
 
   Local Opaque vecRepeat.
 
@@ -550,7 +563,7 @@ Section EC_P384_Abstract_5_equiv.
     reflexivity.
     
     replace (bvToNat 64 (intToBv 64 4)) with 4%nat.
-    replace (bvToNat 64 i) with (1 * bvToNat 64 i).
+    replace (bvToNat 64 i) with (1 * bvToNat 64 i)%nat.
     eapply le_lt_trans.
     eapply mult_le_compat_r.
     assert (1 <= 4)%nat by lia. eauto.
@@ -947,7 +960,7 @@ Section EC_P384_Abstract_5_equiv.
 
   Definition validate_base_row_body := validate_base_row_body Fsquare Fmul Fsub Fadd.
   Definition validate_base_row_body_abstract :=
-    @validate_base_row_body_abstract Fone Fadd Fsub Fmul Fdiv Fopp Finv _ a b _ point_add felem_nz.
+    @validate_base_row_body_abstract  Fone Fadd Fsub Fmul Fdiv Fopp Finv _ a b _ point_add felem_nz.
 
   Theorem validate_base_row_body_abstract_equiv : forall g x y,
     validate_base_row_body g x y = validate_base_row_body_abstract g x y.
@@ -963,7 +976,7 @@ Section EC_P384_Abstract_5_equiv.
 
   Definition validate_base_row := validate_base_row Fsquare Fmul Fsub Fadd.
   Definition validate_base_row_abstract :=
-    @validate_base_row_abstract Fone Fadd Fsub Fmul Fdiv Fopp Finv _ a b _ point_add point_double felem_nz.
+    @validate_base_row_abstract  Fone Fadd Fsub Fmul Fdiv Fopp Finv _ a b _ point_add point_double felem_nz.
   
   Theorem validate_base_row_equiv : forall (p : point) r,
     validate_base_row p r = validate_base_row_abstract 5 p (to_list r).
@@ -1028,7 +1041,7 @@ Section EC_P384_Abstract_5_equiv.
 
   Definition validate_base_table_body := validate_base_table_body Fsquare Fmul Fsub Fadd.
   Definition validate_base_table_body_abstract :=
-    @validate_base_table_body_abstract Fone Fadd Fsub Fmul Fdiv Fopp Finv _  a b _ point_add point_double felem_nz.
+    @validate_base_table_body_abstract Fone Fadd Fsub Fmul Fdiv Fopp Finv _ a b _ point_add point_double felem_nz.
 
 
   Theorem validate_base_table_body_equiv : forall (st : point*bool) r,
@@ -1053,7 +1066,7 @@ Section EC_P384_Abstract_5_equiv.
 
   Definition validate_base_table := validate_base_table Fsquare Fmul Fsub Fadd.
   Definition validate_base_table_abstract :=
-    @validate_base_table_abstract Fone Fadd Fsub Fmul Fdiv Fopp Finv _ a b _ point_add point_double felem_nz.
+    @validate_base_table_abstract  Fone Fadd Fsub Fmul Fdiv Fopp Finv _ a b _ point_add point_double felem_nz.
 
   Theorem validate_base_table_equiv : forall t ls,
     List.Forall2 (@list_vec_eq _ _) ls (to_list t) ->

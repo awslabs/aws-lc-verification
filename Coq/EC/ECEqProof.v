@@ -53,6 +53,10 @@ Set Implicit Arguments.
 
 Require Import CryptolToCoq.SAWCoreVectorsAsCoqVectors.
 
+Local Opaque Nat.pow.
+Local Opaque felem_inv_sqr felem_inv_sqr_abstract.
+Local Opaque Fpow.
+
 Section ECEqProof.
 
   Definition F := Vec 6 (Vec 64 Bool).
@@ -78,6 +82,13 @@ Section ECEqProof.
   Local Infix "*" := Fmul. Local Infix "/" := Fdiv.
   Local Notation "x ^ 2" := (x*x) (at level 30).
   Local Notation "x ^ 3" := (x^2*x) (at level 30).
+
+  
+  Definition Fsquare x := Fmul x x.
+  Local Opaque Fsquare.
+
+  Local Opaque Fpow p384_field_order Nat.pow.
+  Local Opaque felem_inv_sqr.
 
   Theorem felem_nz_eq_0 : 
     (felem_nz 0) = (intToBv 64 0).
@@ -126,9 +137,6 @@ Section ECEqProof.
 
   Definition point := Curve.point.
 
-  Definition Fsquare x := Fmul x x.
-  Local Opaque Fsquare.
-
   Definition point_add := @point_add Fadd Fsub Fmul.
   Definition point_add_jac := point_add false.
 
@@ -141,6 +149,32 @@ Section ECEqProof.
 
     intros. reflexivity.
   Qed.
+
+  Variable  field_order : nat .
+  Hypothesis field_order_correct : forall x,
+    Fpow field_order x = x.
+  Hypothesis field_order_not_small : field_order >= 3.
+
+  (* This should be a hypothesis, but having this fact in the environment seems to cause performance issues. *)
+  Theorem field_order_p384 : field_order = p384_field_order.
+  Admitted.
+
+  Theorem felem_inv_sqr_correct : forall x,
+      x <> 0 ->
+      felem_inv_sqr Fsquare Fmul x = Finv (x^2).
+
+    intros.
+    transitivity (@EC_P384_Abstract.felem_inv_sqr_abstract Fmul x).
+    symmetry.
+    apply (@felem_inv_sqr_abstract_equiv Fmul); intros.
+    eapply felem_inv_sqr_abstract_correct.
+    eauto.
+    eauto.
+    trivial.
+    apply field_order_p384.
+
+  Qed.
+
 
   (* Now, we can prove that the extracted Cryptol code computes the
      same point (up to strict equality) as the specialized (for a = -3)
@@ -157,6 +191,7 @@ Section ECEqProof.
       unfold nth_order, nth. simpl.
       unfold sawAt, atWithDefault. simpl.
       unfold EC_P384_Abstract_5_equiv.Fsquare.
+      unfold EC_P384_Abstract.Fsquare.
       f_equal.
       nsatz.
   
@@ -198,7 +233,7 @@ Section ECEqProof.
       intros [ [[xa ya] za] Ha ] [ [[xb yb] zb] Hb ]; simpl.
     
       unfold point_add_jac, fromPoint, point_add, EC_P384_Abstract_5_equiv.point_add, EC_P384_5.point_add, ecNotEq, ecEq, ecZero, ecAnd, ecOr, ecCompl, felem_cmovznz; simpl.
-      unfold EC_P384_Abstract_5_equiv.Fsquare.
+      unfold EC_P384_Abstract_5_equiv.Fsquare, EC_P384_Abstract.Fsquare.
       unfold sawAt, atWithDefault. simpl.
       
       match goal with
@@ -213,18 +248,16 @@ Section ECEqProof.
       replace (xa, ya, za) with (fromPoint
        (exist (fun '(X, Y, Z) => if dec (Z = 0) then True else Y ^ 2 = X ^ 3 + a * X * (Z ^ 2) ^ 2 + b * (Z ^ 3) ^ 2)
           (xa, ya, za) Ha)).
-      match goal with
-      | [|- context[EC_P384_5.point_double ?a ?b ?c ?d (prodToSeq (fromPoint ?p))]] =>
-        replace (EC_P384_5.point_double a b c d (prodToSeq (fromPoint p))) with (prodToSeq (fromPoint (double_minus_3 p)))
-      end.
-      rewrite seqToProd_inv.
+
+      eapply (jac_eq_trans _ (fromPoint (double_minus_3 (exist (fun '(X, Y, Z) => if dec (Z = 0) then True else Y ^ 2 = X ^ 3 + a * X * (Z ^ 2) ^ 2 + b * (Z ^ 3) ^ 2) (xa, ya, za) Ha)))).
       eapply jac_eq_trans; [idtac | apply jacobian_eq_jac_eq; apply Curve.double_minus_3_eq_double].
       apply jac_eq_refl_abstract.
-   
       unfold Jacobian.double, fromPoint; simpl.
       reflexivity.
-      apply double_eq_minus_3.
-      trivial.
+      rewrite <- double_eq_minus_3.
+      rewrite seqToProd_inv.
+      apply jac_eq_refl.
+      reflexivity.
 
       apply jac_eq_refl_abstract.
       unfold Feq, seqToProd, nth_order, nth. simpl.
@@ -739,7 +772,9 @@ Section ECEqProof.
     unfold affine_g, EC_P384_Abstract.affine_g.
     eapply nth_indep.
     rewrite preCompTable_entry_length.
+    Local Transparent Nat.pow.
     simpl.
+    Local Opaque Nat.pow.
     lia.
     apply nth_In.
     match goal with 

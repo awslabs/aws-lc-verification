@@ -18,6 +18,26 @@ From Crypto Require Import Curves.Weierstrass.AffineProofs.
 From EC Require Import Util.
 From EC Require Import CommutativeGroup.
 
+Fixpoint Fpow `{field} n x :=
+  match n with
+  | O => one
+  | S n' => mul x (Fpow n' x)
+  end.
+
+(*
+Class FiniteField(F : Type)(Feq: F -> F -> Prop)
+  {Fzero Fone : F}
+  {Fadd Fsub Fmul Fdiv : F -> F -> F}
+  {Fopp Finv : F -> F}
+  `{F_field : field F Feq Fzero Fone Fopp Fadd Fsub Fmul Finv Fdiv}
+  {order : nat} := {
+(*
+  order_correct : forall x, Feq (Fpow order x) x
+*)
+
+}.
+*)
+
 (* An elliptic curve over a finite field. *)
 Class Curve
   (F : Type)(Feq: F -> F -> Prop)

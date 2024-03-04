@@ -138,8 +138,27 @@ Section EC_P384_Abstract.
     decide equality.
   Defined.
 
-  Context `{curve : Curve F Feq Fzero}.
+  Context `{curve : Curve  F Feq Fzero}.
+  Definition Fsquare x := Fmul x x.
 
+  Definition Fsquare_n n x :=
+    (List.fold_left (fun x y => Fsquare x) (forNats n) x).
+
+  Definition felem_inv_sqr_abstract x :=
+    let x2 := Fmul (Fsquare x) x in
+    let x3 := Fmul (Fsquare x2) x in
+    let x6 := Fmul (Fsquare_n 3 x3) x3 in
+    let x12 := Fmul (Fsquare_n 6 x6) x6 in
+    let x15 := Fmul (Fsquare_n 3 x12) x3 in
+    let x30 := Fmul (Fsquare_n 15 x15) x15 in
+    let x60 := Fmul (Fsquare_n 30 x30) x30 in
+    let x120 := Fmul (Fsquare_n 60 x60) x60 in
+    let ret_0 := Fmul (Fsquare_n 120 x120) x120 in
+    let ret_1 := Fmul (Fsquare_n 15 ret_0) x15 in
+    let ret_2 := Fmul (Fsquare_n 31 ret_1) x30 in
+    let ret_3 := Fmul (Fsquare (Fsquare ret_2)) x2 in
+    let ret_4 := Fmul (Fsquare_n 94 ret_3) x30 in
+    Fsquare (Fsquare ret_4).
 
   Variable F_cmovznz : (bitvector 64) -> F -> F -> F.
 
@@ -281,7 +300,6 @@ Section EC_P384_Abstract.
 
   Variable F_nz : F -> bitvector 64.
   Definition F_ne x y := F_nz (Fsub x y).
-  Definition Fsquare x := Fmul x x.
 
   (* Base point table validation function. *)
   Definition jacobian_affine_eq_abstract (jp : point) (ap : affine_point) := 

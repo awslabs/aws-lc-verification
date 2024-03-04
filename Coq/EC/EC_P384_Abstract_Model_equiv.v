@@ -12,6 +12,7 @@ From Coq Require Import Setoid.
 From Coq Require Import ZArith.BinInt.
 From Coq Require Import Classes.SetoidClass.
 From Coq Require Import Lia.
+From Coq Require Import ZArith.Znat.
 Import ListNotations.
 
 From Crypto Require Import Algebra.Hierarchy.
@@ -35,6 +36,9 @@ From EC Require Import EC_P384_Abstract.
 From EC Require Import CryptolToCoq_equiv.
 From EC Require Import WindowedMulMachine.
 From EC Require Import GeneratorMul.
+
+
+Local Open Scope nat_scope.
 
 Section EC_P384_Abstract_Model_equiv.
 
@@ -62,6 +66,142 @@ Section EC_P384_Abstract_Model_equiv.
   Local Notation "x ^ 3" := (x^2*x) (at level 30).
 
   Local Opaque sbvToInt.
+
+  Theorem Fpow_0 : forall n,
+    n <> O ->
+    Fpow n 0 = 0.
+
+    destruct n; intros; simpl in *.
+    intuition idtac.
+    nsatz.
+
+  Qed.
+
+  Theorem Fpow_minus_1_div : forall n x,
+    n <> 0%nat -> 
+    x <> 0 -> 
+    Fpow (n - 1) x = Fdiv (Fpow n x) x.
+  
+    intros.
+    
+    destruct n.
+    lia.
+    simpl.
+    replace (n - 0)%nat with n.
+    rewrite field_div_definition.
+    rewrite <- associative.
+    rewrite commutative.
+    rewrite <- associative.
+    rewrite left_multiplicative_inverse.
+    nsatz.
+    intuition idtac.
+    lia.
+  Qed.
+
+  Theorem Fmul_same_l : forall z x y,
+    z <> 0 -> 
+    z * x = z * y ->
+    x = y.
+
+    intros.
+    assert ((Finv z) * (z * x) = (Finv z) * (z * y)).
+    congruence.
+    rewrite associative in H1.
+    rewrite left_multiplicative_inverse in H1.
+    rewrite left_identity in H1.
+    subst.
+    rewrite associative.
+    rewrite left_multiplicative_inverse.
+    nsatz.
+    trivial.
+    trivial.
+
+  Qed.
+
+  Theorem Fmul_nz : forall x y,
+    x <> 0 ->
+    y <> 0 -> 
+    x * y <> 0.
+
+    intros.
+    intuition idtac.
+    assert ((Finv x) * (x * y) = (Finv x) * 0).
+    congruence.
+    rewrite associative in H2.
+    rewrite left_multiplicative_inverse in H2.
+    rewrite left_identity in H2.
+    subst.
+    apply H0.
+    nsatz.
+    trivial.
+  Qed.
+
+  Theorem Fpow_nz : forall n x,
+    x <> 0 ->
+    Fpow n x <> 0.
+
+    induction n; intros; simpl in *.
+    assert (0 <> 1).
+    apply zero_neq_one.
+    intuition idtac.
+    apply H0.
+    symmetry.
+    trivial.
+    apply Fmul_nz; eauto.
+  Qed.
+
+  Theorem inv_mul_distr : forall x y,
+    x <> 0 ->
+    y <> 0 -> 
+    Finv (x * y) = (Finv x) * (Finv y).
+
+    intros.
+    apply (Fmul_same_l (x * y)).
+    apply Fmul_nz; eauto.
+    rewrite (commutative (x * y)).
+    rewrite left_multiplicative_inverse.
+    replace (x * y * (Finv x * Finv y)) with (((Finv x) * x) * ((Finv y) * y)).
+    rewrite left_multiplicative_inverse.
+    rewrite left_multiplicative_inverse.
+    nsatz.
+    trivial.
+    trivial.
+    nsatz.
+    apply Fmul_nz; auto.
+
+  Qed.
+
+  Theorem two_le_pow_two : forall n,
+    (n <> 0)%nat -> 
+    2 <= PeanoNat.Nat.pow 2 n.
+  
+    induction n; intros; simpl in *.
+    lia.
+    destruct n; simpl in *.
+    lia.
+    lia.
+
+  Qed.
+
+  Theorem two_pow_minus : forall n1 n2,
+    n2 < n1 ->
+    Nat.pow 2 n1 - Nat.pow 2 n2 >= Nat.pow 2 n2.
+
+    intros.
+    assert (exists n3, n1 = n2 + n3 /\ n3 <> 0)%nat.
+    exists (minus n1 n2).
+    intuition idtac; lia.
+    destruct H0.
+    intuition idtac; subst.
+    rewrite PeanoNat.Nat.pow_add_r.
+    unfold ge.
+    transitivity (PeanoNat.Nat.pow 2 n2 * 2 - Nat.pow 2 n2)%nat.
+    lia.
+    apply PeanoNat.Nat.sub_le_mono_r.
+    apply PeanoNat.Nat.mul_le_mono_l.
+    apply two_le_pow_two.
+    lia.
+  Qed.
 
   Ltac bvIntSimpl_one :=
     match goal with
@@ -2883,11 +3023,13 @@ Section EC_P384_Abstract_Model_equiv.
 
       rewrite select_point_affine_abstract_nth_equiv in Heqz.
       remember (List.nth n rwnaf (vecRepeat 0%bool 16)) as m.
-      rewrite (@bvToNat_Z_to_nat_equiv _ _ (sbvToInt _ (sign_extend_16_64
+      rewrite (@bvToNat_Z_to_nat_equiv 64 
+       (sign_extend_16_64 (bvSShr 15 (bvAdd 16 (shiftR 16 bool 0%bool m 15) (bvXor 16 m (bvSShr 15 m 15))) 1))
+       (sbvToInt _ (sign_extend_16_64
                  (bvSShr 15 (bvAdd 16 (shiftR 16 bool 0%bool m 15) (bvXor 16 m (bvSShr 15 m 15)))
                     1)))) in Heqz.
       rewrite sbvToInt_sign_extend_16_64_equiv in Heqz.
-      rewrite (@bvSShr_Z_shiftr_equiv _ _ (Z.abs (sbvToInt _ m)) _ 1%Z) in Heqz.
+      rewrite (@bvSShr_Z_shiftr_equiv 15 (bvAdd 16 (shiftR 16 bool 0%bool m 15) (bvXor 16 m (bvSShr 15 m 15)))  (Z.abs (sbvToInt _ m)) 1 1%Z) in Heqz.
       rewrite F_cmovznz_equiv.
       eapply jac_eq_symm.
       eapply point_add_mixed_eq.
@@ -2928,7 +3070,7 @@ Section EC_P384_Abstract_Model_equiv.
       unfold affineOppIfNegative, affinePointLookup.
       destruct (ZArith_dec.Z_lt_ge_dec (sbvToInt 16 (List.nth n rwnaf (vecRepeat 0%bool 16))) 0); try lia.
       unfold affineToJac.
-      rewrite (nth_indep _ affine_default (cons F 0 1 (cons F 0 0 (nil F)))).
+      rewrite (@nth_indep _ (List.nth (n / numPrecompExponentGroups) base_precomp_table []) (Z.to_nat (BinInt.Z.shiftr (sbvToInt 16 (List.nth n rwnaf (vecRepeat 0%bool 16))) 1)) affine_default (cons F 0 1 (cons F 0 0 (nil F)))).
       eapply jac_eq_refl.
       specialize (@base_precomp_table_entry_length (List.nth (Nat.div n numPrecompExponentGroups) base_precomp_table [])); intros.
 
@@ -2991,16 +3133,18 @@ Section EC_P384_Abstract_Model_equiv.
 
       eapply affineToJac_cons_eq.
 
-      replace  (seqToProd (cons _ (nth_order z zero_lt_two) 2 (cons _ (Fopp (nth_order z one_lt_two)) 1 (cons _ 1 0 (nil _)))))
-        with
-      (seqToProd (affineToJac (affineOpp z))).
+      match goal with
+      [|- jac_eq _ ?a ] => 
+        replace a with (seqToProd (affineToJac (affineOpp z)))
+      end.
+
       subst.
       unfold pExpMultiple.
       rewrite <- fromPoint_toPoint_id.
       unfold affineOppIfNegative, affinePointLookup.
       destruct (ZArith_dec.Z_lt_ge_dec (sbvToInt 16 (List.nth n rwnaf (vecRepeat 0%bool 16)))).
       rewrite Z.div2_spec.
-      rewrite (nth_indep _ affine_default (cons F 0 1 (cons F 0 0 (nil F)))).
+      rewrite (@nth_indep _ (List.nth (n / numPrecompExponentGroups) base_precomp_table []) (Z.to_nat (BinInt.Z.shiftr (Z.abs (sbvToInt 16 (List.nth n rwnaf (vecRepeat 0%bool 16)))) 1)) affine_default (cons F 0 1 (cons F 0 0 (nil F)))).
       eapply jac_eq_refl.
       match goal with
       | [|- _ < ?a ] => replace a with (Nat.pow 2 numPrecompExponentGroups)
@@ -3419,7 +3563,6 @@ Section EC_P384_Abstract_Model_equiv.
 
     Qed.
 
-    Print double_add_base_abstract.
     Definition double_add_base_abstract := @double_add_base_abstract Fone Fadd Fsub Fmul Fdiv Fopp Finv _ a b _ F_cmovznz point_add point_double sign_extend_16_64 base_precomp_table select_point_affine_loop_body Fone.
 
     Theorem point_mul_base_abstract_list_equiv_h : forall x p p1 p2 rwnaf1 rwnaf2,
@@ -3546,8 +3689,8 @@ Section EC_P384_Abstract_Model_equiv.
 
       intros.
       destruct (PeanoNat.Nat.eq_dec (Datatypes.length x) numPrecompExponentGroups).  
-      replace (groupMul_signedWindows_prog' wsize g zero_point (flatten x))
-        with (groupMul_signedWindows_prog_ls wsize g zero_point x) in *.
+
+      rewrite <- groupMul_signedWindows_prog_ls_equiv in H2.
       
       eapply (@permuteAndDouble_grouped_no_double_equiv _ _ _ EC_CommutativeGroupWithDouble) in H3.
       destruct H3.
@@ -3644,7 +3787,6 @@ Section EC_P384_Abstract_Model_equiv.
       lia.
       eauto.
 
-      eapply groupMul_signedWindows_prog_ls_equiv.
       eapply jac_eq_trans.
       eapply jacobian_eq_jac_eq.
       symmetry.
@@ -3945,7 +4087,9 @@ Section EC_P384_Abstract_Model_equiv.
       lia.
       rewrite NPeano.Nat.mul_0_r.
       rewrite NPeano.Nat.mul_0_l.
+      Local Transparent Nat.pow.
       simpl.
+      Local Opaque Nat.pow.
       eapply jacobian_eq_jac_eq.
       replace Jacobian.add with add.
       rewrite jac_add_comm.
@@ -3977,16 +4121,19 @@ Section EC_P384_Abstract_Model_equiv.
       intros.
       simpl in *.
       rewrite jac_add_comm.
-      replace Jacobian.add with add.
-      rewrite <- jac_add_assoc.
+      
+      unfold add.
       symmetry.
+      transitivity (Jacobian.add (Jacobian.add (opp p) p) (groupMul x p)).
+      symmetry.
+      apply jac_add_assoc.
       transitivity (add zero_point (groupMul x p)).
       eapply Jacobian.Proper_add.
-      rewrite jac_add_comm.
+      transitivity (Jacobian.add p (opp p)).
+      apply jac_add_comm.
       apply jac_opp_correct.
       reflexivity.
       apply jac_add_id_l.
-      reflexivity.
 
     Qed.
 
@@ -4234,5 +4381,505 @@ Section EC_P384_Abstract_Model_equiv.
     Qed.
 
   End EC_P384_Abstract_Model_equiv_5.
+
+  (* Field inversion operation for P-384 is correct. *)
+
+  Variable field_order : nat.
+  Hypothesis field_order_correct : forall x,
+    Fpow field_order x = x.
+  Hypothesis field_order_not_small  : 
+    (field_order >= 3)%nat.
+
+  Definition p384_field_order :=  ((Nat.pow 2 384) - (Nat.pow 2 128) - (Nat.pow 2 96) + (Nat.pow 2 32) - 1)%nat.
+
+  Theorem p384_field_order_not_small : (p384_field_order >= 3)%nat.
+    unfold p384_field_order.
+    
+    assert (Nat.pow 2 128 >= Nat.pow 2 96).
+    apply PeanoNat.Nat.pow_le_mono_r; lia.
+    assert (2 * (Nat.pow 2 128) = Nat.pow 2 129)%nat.
+    rewrite <- PeanoNat.Nat.pow_succ_r'.
+    reflexivity.
+    assert (Nat.pow 2 384 - (Nat.pow 2 129) >= 4).
+    unfold ge.
+    transitivity (Nat.pow 2 129).
+    replace 4 with (Nat.pow 2 2).
+    apply PeanoNat.Nat.pow_le_mono_r.
+    lia.
+    lia.
+    reflexivity.
+    apply two_pow_minus.
+    lia.
+    lia.
+
+  Qed.
+
+  Local Opaque p384_field_order.
+  
+  Theorem pow_p_minus_3_eq_inv_sqr : forall x,
+    x <> 0 -> 
+    Fpow (field_order - 3) x = Finv (x^2).
+
+    intros.
+    replace (field_order - 3)%nat with (((field_order - 1) -1) -1)%nat.
+    repeat rewrite Fpow_minus_1_div.
+    rewrite field_div_definition.
+    rewrite field_div_definition.
+    rewrite field_div_definition.
+
+    rewrite field_order_correct.
+
+    rewrite (commutative x).
+    rewrite left_multiplicative_inverse.
+    rewrite left_identity.
+    symmetry.
+    apply inv_mul_distr.
+    trivial.
+    trivial.
+    trivial.
+    specialize (field_order_not_small); lia.
+    trivial.
+    specialize (field_order_not_small); lia.
+    trivial.
+    specialize (field_order_not_small); lia.
+    trivial.
+    specialize (field_order_not_small); lia.
+
+  Qed.
+
+  Theorem Finv_1 :
+    Finv 1 = 1.
+
+    apply (Fmul_same_l 1).
+    assert (0 <> 1).
+    apply zero_neq_one.
+    intuition idtac.
+    apply H.
+    symmetry.
+    trivial.
+    rewrite commutative.
+    rewrite left_multiplicative_inverse.
+    rewrite left_identity.
+    reflexivity.
+    assert (0 <> 1).
+    apply zero_neq_one.
+    intuition idtac.
+    apply H.
+    symmetry.
+    trivial.
+  Qed.
+
+  Theorem Fpow_minus_div : forall n2 n1 x,
+    n1 >= n2 -> 
+    x <> 0 -> 
+    Fpow (n1 - n2) x = Fdiv (Fpow n1 x) (Fpow n2 x).
+  
+    induction n2; intros; simpl.
+    replace (n1 - 0)%nat with n1.
+    rewrite field_div_definition.
+    rewrite commutative.
+    rewrite Finv_1.
+    nsatz.
+    lia.
+
+    destruct n1.
+    lia.
+    simpl.
+    rewrite IHn2.
+    rewrite field_div_definition.
+    rewrite field_div_definition.
+    rewrite inv_mul_distr.
+    replace ( x * Fpow n1 x * (Finv x * Finv (Fpow n2 x))) with ( ((Finv x) * x) * Fpow n1 x * (Finv (Fpow n2 x))).
+    rewrite left_multiplicative_inverse.
+    nsatz.
+    intuition idtac.
+    nsatz.
+    trivial.
+    apply Fpow_nz; eauto.
+    lia.
+    trivial.
+ 
+  Qed.
+
+  Theorem Fpow_add: forall x y z,
+    Fpow (x + y) z = (Fpow x z) * (Fpow y z).
+
+    induction x; intros; simpl.
+    rewrite left_identity.
+    reflexivity.
+
+    rewrite IHx.
+    rewrite associative.
+    reflexivity.
+
+  Qed.
+
+  Theorem Fpow_mul : forall x y z,
+    Fpow (x * y) z = (Fpow x (Fpow y z)).
+
+    induction x; intros; simpl.
+    reflexivity.
+    rewrite Fpow_add.
+    rewrite IHx.
+    reflexivity.
+  Qed.
+
+  Theorem Fpow_2_square : forall z,
+    Fpow 2 z = @Fsquare Fmul z.
+
+    intros.
+    simpl.
+    unfold Fsquare.
+    rewrite right_identity.
+    reflexivity.
+
+  Qed.
+
+  Theorem Fsquare_n_S : forall n x,
+    @Fsquare_n Fmul (S n) x = @Fsquare_n Fmul n (@Fsquare Fmul x).
+
+    intros.
+    reflexivity.
+
+  Qed.
+
+  Theorem Fsquare_n_S_rev : forall n x,
+    @Fsquare_n Fmul (S n) x = @Fsquare Fmul (@Fsquare_n Fmul n x).
+
+    induction n; intros; simpl.
+    reflexivity.
+    rewrite Fsquare_n_S.
+    rewrite IHn.
+    reflexivity.
+
+  Qed.
+
+  Theorem Fpow_mul_add : forall x y z,
+    (Fpow x z) * (Fpow y z) = Fpow (x + y) z.
+
+    induction x; intros; simpl.
+    apply left_identity.
+    rewrite <-associative.
+    rewrite IHx.
+    reflexivity.
+
+  Qed.
+
+  Theorem Fpow_2_b_Fsquare_n: forall n (z : F), Fpow (Nat.pow 2 n) z = @Fsquare_n Fmul n z.
+
+    induction n; intros; simpl.
+    unfold Fsquare_n.
+    simpl.
+    apply right_identity.
+    rewrite Fsquare_n_S_rev.
+    rewrite <- IHn.
+    rewrite <- Fpow_2_square.
+    simpl.
+    rewrite right_identity.
+    rewrite Fpow_mul_add.
+    rewrite NPeano.Nat.add_0_r.
+    reflexivity.
+
+  Qed.
+
+  Theorem Fpow_eq_mono_l : forall x y z, x = y -> Fpow x z = Fpow y z.
+    
+    intros.
+    subst.
+    reflexivity.
+
+  Qed.
+
+  Theorem sub_eq_mono : forall x1 x2 y1 y2,
+    x1 = x2 ->
+    y1 = y2 ->
+    (x1 - y1)%nat = (x2 - y2)%nat.
+
+    intros.
+    subst.
+    reflexivity.
+
+  Qed.
+
+  Theorem add_eq_mono : forall x1 x2 y1 y2,
+    x1 = x2 ->
+    y1 = y2 ->
+    (x1 + y1)%nat = (x2 + y2)%nat.
+
+    intros.
+    subst.
+    reflexivity.
+
+  Qed.
+
+  Theorem sub_add_assoc : forall x y z,
+    (z <= y)%nat ->
+    (y <= x)%nat ->
+    (x - y + z = x - (y - z))%nat.
+
+    intros.
+    lia.
+
+  Qed.
+
+  Theorem Fpow_1_id : forall x,
+    Fpow 1 x = x.
+
+    intros.
+    simpl.
+    apply right_identity.
+
+  Qed.
+
+
+  Theorem felem_inv_sqr_abstract_eq_Fpow : forall x,
+    @felem_inv_sqr_abstract Fmul x = Fpow (p384_field_order - 3) x.
+
+    Local Opaque NPeano.Nat.pow Fpow.
+
+    intros.
+    unfold felem_inv_sqr_abstract.
+
+    remember (Fmul (EC_P384_Abstract.Fsquare x) x) as x2.
+    remember (Fmul (EC_P384_Abstract.Fsquare x2) x) as x3.
+    remember (Fmul (Fsquare_n 3 x3) x3) as x6.
+    remember (Fmul (Fsquare_n 6 x6) x6) as x12.
+    remember (Fmul (Fsquare_n 3 x12) x3) as x15.
+    remember (Fmul (Fsquare_n 15 x15) x15) as x30.
+    remember (Fmul (Fsquare_n 30 x30) x30) as x60.
+    remember (Fmul (Fsquare_n 60 x60) x60) as x120.
+    remember (Fmul (Fsquare_n 120 x120) x120) as x240.
+    remember (Fmul (Fsquare_n 15 x240) x15) as x255.
+
+    assert (x2 = (Fpow (Nat.pow 2 2 - (Nat.pow 2 0)) x)).
+    rewrite Heqx2.
+    rewrite <- Fpow_2_square.
+    replace x with (Fpow 1 x) at 2.
+    rewrite Fpow_mul_add.
+    reflexivity.
+    apply Fpow_1_id.
+
+    assert (x15 = (Fpow (Nat.pow 2 15 - (Nat.pow 2 0)) x)).
+    rewrite Heqx15.
+
+    assert (x3 = (Fpow (Nat.pow 2 3 - (Nat.pow 2 0)) x)).
+    rewrite Heqx3.
+    replace x with (Fpow 1 x) at 1.
+    rewrite H.
+    rewrite <- Fpow_2_square.
+    rewrite <- Fpow_mul.
+    replace 2%nat with (Nat.pow 2 1) at 1.
+    rewrite PeanoNat.Nat.mul_sub_distr_l.
+    repeat rewrite <- NPeano.Nat.pow_add_r.
+    rewrite Fpow_mul_add.
+    simpl.
+    reflexivity.
+    reflexivity.
+    apply Fpow_1_id.
+
+    assert (x6 = (Fpow (Nat.pow 2 6 - (Nat.pow 2 0)) x)).
+    rewrite Heqx6.
+    rewrite H0.
+    rewrite <- Fpow_2_b_Fsquare_n.
+    rewrite <- Fpow_mul.
+    rewrite Fpow_mul_add.
+    apply Fpow_eq_mono_l.
+    rewrite PeanoNat.Nat.mul_sub_distr_l.
+    repeat rewrite <- NPeano.Nat.pow_add_r.
+    simpl.
+    repeat rewrite NPeano.Nat.add_sub_assoc.
+    apply sub_eq_mono.
+    apply PeanoNat.Nat.sub_add.
+    apply PeanoNat.Nat.pow_le_mono_r; lia.
+    reflexivity.
+    apply PeanoNat.Nat.pow_le_mono_r; lia.
+    
+    assert (x12 = (Fpow (Nat.pow 2 12 - (Nat.pow 2 0)) x)).
+    rewrite Heqx12.
+    rewrite H1.
+    rewrite <- Fpow_2_b_Fsquare_n.
+    rewrite <- Fpow_mul.
+    rewrite Fpow_mul_add.
+    apply Fpow_eq_mono_l.
+    rewrite PeanoNat.Nat.mul_sub_distr_l.
+    repeat rewrite <- NPeano.Nat.pow_add_r.
+    simpl.
+    repeat rewrite NPeano.Nat.add_sub_assoc.
+    apply sub_eq_mono.
+    apply PeanoNat.Nat.sub_add.
+    apply PeanoNat.Nat.pow_le_mono_r; lia.
+    reflexivity.
+    apply PeanoNat.Nat.pow_le_mono_r; lia.
+
+    rewrite H2.
+    rewrite H0.
+    rewrite <- Fpow_2_b_Fsquare_n.
+    rewrite <- Fpow_mul.
+    rewrite Fpow_mul_add.
+    apply Fpow_eq_mono_l.
+    rewrite PeanoNat.Nat.mul_sub_distr_l.
+    repeat rewrite <- NPeano.Nat.pow_add_r.
+    simpl.
+    repeat rewrite NPeano.Nat.add_sub_assoc.
+    apply sub_eq_mono.
+    apply PeanoNat.Nat.sub_add.
+    apply PeanoNat.Nat.pow_le_mono_r; lia.
+    reflexivity.
+    apply PeanoNat.Nat.pow_le_mono_r; lia.
+
+    assert (x30 = (Fpow (Nat.pow 2 30 - (Nat.pow 2 0)) x)).
+    rewrite Heqx30.
+    rewrite H0.
+    rewrite <- Fpow_2_b_Fsquare_n.
+    rewrite <- Fpow_mul.
+    rewrite Fpow_mul_add.
+    apply Fpow_eq_mono_l.
+    rewrite PeanoNat.Nat.mul_sub_distr_l.
+    repeat rewrite <- NPeano.Nat.pow_add_r.
+    simpl.
+    repeat rewrite NPeano.Nat.add_sub_assoc.
+    apply sub_eq_mono.
+    apply PeanoNat.Nat.sub_add.
+    apply PeanoNat.Nat.pow_le_mono_r; lia.
+    reflexivity.
+    apply PeanoNat.Nat.pow_le_mono_r; lia.
+
+    assert (x60 = (Fpow (Nat.pow 2 60 - (Nat.pow 2 0)) x)).
+    rewrite Heqx60.
+    rewrite H1.
+    rewrite <- Fpow_2_b_Fsquare_n.
+    rewrite <- Fpow_mul.
+    rewrite Fpow_mul_add.
+    apply Fpow_eq_mono_l.
+    rewrite PeanoNat.Nat.mul_sub_distr_l.
+    repeat rewrite <- NPeano.Nat.pow_add_r.
+    simpl.
+    repeat rewrite NPeano.Nat.add_sub_assoc.
+    apply sub_eq_mono.
+    apply PeanoNat.Nat.sub_add.
+    apply PeanoNat.Nat.pow_le_mono_r; lia.
+    reflexivity.
+    apply PeanoNat.Nat.pow_le_mono_r; lia.
+
+    assert (x120 = (Fpow (Nat.pow 2 120 - (Nat.pow 2 0)) x)).
+    rewrite Heqx120.
+    rewrite H2.
+    rewrite <- Fpow_2_b_Fsquare_n.
+    rewrite <- Fpow_mul.
+    rewrite Fpow_mul_add.
+    apply Fpow_eq_mono_l.
+    rewrite PeanoNat.Nat.mul_sub_distr_l.
+    repeat rewrite <- NPeano.Nat.pow_add_r.
+    simpl.
+    repeat rewrite NPeano.Nat.add_sub_assoc.
+    apply sub_eq_mono.
+    apply PeanoNat.Nat.sub_add.
+    apply PeanoNat.Nat.pow_le_mono_r; lia.
+    reflexivity.
+    apply PeanoNat.Nat.pow_le_mono_r; lia.
+
+    assert (x240 = (Fpow (Nat.pow 2 240 - (Nat.pow 2 0)) x)).
+    rewrite Heqx240.
+    rewrite H3.
+    rewrite <- Fpow_2_b_Fsquare_n.
+    rewrite <- Fpow_mul.
+    rewrite Fpow_mul_add.
+    apply Fpow_eq_mono_l.
+    rewrite PeanoNat.Nat.mul_sub_distr_l.
+    repeat rewrite <- NPeano.Nat.pow_add_r.
+    simpl.
+    repeat rewrite NPeano.Nat.add_sub_assoc.
+    apply sub_eq_mono.
+    apply PeanoNat.Nat.sub_add.
+    apply PeanoNat.Nat.pow_le_mono_r; lia.
+    reflexivity.
+    apply PeanoNat.Nat.pow_le_mono_r; lia.
+
+    assert (x255 = (Fpow (Nat.pow 2 255 - (Nat.pow 2 0)) x)).
+    rewrite Heqx255.
+    rewrite H4.
+    rewrite H0.
+    rewrite <- Fpow_2_b_Fsquare_n.
+    rewrite <- Fpow_mul.
+    rewrite Fpow_mul_add.
+    apply Fpow_eq_mono_l.
+    rewrite PeanoNat.Nat.mul_sub_distr_l.
+    repeat rewrite <- NPeano.Nat.pow_add_r.
+    simpl.
+    repeat rewrite NPeano.Nat.add_sub_assoc.
+    apply sub_eq_mono.
+    apply PeanoNat.Nat.sub_add.
+    apply PeanoNat.Nat.pow_le_mono_r; lia.
+    reflexivity.
+    apply PeanoNat.Nat.pow_le_mono_r; lia.
+
+
+    rewrite H.
+    rewrite H1.
+    rewrite H5.
+
+    repeat  rewrite <- Fpow_2_b_Fsquare_n.
+    repeat  rewrite <- Fpow_2_square.
+    repeat rewrite <- Fpow_mul.
+    rewrite PeanoNat.Nat.mul_sub_distr_l.
+    repeat rewrite <- NPeano.Nat.pow_add_r.
+    replace (2 * 2)%nat with (Nat.pow 2 2).
+    simpl.
+    rewrite Fpow_mul_add.
+    rewrite <- Fpow_mul.
+    rewrite PeanoNat.Nat.mul_add_distr_l.
+    repeat rewrite PeanoNat.Nat.mul_sub_distr_l.
+    rewrite Fpow_mul_add.
+    rewrite <- Fpow_mul.
+    rewrite Fpow_mul_add.
+    rewrite <- Fpow_mul.
+    repeat rewrite PeanoNat.Nat.mul_add_distr_l, PeanoNat.Nat.mul_sub_distr_l.
+    repeat rewrite <- NPeano.Nat.pow_add_r.
+    simpl.
+    repeat rewrite PeanoNat.Nat.mul_sub_distr_l.
+    repeat rewrite <- NPeano.Nat.pow_add_r.
+    simpl.
+    repeat rewrite NPeano.Nat.add_sub_assoc.
+    Local Transparent p384_field_order.
+    unfold p384_field_order.
+    Local Opaque p384_field_order.
+    rewrite <- NPeano.Nat.sub_add_distr.
+    simpl.
+    apply Fpow_eq_mono_l.
+    apply sub_eq_mono; [idtac | reflexivity].
+    apply add_eq_mono; [idtac | reflexivity].
+    apply sub_eq_mono; [idtac | reflexivity].
+    rewrite PeanoNat.Nat.sub_add.
+    rewrite sub_add_assoc.
+    rewrite (@PeanoNat.Nat.pow_succ_r' 2 128).
+    simpl.
+    rewrite NPeano.Nat.add_0_r.
+    rewrite PeanoNat.Nat.add_sub.
+    reflexivity.
+    apply PeanoNat.Nat.pow_le_mono_r; lia.
+    apply PeanoNat.Nat.pow_le_mono_r; lia.
+    
+    assert (NPeano.Nat.pow 2 98 <= NPeano.Nat.pow 2 128).   
+    apply PeanoNat.Nat.pow_le_mono_r; lia.
+    lia.
+    apply PeanoNat.Nat.pow_le_mono_r; lia.
+    apply PeanoNat.Nat.pow_le_mono_r; lia.
+    apply PeanoNat.Nat.pow_le_mono_r; lia.
+    reflexivity.
+
+  Qed.
+  
+  Theorem felem_inv_sqr_abstract_correct : forall x,
+    x <> 0 ->
+    field_order = p384_field_order -> 
+    @felem_inv_sqr_abstract Fmul x = Finv (x^2).
+
+    intros.
+    rewrite felem_inv_sqr_abstract_eq_Fpow.
+    rewrite <- H0.
+    apply pow_p_minus_3_eq_inv_sqr.
+    trivial.
+
+  Qed.
 
 End EC_P384_Abstract_Model_equiv.
