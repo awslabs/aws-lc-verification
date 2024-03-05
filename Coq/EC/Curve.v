@@ -112,11 +112,20 @@ Definition is_jacobian `{Curve}{Feq_dec : DecidableRel Feq} (p : F * F * F) :=
                 (Fmul (Fmul Z Z) Z)))).
 
 Definition affine_point `{Curve} := Vector.t F 2.
+Definition affine_point_prod `{Curve} := (F * F)%type.
 
 Definition on_curve `{Curve}(p : affine_point ) : Prop :=
     let x := Vector.nth_order p zero_lt_two in
     let y := Vector.nth_order p one_lt_two in 
     Feq (Fmul y y) (Fadd (Fmul x (Fmul x x)) (Fadd (Fmul a x) b)).
+
+Definition affine_point_alg`{Curve}{Feq_dec : DecidableRel Feq}  := @WeierstrassCurve.W.point F Feq Fadd Fmul a b.
+
+Definition fromAffinePoint`{Curve}{Feq_dec : DecidableRel Feq} (p:affine_point_alg) : option affine_point_prod :=
+  match (proj1_sig p) with
+  | inl (x, y) => Some (x, y)
+  | inr _ => None
+  end.
 
 
 Definition fromPoint `{Curve}{Feq_dec : DecidableRel Feq} (p:point) : (F*F*F) :=

@@ -853,6 +853,98 @@ Section ECEqProof.
 
   End PointMulBase.
 
+  Variable felem_from_bytes : Vector.t bool 384 -> F.
+  Variable felem_to_bytes : F -> Vector.t bool 384.
+  Hypothesis felem_from_to_bytes_inv : forall x, felem_from_bytes (felem_to_bytes x) = x.
+  Hypothesis felem_to_from_bytes_inv : forall x,  felem_to_bytes (felem_from_bytes x) = x.
+
+  Definition jacobianToAffine_abstract x := @jacobianToAffine Fsquare Fmul felem_from_bytes felem_to_bytes x.
+  Definition to_bytes_3 (p : F * F * F) :=
+    (felem_to_bytes (fst (fst p)), (felem_to_bytes (snd (fst p)), felem_to_bytes (snd p))).
+  Definition from_bytes_2 p :=
+    (felem_from_bytes (fst p), felem_from_bytes (snd p)).
+
+  Theorem inv_mul_distr : forall x y,
+    x <> 0 ->
+    y <> 0 -> 
+    Finv (x * y) = (Finv x) * (Finv y).
+
+    intros.
+    apply (Fmul_same_l (x * y)).
+    apply Fmul_nz; eauto.
+    rewrite (commutative (x * y)).
+    rewrite left_multiplicative_inverse.
+    replace (x * y * (Finv x * Finv y)) with (((Finv x) * x) * ((Finv y) * y)).
+    rewrite left_multiplicative_inverse.
+    rewrite left_multiplicative_inverse.
+    nsatz.
+    trivial.
+    trivial.
+    nsatz.
+    apply Fmul_nz; auto.
+
+  Qed.
+
+  Theorem Fmul_nz : forall x y,
+    x <> 0 ->
+    y <> 0 -> 
+    x * y <> 0.
+
+    intros.
+    intuition idtac.
+    assert ((Finv x) * (x * y) = (Finv x) * 0).
+    congruence.
+    rewrite associative in H2.
+    rewrite left_multiplicative_inverse in H2.
+    rewrite left_identity in H2.
+    subst.
+    apply H0.
+    nsatz.
+    trivial.
+  Qed.
+
+  Theorem jacobianToAffine_abstract_correct : forall (p : Jacobian.point),
+    (~(Feq (snd (proj1_sig p)) 0)) -> 
+    (fromAffinePoint (to_affine p)) = Some (from_bytes_2 (@jacobianToAffine Fsquare Fmul felem_from_bytes felem_to_bytes (to_bytes_3 (fromPoint p)))).
+
+    intros.
+    unfold to_affine, Jacobian.to_affine,  jacobianToAffine, fromAffinePoint, fromPoint.
+    simpl.
+    remember (proj1_sig p) as z.
+    destruct z.
+    simpl in *.
+    destruct p0.
+    destruct (dec (Feq f 0)).
+    intuition idtac.
+    repeat rewrite felem_from_to_bytes_inv.
+    rewrite felem_inv_sqr_correct.
+    unfold from_bytes_2.
+    simpl.
+    repeat rewrite felem_from_to_bytes_inv.
+    f_equal.
+    repeat rewrite field_div_definition.
+    f_equal.
+    repeat rewrite <- associative.
+    f_equal.
+    rewrite felem_sqr_spec.
+    repeat rewrite associative.
+    repeat rewrite inv_mul_distr.
+    repeat rewrite associative.
+    
+    replace (f * Finv f * Finv f * Finv f * Finv f ) with ((Finv f * f) * Finv f * Finv f * Finv f).
+    rewrite left_multiplicative_inverse.
+    rewrite left_identity.
+    reflexivity.
+    trivial.
+    nsatz.
+    trivial.
+    trivial.
+    apply Fmul_nz; trivial.
+    trivial.
+    trivial.
+    
+  Qed.
+
 End ECEqProof.
 
 
