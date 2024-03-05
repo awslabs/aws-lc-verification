@@ -150,31 +150,6 @@ Section ECEqProof.
     intros. reflexivity.
   Qed.
 
-  Variable  field_order : nat .
-  Hypothesis field_order_correct : forall x,
-    Fpow field_order x = x.
-  Hypothesis field_order_not_small : field_order >= 3.
-
-  (* This should be a hypothesis, but having this fact in the environment seems to cause performance issues. *)
-  Theorem field_order_p384 : field_order = p384_field_order.
-  Admitted.
-
-  Theorem felem_inv_sqr_correct : forall x,
-      x <> 0 ->
-      felem_inv_sqr Fsquare Fmul x = Finv (x^2).
-
-    intros.
-    transitivity (@EC_P384_Abstract.felem_inv_sqr_abstract Fmul x).
-    symmetry.
-    apply (@felem_inv_sqr_abstract_equiv Fmul); intros.
-    eapply felem_inv_sqr_abstract_correct.
-    eauto.
-    eauto.
-    trivial.
-    apply field_order_p384.
-
-  Qed.
-
 
   (* Now, we can prove that the extracted Cryptol code computes the
      same point (up to strict equality) as the specialized (for a = -3)
@@ -903,6 +878,32 @@ Section ECEqProof.
     trivial.
   Qed.
 
+  
+  Variable  field_order : nat .
+  Hypothesis field_order_correct : forall x,
+    Fpow field_order x = x.
+  Hypothesis field_order_not_small : field_order >= 3.
+  (* In this section, we assume that felem_inv_sqr_abstract is correct for the P-384 field order. 
+  This is proved for elsewhere. *)
+  Hypothesis felem_inv_sqr_abstract_correct_Fpow :
+    forall x, @felem_inv_sqr_abstract Fmul x = Fpow (field_order - 3) x.
+
+  Theorem felem_inv_sqr_correct : forall x,
+      x <> 0 ->
+      felem_inv_sqr Fsquare Fmul x = Finv (x^2).
+
+    intros.
+    transitivity (@EC_P384_Abstract.felem_inv_sqr_abstract Fmul x).
+    symmetry.
+    apply (@felem_inv_sqr_abstract_equiv Fmul); intros.
+    eapply felem_inv_sqr_abstract_correct.
+    eauto.
+    eauto.
+    trivial.
+    trivial.
+
+  Qed.
+
   Theorem jacobianToAffine_abstract_correct : forall (p : Jacobian.point),
     (~(Feq (snd (proj1_sig p)) 0)) -> 
     (fromAffinePoint (to_affine p)) = Some (from_bytes_2 (@jacobianToAffine Fsquare Fmul felem_from_bytes felem_to_bytes (to_bytes_3 (fromPoint p)))).
@@ -946,6 +947,28 @@ Section ECEqProof.
   Qed.
 
 End ECEqProof.
+
+Local Opaque p384_field_order felem_inv_sqr Fpow Fsquare.
+
+Theorem felem_inv_sqr_correct_p384 : forall
+  `{curve : Curve F Feq Fzero Fone} 
+  (p384_field_cyclic : forall x : F, Fpow p384_field_order x = x) 
+  x,
+  x <> Fzero ->
+  felem_inv_sqr (@Fsquare Fmul) Fmul x = Finv (Fmul x x).
+
+  intros.
+  eapply felem_inv_sqr_correct.
+  apply p384_field_cyclic.
+  apply p384_field_order_not_small.
+  apply felem_inv_sqr_abstract_eq_Fpow.
+  trivial.
+
+  (* This proof doesn't Qed due to performance issues, but it follows from facts proven elsewhere. *)
+
+Abort.
+
+
 
 
 

@@ -290,6 +290,38 @@ Theorem even_of_nat_equiv : forall n,
 
 Qed.
 
+Theorem sub_eq_mono : forall x1 x2 y1 y2,
+  x1 = x2 ->
+  y1 = y2 ->
+  (x1 - y1)%nat = (x2 - y2)%nat.
+
+  intros.
+  subst.
+  reflexivity.
+
+Qed.
+
+Theorem add_eq_mono : forall x1 x2 y1 y2,
+  x1 = x2 ->
+  y1 = y2 ->
+  (x1 + y1)%nat = (x2 + y2)%nat.
+
+  intros.
+  subst.
+  reflexivity.
+
+Qed.
+
+Theorem sub_add_assoc : forall x y z,
+  (z <= y)%nat ->
+  (y <= x)%nat ->
+  (x - y + z = x - (y - z))%nat.
+
+  intros.
+  lia.
+
+Qed.
+
 Theorem mod_div_prod : forall a b c,
   0 < b ->
   c <> 0 ->

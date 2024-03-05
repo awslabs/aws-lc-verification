@@ -4382,7 +4382,7 @@ Section EC_P384_Abstract_Model_equiv.
 
   End EC_P384_Abstract_Model_equiv_5.
 
-  (* Field inversion operation for P-384 is correct. *)
+  (* Field inversion operation is correct. *)
 
   Variable field_order : nat.
   Hypothesis field_order_correct : forall x,
@@ -4390,32 +4390,6 @@ Section EC_P384_Abstract_Model_equiv.
   Hypothesis field_order_not_small  : 
     (field_order >= 3)%nat.
 
-  Definition p384_field_order :=  ((Nat.pow 2 384) - (Nat.pow 2 128) - (Nat.pow 2 96) + (Nat.pow 2 32) - 1)%nat.
-
-  Theorem p384_field_order_not_small : (p384_field_order >= 3)%nat.
-    unfold p384_field_order.
-    
-    assert (Nat.pow 2 128 >= Nat.pow 2 96).
-    apply PeanoNat.Nat.pow_le_mono_r; lia.
-    assert (2 * (Nat.pow 2 128) = Nat.pow 2 129)%nat.
-    rewrite <- PeanoNat.Nat.pow_succ_r'.
-    reflexivity.
-    assert (Nat.pow 2 384 - (Nat.pow 2 129) >= 4).
-    unfold ge.
-    transitivity (Nat.pow 2 129).
-    replace 4 with (Nat.pow 2 2).
-    apply PeanoNat.Nat.pow_le_mono_r.
-    lia.
-    lia.
-    reflexivity.
-    apply two_pow_minus.
-    lia.
-    lia.
-
-  Qed.
-
-  Local Opaque p384_field_order.
-  
   Theorem pow_p_minus_3_eq_inv_sqr : forall x,
     x <> 0 -> 
     Fpow (field_order - 3) x = Finv (x^2).
@@ -4590,38 +4564,6 @@ Section EC_P384_Abstract_Model_equiv.
 
   Qed.
 
-  Theorem sub_eq_mono : forall x1 x2 y1 y2,
-    x1 = x2 ->
-    y1 = y2 ->
-    (x1 - y1)%nat = (x2 - y2)%nat.
-
-    intros.
-    subst.
-    reflexivity.
-
-  Qed.
-
-  Theorem add_eq_mono : forall x1 x2 y1 y2,
-    x1 = x2 ->
-    y1 = y2 ->
-    (x1 + y1)%nat = (x2 + y2)%nat.
-
-    intros.
-    subst.
-    reflexivity.
-
-  Qed.
-
-  Theorem sub_add_assoc : forall x y z,
-    (z <= y)%nat ->
-    (y <= x)%nat ->
-    (x - y + z = x - (y - z))%nat.
-
-    intros.
-    lia.
-
-  Qed.
-
   Theorem Fpow_1_id : forall x,
     Fpow 1 x = x.
 
@@ -4631,6 +4573,51 @@ Section EC_P384_Abstract_Model_equiv.
 
   Qed.
 
+  Hypothesis felem_inv_sqr_abstract_eq_Fpow : forall x,
+    @felem_inv_sqr_abstract Fmul x = Fpow (field_order - 3) x.
+  
+  Theorem felem_inv_sqr_abstract_correct : forall x,
+    x <> 0 ->
+    @felem_inv_sqr_abstract Fmul x = Finv (x^2).
+
+    intros.
+    rewrite felem_inv_sqr_abstract_eq_Fpow.
+    apply pow_p_minus_3_eq_inv_sqr.
+    trivial.
+
+  Qed.
+
+End EC_P384_Abstract_Model_equiv.
+
+Section P384_inv_sqr_abstract_equiv.
+
+  Context `{curve : Curve F Feq Fzero}.
+  
+  Definition p384_field_order :=  ((Nat.pow 2 384) - (Nat.pow 2 128) - (Nat.pow 2 96) + (Nat.pow 2 32) - 1)%nat.
+
+  Theorem p384_field_order_not_small : (p384_field_order >= 3)%nat.
+    unfold p384_field_order.
+    
+    assert (Nat.pow 2 128 >= Nat.pow 2 96).
+    apply PeanoNat.Nat.pow_le_mono_r; lia.
+    assert (2 * (Nat.pow 2 128) = Nat.pow 2 129)%nat.
+    rewrite <- PeanoNat.Nat.pow_succ_r'.
+    reflexivity.
+    assert (Nat.pow 2 384 - (Nat.pow 2 129) >= 4).
+    unfold ge.
+    transitivity (Nat.pow 2 129).
+    replace 4 with (Nat.pow 2 2).
+    apply PeanoNat.Nat.pow_le_mono_r.
+    lia.
+    lia.
+    reflexivity.
+    apply two_pow_minus.
+    lia.
+    lia.
+
+  Qed.
+
+  Local Opaque p384_field_order.
 
   Theorem felem_inv_sqr_abstract_eq_Fpow : forall x,
     @felem_inv_sqr_abstract Fmul x = Fpow (p384_field_order - 3) x.
@@ -4868,18 +4855,20 @@ Section EC_P384_Abstract_Model_equiv.
     reflexivity.
 
   Qed.
-  
-  Theorem felem_inv_sqr_abstract_correct : forall x,
-    x <> 0 ->
-    field_order = p384_field_order -> 
-    @felem_inv_sqr_abstract Fmul x = Finv (x^2).
+
+  Hypothesis p384_field_cyclic : forall x,
+    Fpow p384_field_order x = x.
+
+  Theorem felem_inv_sqr_abstract_correct_p384 : forall x,
+    ~(Feq x Fzero) ->
+    @felem_inv_sqr_abstract Fmul x = Finv (Fmul x x).
 
     intros.
-    rewrite felem_inv_sqr_abstract_eq_Fpow.
-    rewrite <- H0.
-    apply pow_p_minus_3_eq_inv_sqr.
+    eapply felem_inv_sqr_abstract_correct.
+    apply p384_field_cyclic.
+    apply p384_field_order_not_small.
+    apply felem_inv_sqr_abstract_eq_Fpow.
     trivial.
-
   Qed.
 
-End EC_P384_Abstract_Model_equiv.
+End P384_inv_sqr_abstract_equiv.
