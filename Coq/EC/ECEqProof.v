@@ -964,7 +964,7 @@ Theorem felem_inv_sqr_correct_p384 : forall
   apply felem_inv_sqr_abstract_eq_Fpow.
   trivial.
 
-  (* This proof doesn't Qed due to performance issues, but it follows from facts proven elsewhere. *)
+  (* This proof doesn't Qed due to performance issues, but this fact follows from facts proven elsewhere. *)
 
 Abort.
 
