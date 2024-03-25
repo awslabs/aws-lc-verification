@@ -23,7 +23,6 @@ m <- llvm_load_module "../../build/llvm_x86/crypto/crypto_test.bc";
 include "../common/helpers.saw";
 include "../common/memory.saw";
 
-
 /*
  * Verification parameters.
  */
@@ -296,6 +295,8 @@ llvm_verify m "EVP_DecryptUpdate"
   evp_cipher_tactic;
 
 enable_what4_eval;
+disable_no_satisfying_write_fresh_constant;
+enable_what4_push_mux_ops;
 
 llvm_verify m "EVP_EncryptUpdate"
   [ aes_gcm_from_cipher_ctx_ov
@@ -367,6 +368,8 @@ llvm_verify m "EVP_DecryptUpdate"
 
 disable_what4_eval;
 disable_what4_hash_consing;
+enable_no_satisfying_write_fresh_constant;
+disable_what4_push_mux_ops;
 
 
 llvm_verify m "EVP_EncryptFinal_ex"

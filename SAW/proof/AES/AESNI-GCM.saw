@@ -110,8 +110,10 @@ aesni_gcm_decrypt_ov <- llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "
 
 enable_what4_eval;
 enable_x86_what4_hash_consing;
+disable_no_satisfying_write_fresh_constant;
+enable_what4_push_mux_ops;
 
-aesni_gcm_encrypt_array_ov <- llvm_verify_fixpoint_x86' m "../../build/x86/crypto/crypto_test" "aesni_gcm_encrypt"
+aesni_gcm_encrypt_array_ov <- llvm_verify_fixpoint_chc_x86' m "../../build/x86/crypto/crypto_test" "aesni_gcm_encrypt"
   [ ("byte64_len_to_mask_table", 704) // We need .Lbswap_mask. Its location is <byte64_len_to_mask_table+0x240>. 704 bytes is an offset that would be large enough to contain the right bytes after alignment.
   ]
   true
@@ -160,7 +162,7 @@ aesni_gcm_encrypt_array_ov <- llvm_verify_fixpoint_x86' m "../../build/x86/crypt
     });
   });
 
-aesni_gcm_decrypt_array_ov <- llvm_verify_fixpoint_x86' m "../../build/x86/crypto/crypto_test" "aesni_gcm_decrypt"
+aesni_gcm_decrypt_array_ov <- llvm_verify_fixpoint_chc_x86' m "../../build/x86/crypto/crypto_test" "aesni_gcm_decrypt"
   [ ("byte64_len_to_mask_table", 704) // We need .Lbswap_mask. Its location is <byte64_len_to_mask_table+0x240>. 704 bytes is an offset that would be large enough to contain the right bytes after alignment.
   ]
   true
@@ -193,5 +195,7 @@ aesni_gcm_decrypt_array_ov <- llvm_verify_fixpoint_x86' m "../../build/x86/crypt
 disable_x86_what4_hash_consing;
 disable_what4_eval;
 disable_what4_hash_consing;
+enable_no_satisfying_write_fresh_constant;
+disable_what4_push_mux_ops;
 default_x86_preserved_reg;
 
