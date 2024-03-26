@@ -637,44 +637,43 @@ Section ECEqProof.
 
   Local Opaque EC_P384_5.validate_base_table.
 
-  (* We want a pre-computed table using lists, but defining it causes performance issues. So instead
-  of defining it, we assume the existence of a pre-computed table using lists that is equivalent to the
-  pre-computed table using vectors. *)
-  (*
-  Definition preCompTable : (list (list affine_point)) := (List.map (to_list) (to_list p384_g_pre_comp)).
-  *)
-  Variable preCompTable : (list (list affine_point)).
-  Hypothesis preCompTable_correct : 
-    List.Forall2 (@list_vec_eq _ _) preCompTable (to_list p384_g_pre_comp).
-
+  (* Reasoning directly on the extracted pre-computed table causes performance issues. We ensure this table is correct
+  by testing it in the code, and then assuming the test passed. The formal verification of the test code allows us to 
+  prove that the table contains the correct values.*)
+  (* To avoid performance issues, we don't directly assume the test has passed on the actual table. Instead, we assume
+  another table for which this test has passed. Where necessary, we also assume that this table is equal to the actual
+  table in the spec. *)
+  Variable g_pre_comp : seq 20 (seq 16 affine_point).
+  Definition validate_base_table := @validate_base_table  Fadd Fsub Fmul.
+  Hypothesis g_pre_comp_validated : validate_base_table g_pre_comp = true.
   Definition validate_base_table_abstract := @EC.EC_P384_Abstract.validate_base_table_abstract Fone Fadd Fsub Fmul Fdiv Fopp Finv _ a b _ 
     point_add point_double felem_nz.
+  Definition preCompTable : (list (list affine_point)) := (List.map (to_list) (to_list g_pre_comp)).
 
-  (* Ideally, we would assume that the concrete pre-computed table has been validated, but this assumption
-  causes some performance issues. Instead, we assume that the abstract pre-computed table (using lists)
-  has been validated. *)
-  (* Assume that the hard-coded table containing multiples of the base point has been validated.
-  This validation can occur during testing using a C program that is verified against this functional spec. *)
+  Theorem preCompTable_Forall2_correct : 
+    List.Forall2 (list_vec_eq (n:=16)) preCompTable (to_list g_pre_comp).
 
-  (*
-  Hypothesis validate_base_table_true : validate_base_table p384_g_pre_comp = true.
+    unfold preCompTable.
+    apply Forall2_map_l.
+    eapply Foralll2_impl.
+    apply forall2_eq; trivial.
+    intros.
+    subst.
+    reflexivity.
+  Qed.
+
   Theorem validate_preCompTable_true : validate_base_table_abstract 5 preCompTable = true.
 
     specialize (@validate_base_table_equiv Fadd Fsub Fmul Fdiv Fopp Finv _  a b _  
-      p384_g_pre_comp
+      g_pre_comp
     ); intros.
-    transitivity (validate_base_table p384_g_pre_comp).
+    transitivity (validate_base_table g_pre_comp).
     symmetry.
     apply H.
-    trivial.
-    apply validate_base_table_true.
+    apply preCompTable_Forall2_correct.
+    apply g_pre_comp_validated.
 
   Qed.
-  *)
-  
-  Hypothesis validate_preCompTable_true : validate_base_table_abstract 5 preCompTable = true.
-
-  Local Opaque EC_P384_Abstract.validate_base_table_abstract.
 
   Section PointMulBase.
 
@@ -701,8 +700,10 @@ Section ECEqProof.
     Datatypes.length ls = Nat.pow 2 (Nat.pred 5).
 
     intros.
-    assert (exists y, List.In y (to_list p384_g_pre_comp) /\ list_vec_eq ls y).
+    assert (exists y, List.In y (to_list g_pre_comp) /\ list_vec_eq ls y).
     eapply Forall2_In_ex; eauto.
+    apply preCompTable_Forall2_correct.
+
     destruct H0.
     destruct H0.
     unfold list_vec_eq in *.
@@ -718,8 +719,9 @@ Section ECEqProof.
     erewrite Forall2_length; eauto.
     rewrite length_to_list.
     reflexivity.
+    apply preCompTable_Forall2_correct.
 
-   Qed.
+  Qed.
 
 
   Local Opaque p384_felem_one.
@@ -761,6 +763,8 @@ Section ECEqProof.
   Qed.
 
   Definition point_mul_base := @point_mul_base Fadd Fsub Fmul Fopp.  
+
+  Hypothesis g_pre_comp_equiv : g_pre_comp = p384_g_pre_comp.
 
   Theorem point_mul_base_correct : forall (n : seq 384 Bool),
       jac_eq 
@@ -821,7 +825,8 @@ Section ECEqProof.
     lia.
     apply H.
 
-    apply preCompTable_correct.
+    rewrite <- g_pre_comp_equiv.
+    apply preCompTable_Forall2_correct.
 
   Qed.
 
