@@ -1,5 +1,17 @@
+diff --git a/crypto/fipsmodule/ec/ec_test.cc b/crypto/fipsmodule/ec/ec_test.cc
+index b1d0f789c..e60c42b02 100644
+--- a/crypto/fipsmodule/ec/ec_test.cc
++++ b/crypto/fipsmodule/ec/ec_test.cc
+@@ -2355,3 +2355,11 @@ TEST(ECTest, FelemBytes) {
+     ASSERT_EQ(test_group.get()->field.N.width, expected_felem_words);
+   }
+ }
++
++TEST(ECTest, P384Constants) {
++  ASSERT_TRUE(p384_validate_constants());
++}
 diff --git a/crypto/fipsmodule/ec/p384.c b/crypto/fipsmodule/ec/p384.c
-index 852ceb18b..9acb5b391 100644
+index 852ceb18b..de43f51b2 100644
 --- a/crypto/fipsmodule/ec/p384.c
 +++ b/crypto/fipsmodule/ec/p384.c
 @@ -1149,6 +1149,114 @@ static void ec_GFp_nistp384_point_mul_public(const EC_GROUP *group,
@@ -110,21 +122,32 @@ index 852ceb18b..9acb5b391 100644
 +}
 +
 +__attribute__((noinline))
-+static int p384_validate_constants(void) {
++int p384_validate_constants(void) {
 +  return p384_validate_base_table();
 +}
 +
  DEFINE_METHOD_FUNCTION(EC_METHOD, EC_GFp_nistp384_method) {
    out->point_get_affine_coordinates =
        ec_GFp_nistp384_point_get_affine_coordinates;
-@@ -1173,6 +1281,10 @@ DEFINE_METHOD_FUNCTION(EC_METHOD, EC_GFp_nistp384_method) {
+@@ -1173,6 +1281,7 @@ DEFINE_METHOD_FUNCTION(EC_METHOD, EC_GFp_nistp384_method) {
    out->scalar_to_montgomery_inv_vartime =
        ec_simple_scalar_to_montgomery_inv_vartime;
    out->cmp_x_coordinate = ec_GFp_nistp384_cmp_x_coordinate;
 +
-+  if (p384_validate_constants() == 0) {
-+    abort();
-+  }
  }
  
  // ----------------------------------------------------------------------------
+diff --git a/include/openssl/ec.h b/include/openssl/ec.h
+index b6bb18ba8..e98800ca2 100644
+--- a/include/openssl/ec.h
++++ b/include/openssl/ec.h
+@@ -449,6 +449,9 @@ OPENSSL_EXPORT size_t EC_get_builtin_curves(EC_builtin_curve *out_curves,
+ // EC_POINT_clear_free calls |EC_POINT_free|.
+ OPENSSL_EXPORT void EC_POINT_clear_free(EC_POINT *point);
+ 
++// Test functions
++OPENSSL_EXPORT int p384_validate_constants(void);
++
+ 
+ #if defined(__cplusplus)
+ }  // extern C
