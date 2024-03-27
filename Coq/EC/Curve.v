@@ -24,21 +24,7 @@ Fixpoint Fpow `{field} n x :=
   | S n' => mul x (Fpow n' x)
   end.
 
-(*
-Class FiniteField(F : Type)(Feq: F -> F -> Prop)
-  {Fzero Fone : F}
-  {Fadd Fsub Fmul Fdiv : F -> F -> F}
-  {Fopp Finv : F -> F}
-  `{F_field : field F Feq Fzero Fone Fopp Fadd Fsub Fmul Finv Fdiv}
-  {order : nat} := {
-(*
-  order_correct : forall x, Feq (Fpow order x) x
-*)
-
-}.
-*)
-
-(* An elliptic curve over a finite field. *)
+(* An elliptic curve over a field with some additional restrictions *)
 Class Curve
   (F : Type)(Feq: F -> F -> Prop)
   {Fzero Fone : F}
@@ -48,6 +34,7 @@ Class Curve
   {a b : F}
 :=
 {
+  (* The "a" coefficient is -3, as is the case for NIST prime curves *)
   a_is_minus_3 : Feq a (Fopp (Fadd (Fadd Fone Fone) Fone));
   (* Field has characteristic at least 28 enables a simple proof that the discriminant is nonzero. *)
   Fchar_28 : @Ring.char_ge F Feq Fzero Fone Fopp Fadd Fsub Fmul 28;
@@ -1051,5 +1038,12 @@ Global Instance EC_CommutativeGroupWithDouble : forall `{Curve}{Feq_dec : Decida
 
 Defined.
 
+(* Some facts follow from Fermat's little theorem for finite fields. Rather than giving a 
+complete definition, we will simply define a structure on which the theorem is assumed to hold. 
+The field_order value is a predicate to avoid performance issues when exact numeric values are used. *)
+Class FiniteField{field_order : nat -> Prop}(F : Type)(Feq : F -> F -> Prop)`{field F Feq} :=
+{
+  fermat_little_theorem : forall x, field_order x -> forall y, Feq (Fpow x y) y
+}.
 
 

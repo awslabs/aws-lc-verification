@@ -883,10 +883,9 @@ Section ECEqProof.
     trivial.
   Qed.
 
-
-  Variable field_order_correct : nat -> Prop.
-  Hypothesis fermat_little : forall x y, field_order_correct x -> Fpow x y = y.
-  Hypothesis p384_field_order_correct : field_order_correct p384_field_order.
+  Variable F_order_correct : nat -> Prop.
+  Context `{F_FiniteField : @FiniteField F_order_correct F Feq _ _ _ _ _ _ _ _ F_field}.
+  Hypothesis p384_field_order_correct : F_order_correct p384_field_order.
 
   Theorem felem_inv_sqr_correct : forall x,
       x <> 0 ->
@@ -897,7 +896,9 @@ Section ECEqProof.
     symmetry.
     apply (@felem_inv_sqr_abstract_equiv Fmul); intros.
     eapply felem_inv_sqr_abstract_correct.
-    eauto.
+    intros.
+    apply fermat_little_theorem.
+    apply p384_field_order_correct.
     apply p384_field_order_not_small.
     intros.
     apply felem_inv_sqr_abstract_eq_Fpow.
