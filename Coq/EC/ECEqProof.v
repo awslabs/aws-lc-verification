@@ -883,15 +883,10 @@ Section ECEqProof.
     trivial.
   Qed.
 
-  
-  Variable  field_order : nat .
-  Hypothesis field_order_correct : forall x,
-    Fpow field_order x = x.
-  Hypothesis field_order_not_small : field_order >= 3.
-  (* In this section, we assume that felem_inv_sqr_abstract is correct for the P-384 field order. 
-  This is proved for elsewhere. *)
-  Hypothesis felem_inv_sqr_abstract_correct_Fpow :
-    forall x, @felem_inv_sqr_abstract Fmul x = Fpow (field_order - 3) x.
+
+  Variable field_order_correct : nat -> Prop.
+  Hypothesis fermat_little : forall x y, field_order_correct x -> Fpow x y = y.
+  Hypothesis p384_field_order_correct : field_order_correct p384_field_order.
 
   Theorem felem_inv_sqr_correct : forall x,
       x <> 0 ->
@@ -903,8 +898,9 @@ Section ECEqProof.
     apply (@felem_inv_sqr_abstract_equiv Fmul); intros.
     eapply felem_inv_sqr_abstract_correct.
     eauto.
-    eauto.
-    trivial.
+    apply p384_field_order_not_small.
+    intros.
+    apply felem_inv_sqr_abstract_eq_Fpow.
     trivial.
 
   Qed.
@@ -952,26 +948,6 @@ Section ECEqProof.
   Qed.
 
 End ECEqProof.
-
-Local Opaque p384_field_order felem_inv_sqr Fpow Fsquare.
-
-Theorem felem_inv_sqr_correct_p384 : forall
-  `{curve : Curve F Feq Fzero Fone} 
-  (p384_field_cyclic : forall x : F, Fpow p384_field_order x = x) 
-  x,
-  x <> Fzero ->
-  felem_inv_sqr (@Fsquare Fmul) Fmul x = Finv (Fmul x x).
-
-  intros.
-  eapply felem_inv_sqr_correct.
-  apply p384_field_cyclic.
-  apply p384_field_order_not_small.
-  apply felem_inv_sqr_abstract_eq_Fpow.
-  trivial.
-
-  (* This proof doesn't Qed due to performance issues, but this fact follows from facts proven elsewhere. *)
-
-Abort.
 
 
 
