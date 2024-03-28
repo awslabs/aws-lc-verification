@@ -250,6 +250,38 @@ Theorem zDouble_n_le_mono_r : forall n x1 x2,
   lia.
 Qed.
 
+Theorem two_le_pow_two : forall n,
+  (n <> 0)%nat -> 
+  (2 <= PeanoNat.Nat.pow 2 n)%nat.
+
+  induction n; intros; simpl in *.
+  lia.
+  destruct n; simpl in *.
+  lia.
+  lia.
+
+Qed.
+
+Theorem two_pow_minus : forall n1 n2,
+  (n2 < n1)%nat ->
+  (Nat.pow 2 n1 - Nat.pow 2 n2 >= Nat.pow 2 n2)%nat.
+
+  intros.
+  assert (exists n3, n1 = n2 + n3 /\ n3 <> 0)%nat.
+  exists (minus n1 n2).
+  intuition idtac; lia.
+  destruct H0.
+  intuition idtac; subst.
+  rewrite PeanoNat.Nat.pow_add_r.
+  unfold ge.
+  transitivity (PeanoNat.Nat.pow 2 n2 * 2 - Nat.pow 2 n2)%nat.
+  lia.
+  apply PeanoNat.Nat.sub_le_mono_r.
+  apply PeanoNat.Nat.mul_le_mono_l.
+  apply two_le_pow_two.
+  lia.
+Qed.
+
 Theorem even_of_pos_equiv : forall x,
   even (Pos.to_nat x) = Z.even (Z.pos x).
 
@@ -783,6 +815,53 @@ Theorem last_nth_equiv_gen
 
 Qed.
 
+
+Theorem skipn_cons_nth_eq : forall (A : Type)(a : A) n ls1 ls2 def,
+  skipn n ls1 = a :: ls2 ->
+  nth n ls1 def = a.
+
+  induction n; destruct ls1; intros; simpl in *; try discriminate.
+  inversion H; clear H; subst. reflexivity.
+  eapply IHn; eauto.
+
+Qed.
+
+Theorem skipn_cons_S_eq : forall (A : Type)(a : A) n ls1 ls2,
+  skipn n ls1 = a :: ls2 ->
+  skipn (S n) ls1 = ls2.
+
+  induction n; destruct ls1; intros; simpl in *; try discriminate.
+  inversion H; clear H; subst; reflexivity.
+  eauto.
+
+Qed.
+
+Theorem fold_left_preserves_false : forall (A B : Type)(f : (A * bool) -> B -> (A * bool)) ls p,
+  snd p = false ->
+  (forall x y, snd x = false -> snd (f x y) = false) ->
+ snd (fold_left f ls p) = false.
+
+  induction ls; intros; simpl in *.
+  trivial.
+  eapply IHls.
+  eauto.
+  eauto.
+Qed.
+
+Theorem fold_left_and_true : forall (A B : Type)(f : (A * bool) -> B -> (A * bool)) ls p,
+  snd (fold_left f ls p) = true -> 
+  (forall x z, snd (f x z) = true -> snd x = true) -> 
+  snd p = true.
+
+  induction ls; intros; simpl in *.
+  inversion H; clear H; subst.
+  reflexivity.
+  apply IHls in H.
+  eapply H0.
+  eauto.
+  eauto.
+
+Qed.
 
 (* A tactic that simplifies hypothesis involving option values*)
 Ltac optSomeInv_1 := 

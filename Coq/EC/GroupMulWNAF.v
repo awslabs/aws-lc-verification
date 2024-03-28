@@ -1569,38 +1569,6 @@ Section GroupMulWNAF.
       reflexivity.
 
     Qed.
-
-    Theorem skipn_cons_nth_eq : forall (A : Type)(a : A) n ls1 ls2 def,
-      skipn n ls1 = a :: ls2 ->
-      nth n ls1 def = a.
-
-      induction n; destruct ls1; intros; simpl in *; try discriminate.
-      inversion H; clear H; subst. reflexivity.
-      eapply IHn; eauto.
-
-    Qed.
-
-    Theorem skipn_cons_S_eq : forall (A : Type)(a : A) n ls1 ls2,
-      skipn n ls1 = a :: ls2 ->
-      skipn (S n) ls1 = ls2.
-
-      induction n; destruct ls1; intros; simpl in *; try discriminate.
-      inversion H; clear H; subst; reflexivity.
-      eauto.
-
-    Qed.
-
-    Theorem fold_left_preserves_false : forall (A B : Type)(f : (A * bool) -> B -> (A * bool)) ls p,
-      snd p = false ->
-      (forall x y, snd x = false -> snd (f x y) = false) ->
-     snd (fold_left f ls p) = false.
-
-      induction ls; intros; simpl in *.
-      trivial.
-      eapply IHls.
-      eauto.
-      eauto.
-    Qed.
       
     Theorem validateGeneratorTableRow''_h_equiv : forall r' i r two p,
       skipn i r = r' -> 
@@ -1662,21 +1630,6 @@ Section GroupMulWNAF.
       destruct r; simpl in *. 
       lia.
       intuition idtac. discriminate.
-    Qed.
-
-    Theorem fold_left_and_true : forall (A B : Type)(f : (A * bool) -> B -> (A * bool)) ls p,
-      snd (fold_left f ls p) = true -> 
-      (forall x z, snd (f x z) = true -> snd x = true) -> 
-      snd p = true.
-
-      induction ls; intros; simpl in *.
-      inversion H; clear H; subst.
-      reflexivity.
-      apply IHls in H.
-      eapply H0.
-      eauto.
-      eauto.
-
     Qed.
     
     Theorem validateGeneratorTableRowBody_true_if :

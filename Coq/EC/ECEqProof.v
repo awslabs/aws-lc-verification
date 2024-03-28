@@ -844,45 +844,6 @@ Section ECEqProof.
   Definition from_bytes_2 p :=
     (felem_from_bytes (fst p), felem_from_bytes (snd p)).
 
-  Theorem inv_mul_distr : forall x y,
-    x <> 0 ->
-    y <> 0 -> 
-    Finv (x * y) = (Finv x) * (Finv y).
-
-    intros.
-    apply (Fmul_same_l (x * y)).
-    apply Fmul_nz; eauto.
-    rewrite (commutative (x * y)).
-    rewrite left_multiplicative_inverse.
-    replace (x * y * (Finv x * Finv y)) with (((Finv x) * x) * ((Finv y) * y)).
-    rewrite left_multiplicative_inverse.
-    rewrite left_multiplicative_inverse.
-    nsatz.
-    trivial.
-    trivial.
-    nsatz.
-    apply Fmul_nz; auto.
-
-  Qed.
-
-  Theorem Fmul_nz : forall x y,
-    x <> 0 ->
-    y <> 0 -> 
-    x * y <> 0.
-
-    intros.
-    intuition idtac.
-    assert ((Finv x) * (x * y) = (Finv x) * 0).
-    congruence.
-    rewrite associative in H2.
-    rewrite left_multiplicative_inverse in H2.
-    rewrite left_identity in H2.
-    subst.
-    apply H0.
-    nsatz.
-    trivial.
-  Qed.
-
   Variable F_order_correct : nat -> Prop.
   Context `{F_FiniteField : @FiniteField F_order_correct F Feq _ _ _ _ _ _ _ _ F_field}.
   Hypothesis p384_field_order_correct : F_order_correct p384_field_order.
@@ -931,7 +892,7 @@ Section ECEqProof.
     f_equal.
     rewrite felem_sqr_spec.
     repeat rewrite associative.
-    repeat rewrite inv_mul_distr.
+    repeat rewrite inv_mul_eq.
     repeat rewrite associative.
     
     replace (f * Finv f * Finv f * Finv f * Finv f ) with ((Finv f * f) * Finv f * Finv f * Finv f).
@@ -942,8 +903,8 @@ Section ECEqProof.
     nsatz.
     trivial.
     trivial.
-    apply Fmul_nz; trivial.
     trivial.
+    apply mul_nz_if; trivial.
     trivial.
     
   Qed.

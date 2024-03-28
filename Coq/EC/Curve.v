@@ -405,6 +405,25 @@ Section CurveFacts.
 
   Qed.
 
+  Theorem mul_nz_if : forall x y,
+    ~ Feq x 0 ->
+    ~ Feq y 0 -> 
+    ~Feq (x * y) 0.
+
+    intros.
+    intuition idtac.
+    assert (Feq ((Finv x) * (x * y)) ((Finv x) * 0)).
+    rewrite H1.
+    reflexivity.
+    rewrite associative in H2.
+    rewrite left_multiplicative_inverse in H2.
+    rewrite left_identity in H2.
+    subst.
+    apply H0.
+    nsatz.
+    trivial.
+  Qed.
+
   Theorem inv_mul_eq : forall (x y : F),
     ~(Feq y 0) ->
     ~(Feq x 0) ->
@@ -520,6 +539,169 @@ Section CurveFacts.
     symmetry.
     eauto.
 
+  Qed.
+
+  Theorem Fpow_0 : forall n,
+    n <> O ->
+    Feq (Fpow n 0) 0.
+
+    destruct n; intros; simpl in *.
+    intuition idtac.
+    nsatz.
+
+  Qed.
+
+  Theorem Fpow_minus_1_div : forall n x,
+    n <> 0%nat -> 
+    ~(Feq x 0) -> 
+    Feq (Fpow (n - 1) x) (Fdiv (Fpow n x) x).
+  
+    intros.
+    
+    destruct n.
+    lia.
+    simpl.
+    replace (n - 0)%nat with n.
+    rewrite field_div_definition.
+    rewrite <- associative.
+    rewrite commutative.
+    rewrite <- associative.
+    rewrite left_multiplicative_inverse.
+    nsatz.
+    intuition idtac.
+    lia.
+  Qed.
+
+  Theorem Fmul_same_l : forall z x y,
+    ~(Feq z 0) -> 
+    Feq (z * x) (z * y) ->
+    Feq x y.
+
+    intros.
+    assert (Feq ((Finv z) * (z * x)) ((Finv z) * (z * y))).
+    rewrite H0.
+    reflexivity.
+    rewrite associative in H1.
+    rewrite left_multiplicative_inverse in H1.
+    rewrite left_identity in H1.
+    rewrite H1.
+    rewrite associative.
+    rewrite left_multiplicative_inverse.
+    nsatz.
+    trivial.
+    trivial.
+
+  Qed.
+
+  Theorem Fmul_nz : forall x y,
+    ~Feq x 0 ->
+    ~Feq y 0 -> 
+    ~Feq (x * y) 0.
+
+    intros.
+    intuition idtac.
+    assert (Feq ((Finv x) * (x * y))  ((Finv x) * 0)).
+    rewrite H1.
+    reflexivity.
+    rewrite associative in H2.
+    rewrite left_multiplicative_inverse in H2.
+    rewrite left_identity in H2.
+    apply H0.
+    nsatz.
+    trivial.
+  Qed.
+
+  Theorem Fpow_nz : forall n x,
+    ~Feq x 0 ->
+    ~Feq (Fpow n x) 0.
+
+    induction n; intros; simpl in *.
+    assert (~ Feq 0 1).
+    apply zero_neq_one.
+    intuition idtac.
+    apply H0.
+    symmetry.
+    trivial.
+    apply Fmul_nz; eauto.
+  Qed.
+
+  Theorem Finv_1 :
+    Feq (Finv 1) 1.
+
+    apply (Fmul_same_l 1).
+    assert (~Feq 0 1).
+    apply zero_neq_one.
+    intuition idtac.
+    apply H.
+    symmetry.
+    trivial.
+    rewrite commutative.
+    rewrite left_multiplicative_inverse.
+    rewrite left_identity.
+    reflexivity.
+    assert (~Feq 0 1).
+    apply zero_neq_one.
+    intuition idtac.
+    apply H.
+    symmetry.
+    trivial.
+  Qed.
+
+
+  Theorem Fpow_minus_div : forall n2 n1 x,
+    n1 >= n2 -> 
+    ~Feq x 0 -> 
+    Feq (Fpow (n1 - n2) x) (Fdiv (Fpow n1 x) (Fpow n2 x)).
+  
+    induction n2; intros; simpl.
+    replace (n1 - 0)%nat with n1.
+    rewrite field_div_definition.
+    rewrite commutative.
+    rewrite Finv_1.
+    nsatz.
+    lia.
+
+    destruct n1.
+    lia.
+    simpl.
+    rewrite IHn2.
+    rewrite field_div_definition.
+    rewrite field_div_definition.
+    rewrite inv_mul_eq.
+    setoid_replace ( x * Fpow n1 x * (Finv x * Finv (Fpow n2 x))) with ( ((Finv x) * x) * Fpow n1 x * (Finv (Fpow n2 x))).
+    rewrite left_multiplicative_inverse.
+    nsatz.
+    intuition idtac.
+    nsatz.
+    trivial.
+    apply Fpow_nz; eauto.
+    trivial.
+    lia.
+    trivial.
+ 
+  Qed.
+
+  Theorem Fpow_add: forall x y z,
+    Feq (Fpow (x + y) z) ((Fpow x z) * (Fpow y z)).
+
+    induction x; intros; simpl.
+    rewrite left_identity.
+    reflexivity.
+
+    rewrite IHx.
+    rewrite associative.
+    reflexivity.
+
+  Qed.
+
+  Theorem Fpow_mul : forall x y z,
+    Feq (Fpow (x * y) z) ((Fpow x (Fpow y z))).
+
+    induction x; intros; simpl.
+    reflexivity.
+    rewrite Fpow_add.
+    rewrite IHx.
+    reflexivity.
   Qed.
 
   (* Facts about jac_eq *)
