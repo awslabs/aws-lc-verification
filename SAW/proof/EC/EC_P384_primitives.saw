@@ -9,6 +9,7 @@ import "../../../cryptol-specs/Common/EC/EC_P384.cry";
 
 let limb_length = 64;
 let p384_felem_limbs = 6;
+let EC_MAX_BYTES = 66;
 
 let {{ ia32cap = [0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff] : [4][32] }};
 

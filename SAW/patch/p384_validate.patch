@@ -2,7 +2,7 @@ diff --git a/crypto/fipsmodule/ec/ec_test.cc b/crypto/fipsmodule/ec/ec_test.cc
 index b1d0f789c..e60c42b02 100644
 --- a/crypto/fipsmodule/ec/ec_test.cc
 +++ b/crypto/fipsmodule/ec/ec_test.cc
-@@ -2355,3 +2355,11 @@ TEST(ECTest, FelemBytes) {
+@@ -2355,3 +2355,4 @@ TEST(ECTest, FelemBytes) {
      ASSERT_EQ(test_group.get()->field.N.width, expected_felem_words);
    }
  }
