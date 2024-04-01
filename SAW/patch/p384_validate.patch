@@ -1,8 +1,8 @@
 diff --git a/crypto/fipsmodule/ec/ec_test.cc b/crypto/fipsmodule/ec/ec_test.cc
-index b1d0f789c..e60c42b02 100644
+index b1d0f789c..2d2a17a8a 100644
 --- a/crypto/fipsmodule/ec/ec_test.cc
 +++ b/crypto/fipsmodule/ec/ec_test.cc
-@@ -2355,3 +2355,4 @@ TEST(ECTest, FelemBytes) {
+@@ -2355,3 +2355,8 @@ TEST(ECTest, FelemBytes) {
      ASSERT_EQ(test_group.get()->field.N.width, expected_felem_words);
    }
  }
@@ -10,17 +10,17 @@ index b1d0f789c..e60c42b02 100644
 +TEST(ECTest, P384Constants) {
 +  ASSERT_TRUE(p384_validate_constants());
 +}
++
 diff --git a/crypto/fipsmodule/ec/p384.c b/crypto/fipsmodule/ec/p384.c
-index 852ceb18b..de43f51b2 100644
+index 852ceb18b..6df6825a8 100644
 --- a/crypto/fipsmodule/ec/p384.c
 +++ b/crypto/fipsmodule/ec/p384.c
-@@ -1149,6 +1149,114 @@ static void ec_GFp_nistp384_point_mul_public(const EC_GROUP *group,
+@@ -1149,6 +1149,124 @@ static void ec_GFp_nistp384_point_mul_public(const EC_GROUP *group,
    p384_to_generic(&r->Z, res[2]);
  }
  
 +// Check constant values
-+static const p384_felem p384_felem_zero = {
-+    0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
++static const p384_felem p384_felem_zero = {0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
 +
 +__attribute__((noinline))
 +static p384_limb_t p384_felem_ne(const p384_felem f1, const p384_felem f2) {
@@ -122,14 +122,25 @@ index 852ceb18b..de43f51b2 100644
 +}
 +
 +__attribute__((noinline))
++static int p384_validate_one(void){
++  
++  p384_felem one_raw = {0x1, 0x0, 0x0, 0x0, 0x0, 0x0};
++  p384_felem one_mont;
++
++  p384_felem_to_mont(one_mont, one_raw);
++  return !p384_felem_ne(one_mont, p384_felem_one);
++}
++
++__attribute__((noinline))
 +int p384_validate_constants(void) {
-+  return p384_validate_base_table();
++  return (p384_validate_base_table() && p384_validate_one());
++  
 +}
 +
  DEFINE_METHOD_FUNCTION(EC_METHOD, EC_GFp_nistp384_method) {
    out->point_get_affine_coordinates =
        ec_GFp_nistp384_point_get_affine_coordinates;
-@@ -1173,6 +1281,7 @@ DEFINE_METHOD_FUNCTION(EC_METHOD, EC_GFp_nistp384_method) {
+@@ -1173,6 +1291,7 @@ DEFINE_METHOD_FUNCTION(EC_METHOD, EC_GFp_nistp384_method) {
    out->scalar_to_montgomery_inv_vartime =
        ec_simple_scalar_to_montgomery_inv_vartime;
    out->cmp_x_coordinate = ec_GFp_nistp384_cmp_x_coordinate;

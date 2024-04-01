@@ -29,6 +29,7 @@ extract-bc build/llvm_x86/crypto/crypto_test
 # run the tests
 ./build/llvm_x86/crypto/crypto_test
 
+
 # Next check the SAW proofs
 
 # Apply the remaining patches
@@ -67,7 +68,6 @@ apply_patch "noinline-EVP_DigestSignUpdate"
 apply_patch "noinline-EVP_DigestVerifyUpdate"
 apply_patch "noinline-p384_inv_square"
 apply_patch "noinline_ec_GFp_simple_is_at_infinity"
-apply_patch "p384_validate"
 
 # Check the proofs using CMake's Release settings...
 
