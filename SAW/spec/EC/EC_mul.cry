@@ -371,6 +371,9 @@ validate_one f = res
     cmp_f = felem_to_mont felem_one
     res = if (felem_ne cmp_f f) == 0 then 1 else 0
 
+validate_one_wrapper: () -> felem -> Bit
+validate_one_wrapper _ x = validate_one x
+
 
 ECDH_derive_bv : JacobianBVPoint -> scalar -> [bit_length]
 ECDH_derive_bv peer_pub_key priv_key =

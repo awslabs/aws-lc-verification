@@ -152,7 +152,7 @@ let p384_validate_base_table_spec = do {
   crucible_return (crucible_term {{ (zero:[31]) # [validate_base_table pre_comp_table] }});
 };
 
-let p384_validate_one_spec = do {
+let p384_validate_one_constant_spec = do {
 
   global_alloc_init "OPENSSL_ia32cap_P" {{ ia32cap }};
 
@@ -160,8 +160,22 @@ let p384_validate_one_spec = do {
 
   global_points_to "OPENSSL_ia32cap_P" {{ ia32cap }};
 
-  crucible_return (crucible_term {{ (zero:[31]) # [validate_one p384_felem_one] }});
+  crucible_return (crucible_term {{ (zero:[31]) # [validate_one_wrapper u p384_felem_one] }});
 };
+
+let p384_validate_constants_spec = do {
+
+  global_alloc_init "OPENSSL_ia32cap_P" {{ ia32cap }};
+  pre_comp_table <- crucible_fresh_var "pre_comp_table" (llvm_array 20 (llvm_array 16 (llvm_array 2 (llvm_array p384_felem_limbs (llvm_int limb_length)))));
+  global_points_to "p384_g_pre_comp" pre_comp_table;
+
+  crucible_execute_func [];
+
+  global_points_to "OPENSSL_ia32cap_P" {{ ia32cap }};
+
+  crucible_return (crucible_term {{ (zero:[31]) # [(validate_base_table pre_comp_table) && (validate_one p384_felem_one)] }});
+};
+
 
 p384_validate_base_table_ov <- llvm_verify m "p384_validate_base_table"
   [ p384_validate_base_table_row_ov,
@@ -173,13 +187,28 @@ p384_validate_base_table_ov <- llvm_verify m "p384_validate_base_table"
     w4_unint_z3 ["validate_base_row", "point_double_base_tsize"];
   });
 
+validate_one_wrapper_validate_one_equiv <-
+  prove_print
+  (w4_unint_z3 ["validate_one"])
+  (rewrite (cryptol_ss ()) {{ \x y -> (validate_one_wrapper x y) == (validate_one y) }});
+
+
 p384_validate_one_ov <- llvm_verify m "p384_validate_one"
   [bignum_tomont_p384_same_constant_ov, felem_ne_constant_ov]
-  false
-  p384_validate_one_spec
+  true
+  p384_validate_one_constant_spec
   (do {
-    simplify (addsimps [felem_ne_wrapper_felem_ne_equiv, felem_to_mont_wrapper_felem_to_mont_equiv] empty_ss);
-    w4_unint_z3 ["felem_to_mont", "felem_sub"];
+    simplify (addsimps [felem_ne_wrapper_felem_ne_equiv, felem_to_mont_wrapper_felem_to_mont_equiv, validate_one_wrapper_validate_one_equiv] empty_ss);
+    w4_unint_z3 ["felem_to_mont", "felem_ne"];
+  });
+
+p384_validate_constants_ov <- llvm_verify m "p384_validate_constants"
+  [p384_validate_base_table_ov, p384_validate_one_ov]
+  true
+  p384_validate_constants_spec
+  (do {
+    simplify (addsimps [validate_one_wrapper_validate_one_equiv] empty_ss);
+    w4_unint_z3 ["validate_base_table", "validate_one"];
   });
 
 
