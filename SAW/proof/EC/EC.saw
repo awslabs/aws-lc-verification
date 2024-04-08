@@ -26,7 +26,6 @@ include "../EVP/EVP_CTX.saw";
 import "../../spec/EC/EC_FIPS.cry";
 include "EC_P384_private.saw";
 
-
 let points_to_p384_bignum_st ptr d_ptr flags = points_to_bignum_st ptr d_ptr ec_words ec_words flags;
 
 
@@ -1412,7 +1411,7 @@ ec_felem_to_bytes_ov <- llvm_verify m
   "ec_felem_to_bytes"
   [bignum_fromlebytes_6_ov,
   bignum_tolebytes_6_ov,
-  bignum_deamont_p384_ov
+  bignum_deamont_p384_same_ov
   ]
   true
   ec_felem_to_bytes_spec
@@ -1427,7 +1426,7 @@ ec_get_x_coordinate_as_bytes_ov <- llvm_verify m
   [BN_num_bytes_ec_bits_ov,
   bignum_tolebytes_6_ov,
   bignum_fromlebytes_6_ov,
-  bignum_deamont_p384_ov, 
+  bignum_deamont_p384_same_ov, 
   ec_GFp_nistp384_point_get_affine_coordinates_x_ov,
   ec_felem_to_bytes_ov]
   true

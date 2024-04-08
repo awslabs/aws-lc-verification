@@ -7,9 +7,7 @@
 import "../../../cryptol-specs/Common/EC/EC_P384.cry";
 import "../../../cryptol-specs/Common/utils.cry";
 
-
 include "../ECDSA/goal-rewrites.saw";
-
 
 /*
  * Verification parameters.
@@ -28,6 +26,8 @@ include "../common/internal.saw";
 include "../common/memory.saw";
 include "../BN/BN.saw";
 include "../EC/EC.saw";
+
+import "../../spec/EC/ECDH.cry";
 
 
 let ptr_to_new_evp_pkey_ctx_st pkey_ptr = do {
