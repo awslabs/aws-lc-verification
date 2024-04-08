@@ -49,6 +49,10 @@ felem_cmovznz t f1 f2 = if (t == zero) then f1 else f2
 felem_nz : felem -> limb
 felem_nz f = foldl (||) 0 f
 
+felem_ne : felem -> felem -> limb
+felem_ne f1 f2 =
+  felem_nz (felem_sub f1 f2)
+
 point_double : point -> point
 point_double p = p'
   where

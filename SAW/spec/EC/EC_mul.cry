@@ -310,10 +310,6 @@ lookup_table p_table i = foldl (lookup_table_fn p_table i) (p_table@15) [14, 13 
 type affine_point = [2]felem
 type base_tsize = wsize * base_tsize_mul
 
-felem_ne : felem -> felem -> limb
-felem_ne f1 f2 =
-  felem_nz (felem_sub f1 f2)
-
 jacobian_affine_eq : point -> affine_point -> Bit
 jacobian_affine_eq jp ap = res
   where
@@ -364,6 +360,17 @@ validate_base_table t = res
     ap = (t@0)@0
     jp = [ap@0, ap@1, p384_felem_one]
     (acc, res) = (foldl validate_base_table_body (jp, 1) t)
+
+felem_one = [0x0000000000000001, 0x0000000000000000,
+             0x0000000000000000, 0x0000000000000000,
+             0x0000000000000000, 0x0000000000000000]
+
+validate_one: felem-> Bit
+validate_one f = res
+  where
+    cmp_f = felem_to_mont felem_one
+    res = if (felem_ne cmp_f f) == 0 then 1 else 0
+
 
 ECDH_derive_bv : JacobianBVPoint -> scalar -> [bit_length]
 ECDH_derive_bv peer_pub_key priv_key =

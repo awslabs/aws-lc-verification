@@ -12,10 +12,10 @@ index b1d0f789c..2d2a17a8a 100644
 +}
 +
 diff --git a/crypto/fipsmodule/ec/p384.c b/crypto/fipsmodule/ec/p384.c
-index 852ceb18b..6df6825a8 100644
+index 852ceb18b..41b08f84e 100644
 --- a/crypto/fipsmodule/ec/p384.c
 +++ b/crypto/fipsmodule/ec/p384.c
-@@ -1149,6 +1149,124 @@ static void ec_GFp_nistp384_point_mul_public(const EC_GROUP *group,
+@@ -1149,6 +1149,123 @@ static void ec_GFp_nistp384_point_mul_public(const EC_GROUP *group,
    p384_to_generic(&r->Z, res[2]);
  }
  
@@ -124,11 +124,10 @@ index 852ceb18b..6df6825a8 100644
 +__attribute__((noinline))
 +static int p384_validate_one(void){
 +  
-+  p384_felem one_raw = {0x1, 0x0, 0x0, 0x0, 0x0, 0x0};
-+  p384_felem one_mont;
++  p384_felem one = {0x1, 0x0, 0x0, 0x0, 0x0, 0x0};
 +
-+  p384_felem_to_mont(one_mont, one_raw);
-+  return !p384_felem_ne(one_mont, p384_felem_one);
++  p384_felem_to_mont(one, one);
++  return !p384_felem_ne(one, p384_felem_one);
 +}
 +
 +__attribute__((noinline))
@@ -140,7 +139,7 @@ index 852ceb18b..6df6825a8 100644
  DEFINE_METHOD_FUNCTION(EC_METHOD, EC_GFp_nistp384_method) {
    out->point_get_affine_coordinates =
        ec_GFp_nistp384_point_get_affine_coordinates;
-@@ -1173,6 +1291,7 @@ DEFINE_METHOD_FUNCTION(EC_METHOD, EC_GFp_nistp384_method) {
+@@ -1173,6 +1290,7 @@ DEFINE_METHOD_FUNCTION(EC_METHOD, EC_GFp_nistp384_method) {
    out->scalar_to_montgomery_inv_vartime =
        ec_simple_scalar_to_montgomery_inv_vartime;
    out->cmp_x_coordinate = ec_GFp_nistp384_cmp_x_coordinate;

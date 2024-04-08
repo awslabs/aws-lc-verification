@@ -29,7 +29,6 @@ extract-bc build/llvm_x86/crypto/crypto_test
 # run the tests
 ./build/llvm_x86/crypto/crypto_test
 
-
 # Next check the SAW proofs
 
 # Apply the remaining patches

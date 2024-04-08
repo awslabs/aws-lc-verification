@@ -20,6 +20,20 @@ let felem_ne_spec = do {
   crucible_return (crucible_term {{ felem_ne f1 f2 }});
 };
 
+let felem_ne_constant_spec = do {
+  
+  global_alloc_init "OPENSSL_ia32cap_P" {{ ia32cap }};
+
+  (f1, f1_ptr) <- ptr_to_fresh_readonly "f1" (llvm_array p384_felem_limbs (llvm_int limb_length));
+  (f2, f2_ptr) <- ptr_to_fresh_readonly "f2" (llvm_array p384_felem_limbs (llvm_int limb_length));
+
+  crucible_execute_func [f1_ptr, f2_ptr];
+
+  global_points_to "OPENSSL_ia32cap_P" {{ ia32cap }};
+
+  crucible_return (crucible_term {{ felem_ne_wrapper u f1 f2}});
+};
+
 let test_jacobian_affine_eq_spec = do {
 
   global_alloc_init "OPENSSL_ia32cap_P" {{ ia32cap }};
@@ -47,6 +61,16 @@ felem_ne_ov <- llvm_verify m "p384_felem_ne"
   (do {
     w4_unint_z3 ["felem_sub", "felem_nz"];
   });
+
+felem_ne_wrapper_felem_ne_equiv <-
+  prove_print
+  (w4_unint_z3 ["felem_ne"])
+  (rewrite (cryptol_ss ()) {{ \x y z -> (felem_ne_wrapper x y z) == (felem_ne y z) }});
+
+felem_ne_constant_ov <- crucible_llvm_unsafe_assume_spec
+  m
+  "p384_felem_ne"
+  felem_ne_constant_spec;
 
 test_jacobian_affine_eq_ov <- llvm_verify m "test_jacobian_affine_eq"
   [ p384_square_ov
@@ -128,6 +152,17 @@ let p384_validate_base_table_spec = do {
   crucible_return (crucible_term {{ (zero:[31]) # [validate_base_table pre_comp_table] }});
 };
 
+let p384_validate_one_spec = do {
+
+  global_alloc_init "OPENSSL_ia32cap_P" {{ ia32cap }};
+
+  crucible_execute_func [];
+
+  global_points_to "OPENSSL_ia32cap_P" {{ ia32cap }};
+
+  crucible_return (crucible_term {{ (zero:[31]) # [validate_one p384_felem_one] }});
+};
+
 p384_validate_base_table_ov <- llvm_verify m "p384_validate_base_table"
   [ p384_validate_base_table_row_ov,
 	point_double_n_20_ov
@@ -136,6 +171,15 @@ p384_validate_base_table_ov <- llvm_verify m "p384_validate_base_table"
   p384_validate_base_table_spec
   (do {
     w4_unint_z3 ["validate_base_row", "point_double_base_tsize"];
+  });
+
+p384_validate_one_ov <- llvm_verify m "p384_validate_one"
+  [bignum_tomont_p384_same_constant_ov, felem_ne_constant_ov]
+  false
+  p384_validate_one_spec
+  (do {
+    simplify (addsimps [felem_ne_wrapper_felem_ne_equiv, felem_to_mont_wrapper_felem_to_mont_equiv] empty_ss);
+    w4_unint_z3 ["felem_to_mont", "felem_sub"];
   });
 
 
