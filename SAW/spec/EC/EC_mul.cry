@@ -374,5 +374,16 @@ validate_one f = res
 validate_one_wrapper: () -> felem -> Bit
 validate_one_wrapper _ x = validate_one x
 
+jacobianToAffine : JacobianBVPoint -> AffineBVPoint
+jacobianToAffine p = {X = x, Y = y} where
+  px = felem_from_bytes (p.X)
+  py = felem_from_bytes (p.Y)
+  pz = felem_from_bytes (p.Z)
+  z2 = felem_inv_sqr pz
+  x_raw = felem_mul px z2
+  z4 = felem_sqr z2
+  y_raw = felem_mul (felem_mul py pz) z4
+  x = (felem_to_bytes x_raw)
+  y = (felem_to_bytes y_raw)
 
 
