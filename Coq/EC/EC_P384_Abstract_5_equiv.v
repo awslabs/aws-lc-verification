@@ -1,6 +1,9 @@
 (* Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0 *)
 
+(* Proof of equivalence between the spec extracted from Cryptol and the hand-written
+low-level specification in EC_P384_Abstract. *)
+
 Set Implicit Arguments.
 
 From Coq Require Import Lists.List.
