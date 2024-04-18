@@ -614,12 +614,12 @@ Section ECEqProof.
     unfold EC_P384_Abstract_5_equiv.point_mul_abstract.
     eapply jac_eq_trans.
     apply point_mul_abstract_correct.
-    apply sign_extend_16_64.
-    apply felem_cmovznz_equiv.
-    apply select_point_loop_body_equiv.
     apply point_add_jac_eq.
     apply point_double_minus_3_jac_eq.
     apply sbvToInt_sign_extend_16_64_equiv.   
+    apply point_id_to_limb.
+    apply felem_cmovznz_equiv.
+    apply select_point_loop_body_equiv.
     apply conditional_subtract_if_even_jac_eq_ite.
     assert (1 < 5 < 16)%nat by lia.
     eauto.
@@ -774,10 +774,9 @@ Section ECEqProof.
     intros.
     specialize (@groupedMul_scalar_precomp_Some_P384_5 Fone Fadd Fsub Fmul Fdiv Fopp Finv _  a b _ 
     point_double point_add point_add_jac_eq point_double_minus_3_jac_eq
-    felem_nz felem_nz_0 felem_nz_not_0 felem_nz_eq_0 felem_nz_neq_0 preCompTable
-    g_point g_point_affine_jac_equiv  preCompTable_length
+    felem_nz felem_nz_0 felem_nz_not_0  g_point preCompTable g_point_affine_jac_equiv preCompTable_length preCompTable_entry_length 
+     
     ); intros.
-    specialize (H preCompTable_entry_length).
     unfold validate_base_table_abstract in *.
     unfold EC_P384_Abstract_Model_equiv.validate_base_table_abstract in *.
     specialize (H validate_preCompTable_true).
@@ -794,17 +793,15 @@ Section ECEqProof.
 
     specialize (@point_mul_base_abstract_correct
       Fone Fadd Fsub Fmul Fdiv Fopp Finv _  a b _  
-      point_double point_add sign_extend_16_64 point_id_to_limb
+      point_double point_add point_add_jac_eq point_add_mixed_eq point_double_minus_3_jac_eq 
+      sign_extend_16_64 sbvToInt_sign_extend_16_64_equiv point_id_to_limb
       felem_cmovznz felem_cmovznz_equiv
-      point_add_jac_eq point_add_mixed_eq
-      point_double_minus_3_jac_eq
-      sbvToInt_sign_extend_16_64_equiv
-      felem_nz felem_nz_0 felem_nz_not_0 felem_nz_eq_0 felem_nz_neq_0 preCompTable
-      g_point g_point_affine_jac_equiv 
+      select_point_affine_loop_body select_point_affine_loop_body_equiv
+      felem_nz felem_nz_0 felem_nz_not_0 
       wsize wsize_range nw nw_range
+      g_point preCompTable g_point_affine_jac_equiv 
       preCompTable_length preCompTable_entry_length validate_preCompTable_true
-      select_point_affine_loop_body
-      select_point_affine_loop_body_equiv
+
     ); intros.
     unfold point_mul_base_abstract, EC_P384_Abstract_5_equiv.point_mul_base_abstract in *.
     unfold point_add, EC_P384_Abstract_5_equiv.point_add in *.
@@ -833,10 +830,16 @@ Section ECEqProof.
 
   End PointMulBase.
 
+  (* Assume we have functions that convert between bit vectors and the internal representation of field elements. 
+  In the implementation, these functions operate on byte arrays, so the names of the corresponding spec functions 
+  include "bytes". *)
   Variable felem_from_bytes : Vector.t bool 384 -> F.
   Variable felem_to_bytes : F -> Vector.t bool 384.
+
+  (* Assume that conversion is correct in the sense that we can convert a field element
+  from the internal representation to a bit vector and then back to the internal representation, 
+  and we will recover the same field element. *)
   Hypothesis felem_from_to_bytes_inv : forall x, felem_from_bytes (felem_to_bytes x) = x.
-  Hypothesis felem_to_from_bytes_inv : forall x,  felem_to_bytes (felem_from_bytes x) = x.
 
   Definition jacobianToAffine_abstract x := @jacobianToAffine Fsquare Fmul felem_from_bytes felem_to_bytes x.
   Definition to_bytes_3 (p : F * F * F) :=
@@ -844,6 +847,8 @@ Section ECEqProof.
   Definition from_bytes_2 p :=
     (felem_from_bytes (fst p), felem_from_bytes (snd p)).
 
+  (* Assume that the field is a finite field with the correct order. This assumption uses an additional
+  predicate F_order_correct to prevent Coq from evaluating the constant p384_field_order value. *)
   Variable F_order_correct : nat -> Prop.
   Context `{F_FiniteField : @FiniteField F_order_correct F Feq _ _ _ _ _ _ _ _ F_field}.
   Hypothesis p384_field_order_correct : F_order_correct p384_field_order.

@@ -67,6 +67,62 @@ Section EC_P384_Abstract_Model_equiv.
 
   Local Opaque sbvToInt.
 
+  (* This file (like EC_P384_Abstract.v) treats several functions as abstract, even though we have concrete specifications
+  for them in the implementation. This is done to simplify this part of the proof, and to make it more general. *)
+
+  (* point doubling and addition *)
+  Variable point_double : point -> point.
+  Variable point_add : bool -> point -> point -> point.
+  Hypothesis point_add_jac_eq : forall (a b: Curve.point) a' b',
+    jac_eq (fromPoint a) (seqToProd a') ->
+    jac_eq (fromPoint b) (seqToProd b') -> 
+    jac_eq (fromPoint (Curve.add a b)) (seqToProd (point_add false a' b')).
+
+  Hypothesis point_add_mixed_eq : forall (a b:Curve.point) a' b',
+    nth_order b' two_lt_three = Fone -> 
+    jac_eq (fromPoint a) (seqToProd a') ->
+    jac_eq (fromPoint b) (seqToProd b') -> 
+    jac_eq (fromPoint (Curve.add a b)) (seqToProd (point_add true a' b')).
+
+  Hypothesis point_double_minus_3_jac_eq : forall (p:Curve.point) p',
+    jac_eq (fromPoint p) (seqToProd p') ->
+    jac_eq (fromPoint (Curve.double_minus_3 p)) (seqToProd (point_double p')).
+
+
+  (* sign extend a 16-bit numerica value to produce a 64-bit numeric value *)
+  Variable sign_extend_16_64 : (bitvector 16) -> (bitvector 64).
+  Hypothesis sbvToInt_sign_extend_16_64_equiv : forall x,
+    sbvToInt _ (sign_extend_16_64 x) = sbvToInt _ x.
+
+  (* convert a 16-bit numeric value (used to identify points in a table) to a 64-bit numeric value. *)
+  Variable point_id_to_limb : (bitvector 16) -> (bitvector 64).
+
+  (* select one of two points based on whether a numeric value is nonzero *)
+  Variable F_cmovznz : (bitvector 64) -> F -> F -> F.
+  Hypothesis F_cmovznz_equiv : forall x y z,
+    F_cmovznz x y z = if (bvEq _ x (intToBv 64 0)) then y else z.
+
+  (* the body of a (constant time) lookup into a table of Jacobian points that returns one of two points depending
+  on whether two numeric values are equal *)
+  Variable select_point_loop_body : (bitvector 64) -> point -> (bitvector 64) -> point -> point.
+  Hypothesis select_point_loop_body_equiv : forall w x y z,
+    select_point_loop_body w x y z = 
+       if (bvEq _ y w) then z else x.
+
+  (* the body of a (constant time) lookup into a table of affine points that returns one of two points depending
+  on whether two numeric values are equal *)
+  Variable select_point_affine_loop_body : (bitvector 64) -> affine_point -> (bitvector 64) -> affine_point -> affine_point.
+  Hypothesis select_point_affine_loop_body_equiv : forall w x y z,
+    select_point_affine_loop_body w x y z = 
+       if (bvEq _ y w) then z else x.
+
+  (* subtract one point from another only when a numeric value is even *)
+  Variable conditional_subtract_if_even: point -> bitvector 384 -> point -> point.
+  Definition point_opp_abstract := @point_opp_abstract Fopp.
+  Hypothesis conditional_subtract_if_even_jac_eq_ite : forall n p1 p2,
+    jac_eq (seqToProd (conditional_subtract_if_even p1 n p2)) (seqToProd (if (Nat.even (bvToNat _ n)) then (point_add false p1 (point_opp_abstract p2)) else p1)).
+
+
   Ltac bvIntSimpl_one :=
     match goal with
     | [|- ((bvToInt ?x _) < 2^(BinInt.Z.of_nat ?x))%Z] =>
@@ -695,40 +751,10 @@ Section EC_P384_Abstract_Model_equiv.
     
   Qed.
 
-  Variable point_double : point -> point.
-  Variable point_add : bool -> point -> point -> point.
-  Variable sign_extend_16_64 : (bitvector 16) -> (bitvector 64).
-  Variable point_id_to_limb : (bitvector 16) -> (bitvector 64).
-  Variable F_cmovznz : (bitvector 64) -> F -> F -> F.
-  Variable select_point_loop_body : (bitvector 64) -> point -> (bitvector 64) -> point -> point.
+
   Definition double_add_body_abstract := @double_add_body_abstract Fopp F_cmovznz select_point_loop_body 
     point_add point_double sign_extend_16_64.
   Definition select_point_abstract := @select_point_abstract select_point_loop_body.
-
-  Hypothesis F_cmovznz_equiv : forall x y z,
-    F_cmovznz x y z = if (bvEq _ x (intToBv 64 0)) then y else z.
-
-  Hypothesis select_point_loop_body_equiv : forall w x y z,
-    select_point_loop_body w x y z = 
-       if (bvEq _ y w) then z else x.
-
-  Hypothesis point_add_jac_eq : forall (a b: Curve.point) a' b',
-    jac_eq (fromPoint a) (seqToProd a') ->
-    jac_eq (fromPoint b) (seqToProd b') -> 
-    jac_eq (fromPoint (Curve.add a b)) (seqToProd (point_add false a' b')).
-
-  Hypothesis point_add_mixed_eq : forall (a b:Curve.point) a' b',
-    nth_order b' two_lt_three = Fone -> 
-    jac_eq (fromPoint a) (seqToProd a') ->
-    jac_eq (fromPoint b) (seqToProd b') -> 
-    jac_eq (fromPoint (Curve.add a b)) (seqToProd (point_add true a' b')).
-
-  Hypothesis point_double_minus_3_jac_eq : forall (p:Curve.point) p',
-      jac_eq (fromPoint p) (seqToProd p') ->
-      jac_eq (fromPoint (Curve.double_minus_3 p)) (seqToProd (point_double p')).
-
-  Hypothesis sbvToInt_sign_extend_16_64_equiv : forall x,
-    sbvToInt _ (sign_extend_16_64 x) = sbvToInt _ x.
 
   Theorem select_point_abstract_nth_equiv_h : forall ls n a,
     (Z.of_nat (List.length ls) < 2^64 )%Z ->
@@ -961,7 +987,6 @@ Section EC_P384_Abstract_Model_equiv.
   Qed.
 
   Definition conditional_point_opp_abstract := @conditional_point_opp_abstract Fopp.
-  Definition point_opp_abstract := @point_opp_abstract Fopp.
 
   Theorem point_opp_equiv : forall p,
     jac_eq 
@@ -1378,12 +1403,9 @@ Section EC_P384_Abstract_Model_equiv.
 
   Qed.
 
-  Variable conditional_subtract_if_even: point -> bitvector 384 -> point -> point.
-  Hypothesis conditional_subtract_if_even_jac_eq_ite : forall n p1 p2,
-    jac_eq (seqToProd (conditional_subtract_if_even p1 n p2)) (seqToProd (if (Nat.even (bvToNat _ n)) then (point_add false p1 (point_opp_abstract p2)) else p1)).
-
+  
+  (* test for whether a field element is nonzero and return the result as a numeric value *)
   Variable F_nz : F -> bitvector 64.  
-  Definition F_ne := @F_ne Fsub F_nz.
 
   Hypothesis F_nz_0 : forall x, 
     F_nz x = intToBv 64 0 ->
@@ -1393,12 +1415,32 @@ Section EC_P384_Abstract_Model_equiv.
     ~(F_nz x = intToBv 64 0) ->
     x <> 0.
 
-  Hypothesis F_nz_eq_0 : 
+  Theorem F_nz_eq_0 : 
     (F_nz 0) = (intToBv 64 0).
 
-  Hypothesis F_nz_neq_0 : forall x,
+    intros.
+    destruct (bvector_eq_dec (F_nz 0) (intToBv 64 0)).
+    trivial.
+    exfalso.
+    eapply (F_nz_not_0).
+    eauto.
+    trivial.
+
+  Qed.
+
+  Theorem F_nz_neq_0 : forall x,
     x <> 0 ->
    (F_nz x) <> (intToBv 64 0).
+
+    intros.
+    destruct (bvector_eq_dec (F_nz x) (intToBv 64 0)); trivial.
+    exfalso.
+    apply H.
+    apply F_nz_0.
+    trivial.
+  Qed.
+
+  Definition F_ne := @F_ne Fsub F_nz.
 
   Theorem F_ne_0 : forall a b, 
     F_ne a b = intToBv 64 0 ->
@@ -1603,24 +1645,17 @@ Section EC_P384_Abstract_Model_equiv.
   
   Qed.
 
-  Variable  base_precomp_table : list (list affine_point).
-  Variable g : Curve.point.
-  Definition affine_g : affine_point := affine_g base_precomp_table.
-  (* We need a default point for some lookup operations. It simplifies the proof a bit if this point is on the curve. *)
-  Definition affine_default : affine_point := affine_g.
-
-  Definition affineToJac := @affineToJac Fone Fadd Fsub Fmul Fdiv Fopp Finv _ a b _.
-  Hypothesis g_affine_jac_equiv :   
-    jac_eq (seqToProd (affineToJac affine_g)) (fromPoint g).
-
   (* Definitions and facts that depend on window size *)
   Section EC_P384_Abstract_Model_equiv_wsize.
 
+    (* Window size and number of windows *)
     Variable wsize : nat.
     Hypothesis wsize_range : (1 < wsize < 16)%nat.
     Variable nw : nat.
     Hypothesis nw_range : nw <> 0%nat.
-    
+
+    Definition numPrecompExponentGroups : nat := (Nat.pred wsize).
+
     Theorem mul_scalar_rwnaf_abstract_equiv : forall z,
       (bvToInt 384%nat z < 2 ^ Z.of_nat (S (S (S nw)) * wsize))%Z ->
       List.Forall2 (fun x (y : bitvector 16) => x = (sbvToInt _ y))
@@ -2050,11 +2085,21 @@ Section EC_P384_Abstract_Model_equiv.
 
     Qed.
 
-    Definition numPrecompExponentGroups : nat := (Nat.pred wsize).
+    (* The base point and precomputed table of multiples of the base point *)
+    Variable g : Curve.point.
+    Variable  base_precomp_table : list (list affine_point).
+    Definition affine_g : affine_point := affine_g base_precomp_table.
+    (* We need a default point for some lookup operations. It simplifies the proof a bit if this point is on the curve. *)
+    Definition affine_default : affine_point := affine_g.
+    Definition affineToJac := @affineToJac Fone Fadd Fsub Fmul Fdiv Fopp Finv _ a b _.
+    (* Assume that the Jacobian base point is equivalent to the first point in the table *)
+    Hypothesis g_affine_jac_equiv :   
+      jac_eq (seqToProd (affineToJac affine_g)) (fromPoint g).
+    (* Assume that the precomputed table has the correct length, each entry in the table has the correct length, and the
+    values in the table have been validated. *)
     Hypothesis base_precomp_table_length : List.length base_precomp_table = (wsize * (Nat.pred wsize))%nat.
     Hypothesis base_precomp_table_entry_length : 
       forall ls, List.In ls base_precomp_table -> List.length ls = Nat.pow 2 numPrecompExponentGroups.
-
     Definition validate_base_table_abstract := @validate_base_table_abstract Fone Fadd Fsub Fmul Fdiv Fopp Finv _ a b _ point_add point_double F_nz.
     Hypothesis base_precomp_table_validated : validate_base_table_abstract wsize base_precomp_table = true.
 
@@ -2771,12 +2816,6 @@ Section EC_P384_Abstract_Model_equiv.
       eapply n. reflexivity.
       Local Opaque fromPoint.
     Qed.
-
-    Variable select_point_affine_loop_body : (bitvector 64) -> affine_point -> (bitvector 64) -> affine_point -> affine_point.
-
-    Hypothesis select_point_affine_loop_body_equiv : forall w x y z,
-      select_point_affine_loop_body w x y z = 
-         if (bvEq _ y w) then z else x.
 
     Theorem select_point_affine_abstract_nth_equiv_h : forall ls n a,
       (Z.of_nat (List.length ls) < 2^64 )%Z ->
@@ -4201,14 +4240,22 @@ Section EC_P384_Abstract_Model_equiv.
       unfold nw. lia.
     Qed.
 
+        
+    (* The base point and precomputed table of multiples of the base point *)
+    Variable g : Curve.point.
+    Variable  base_precomp_table : list (list affine_point).
+    Hypothesis g_affine_jac_equiv :   
+      jac_eq (seqToProd (affineToJac (@affine_g base_precomp_table))) (fromPoint g).
+
+    (* Assume that the precomputed table has the correct length, each entry has the correct length, and the values in the table
+    have been validated. *)
     Hypothesis base_precomp_table_length : List.length base_precomp_table = (wsize * (Nat.pred wsize))%nat.
     Hypothesis base_precomp_table_entry_length : 
       forall ls, List.In ls base_precomp_table -> List.length ls = Nat.pow 2 (Nat.pred wsize).
-
     Hypothesis base_precomp_table_validated : validate_base_table_abstract wsize base_precomp_table = true.
 
     Definition groupedMul_scalar_precomp_5 := @groupedMul_scalar_precomp
-        wsize wsize_range nw nw_range base_precomp_table_length base_precomp_table_entry_length base_precomp_table_validated.
+        wsize wsize_range nw nw_range g base_precomp_table g_affine_jac_equiv base_precomp_table_length base_precomp_table_entry_length base_precomp_table_validated.
 
     Theorem groupedMul_scalar_precomp_Some_P384_5 : forall n, exists x, 
       groupedMul_scalar_precomp_5 1 n = Some x.
@@ -4247,11 +4294,16 @@ Section EC_P384_Abstract_Model_equiv.
 
   (* Field inversion operation is correct. *)
 
+  (* Assume that the field is finite with some particular field order that is not too small *)
   Variable field_order : nat.
   Hypothesis field_order_correct : forall x,
     Fpow field_order x = x.
   Hypothesis field_order_not_small  : 
     (field_order >= 3)%nat.
+
+  (* Assume that the inverse square operation is correct *)
+  Hypothesis felem_inv_sqr_abstract_eq_Fpow : forall x,
+    @felem_inv_sqr_abstract Fmul x = Fpow (field_order - 3) x.
 
   Theorem pow_p_minus_3_eq_inv_sqr : forall x,
     x <> 0 -> 
@@ -4359,8 +4411,6 @@ Section EC_P384_Abstract_Model_equiv.
 
   Qed.
 
-  Hypothesis felem_inv_sqr_abstract_eq_Fpow : forall x,
-    @felem_inv_sqr_abstract Fmul x = Fpow (field_order - 3) x.
   
   Theorem felem_inv_sqr_abstract_correct : forall x,
     x <> 0 ->
@@ -4380,6 +4430,10 @@ Section P384_inv_sqr_abstract_equiv.
   Context `{curve : Curve F Feq Fzero}.
   
   Definition p384_field_order :=  ((Nat.pow 2 384) - (Nat.pow 2 128) - (Nat.pow 2 96) + (Nat.pow 2 32) - 1)%nat.
+
+  (* Assume that the field has the correct order *)
+  Hypothesis p384_field_cyclic : forall x,
+    Fpow p384_field_order x = x.
 
   Theorem p384_field_order_not_small : (p384_field_order >= 3)%nat.
     unfold p384_field_order.
@@ -4661,9 +4715,6 @@ Section P384_inv_sqr_abstract_equiv.
     apply Feq_dec.
 
   Qed.
-
-  Hypothesis p384_field_cyclic : forall x,
-    Fpow p384_field_order x = x.
 
   Theorem felem_inv_sqr_abstract_correct_p384 : forall x,
     ~(Feq x Fzero) ->
