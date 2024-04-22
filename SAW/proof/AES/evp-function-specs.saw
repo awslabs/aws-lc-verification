@@ -74,7 +74,7 @@ let EVP_CipherUpdate_spec enc gcm_len len = do {
   crucible_return (crucible_term {{ 1 : [32] }});
 };
 
-let EVP_CipherUpdate_array_spec enc mres res_mres = do {
+let EVP_CipherUpdate_array_spec_internal mk_len enc mres res_mres = do {
   global_alloc_init "OPENSSL_ia32cap_P" {{ ia32cap }};
 
   cipher_ptr <- crucible_alloc_readonly (llvm_struct "struct.evp_cipher_st");
@@ -87,7 +87,7 @@ let EVP_CipherUpdate_array_spec enc mres res_mres = do {
   ctx_ptr <- crucible_alloc (llvm_struct "struct.evp_cipher_ctx_st");
   points_to_evp_cipher_ctx_st ctx_ptr cipher_ptr cipher_data_ptr enc;
 
-  len_28 <- llvm_fresh_var "len" (llvm_int 28);
+  len_28 <- mk_len;
   let len = {{ (len_28 # (`res_mres - `mres)): [32] }};
   crucible_precond {{ len < 2 ^^ 31 }};
   crucible_precond {{ ctx.len < `TOTAL_MESSAGE_MAX_LENGTH }};
@@ -120,6 +120,18 @@ let EVP_CipherUpdate_array_spec enc mres res_mres = do {
 
   crucible_return (crucible_term {{ 1 : [32] }});
 };
+
+let EVP_CipherUpdate_array_spec =
+      EVP_CipherUpdate_array_spec_internal (llvm_fresh_var "len" (llvm_int 28));
+
+let EVP_CipherUpdate_array_len_zero_spec =
+      EVP_CipherUpdate_array_spec_internal (return {{ 0 : [28] }});
+
+let EVP_CipherUpdate_array_len_nonzero_spec =
+      EVP_CipherUpdate_array_spec_internal
+        (do { len_28_ <- llvm_fresh_var "len" (llvm_int 28);
+              return {{ if (len_28_ == ~zero) then ~zero else len_28_ + 1 }};
+            });
 
 let EVP_EncryptFinal_ex_spec gcm_len = do {
   cipher_ptr <- crucible_alloc_readonly (llvm_struct "struct.evp_cipher_st");

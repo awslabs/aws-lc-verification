@@ -308,7 +308,7 @@ llvm_verify m "EVP_EncryptUpdate"
   , aesni_gcm_decrypt_array_ov
   ]
   true
-  (EVP_CipherUpdate_array_spec {{ 1 : [32] }} 1 15)
+  (EVP_CipherUpdate_array_len_zero_spec {{ 1 : [32] }} 1 15)
   (do {
     simplify (cryptol_ss ());
     goal_eval_unint ["aesni_gcm_encrypt", "aes_ctr32_encrypt_blocks_array", "aes_hw_encrypt", "gcm_ghash_blocks_array", "gcm_polyval", "pmult", "pmod"];
@@ -326,6 +326,41 @@ llvm_verify m "EVP_EncryptUpdate"
     if is_out_post then do {
       w4_unint_yices ["aesni_gcm_encrypt", "aes_ctr32_encrypt_blocks_array", "aes_hw_encrypt", "gcm_ghash_blocks_array", "gcm_polyval", "pmult", "pmod", "arrayLookupUnint", "arrayUpdateUnint", "arrayCopyUnint", "arrayConstantUnint"];
     } else if is_Xi_post then do {
+      w4_unint_z3_using "qfufbv" ["aesni_gcm_encrypt", "aes_ctr32_encrypt_blocks_array", "aes_hw_encrypt", "gcm_ghash_blocks_array", "gcm_polyval", "pmult", "pmod", "arrayLookupUnint", "arrayUpdateUnint", "arrayCopyUnint", "arrayConstantUnint"];
+    } else do {
+      w4_unint_z3 ["aesni_gcm_encrypt", "aes_ctr32_encrypt_blocks_array", "aes_hw_encrypt", "gcm_ghash_blocks_array", "gcm_polyval", "pmult", "pmod", "arrayLookupUnint", "arrayUpdateUnint", "arrayCopyUnint", "arrayConstantUnint"];
+    };
+  });
+
+llvm_verify m "EVP_EncryptUpdate"
+  [ aes_gcm_from_cipher_ctx_ov
+  , aes_hw_encrypt_ov
+  , aes_hw_ctr32_encrypt_blocks_bounded_array_ov
+  , gcm_gmult_avx_ov
+  , gcm_ghash_avx_bounded_array_ov
+  , aesni_gcm_encrypt_array_ov
+  , aesni_gcm_decrypt_array_ov
+  ]
+  true
+  (EVP_CipherUpdate_array_len_nonzero_spec {{ 1 : [32] }} 1 15)
+  (do {
+    simplify (cryptol_ss ());
+    goal_eval_unint ["aesni_gcm_encrypt", "aes_ctr32_encrypt_blocks_array", "aes_hw_encrypt", "gcm_ghash_blocks_array", "gcm_polyval", "pmult", "pmod"];
+    simplify (addsimps [aesni_gcm_encrypt_Yi_thm] empty_ss);
+    goal_eval_unint ["aesni_gcm_encrypt", "aes_ctr32_encrypt_blocks_array", "aes_hw_encrypt", "gcm_ghash_blocks_array", "gcm_polyval", "pmult", "pmod"];
+    simplify (addsimps [bvand_bvudiv_thm, bvudiv_bvmul_bvudiv_thm, bvurem_16_append_thm] basic_ss);
+    simplify (addsimps [arrayLookupUnint_thm, arrayUpdateUnint_thm, arrayCopyUnint_thm, arrayConstantUnint_thm] empty_ss);
+    simplify (addsimps add_xor_slice_thms basic_ss);
+    goal_eval_unint ["aesni_gcm_encrypt", "aes_ctr32_encrypt_blocks_array", "aes_hw_encrypt", "gcm_ghash_blocks_array", "gcm_polyval", "pmult", "pmod", "arrayLookupUnint", "arrayUpdateUnint", "arrayCopyUnint", "arrayConstantUnint"];
+    simplify (addsimps [ite_bveq_0_thm, ite_bveq_1_thm, bveq_ite_bv8_0_thm, bveq_ite_bv8_1_thm, arrayeq_ite_0_thm, arrayeq_ite_1_thm, foo_thm, bar_thm] basic_ss);
+    goal_eval_unint ["aesni_gcm_encrypt", "aes_ctr32_encrypt_blocks_array", "aes_hw_encrypt", "gcm_ghash_blocks_array", "gcm_polyval", "pmult", "pmod", "arrayLookupUnint", "arrayUpdateUnint", "arrayCopyUnint", "arrayConstantUnint"];
+    print_goal;
+    is_out_post <- goal_has_some_tag ["output buffer postcondition"];
+    is_Xi_post <- goal_has_some_tag ["Xi postcondition"];
+    if is_out_post then do {
+      w4_unint_yices ["aesni_gcm_encrypt", "aes_ctr32_encrypt_blocks_array", "aes_hw_encrypt", "gcm_ghash_blocks_array", "gcm_polyval", "pmult", "pmod", "arrayLookupUnint", "arrayUpdateUnint", "arrayCopyUnint", "arrayConstantUnint"];
+    } else if is_Xi_post then do {
+      simplify (addsimps EncryptUpdate_slice_thms empty_ss);
       w4_unint_z3_using "qfufbv" ["aesni_gcm_encrypt", "aes_ctr32_encrypt_blocks_array", "aes_hw_encrypt", "gcm_ghash_blocks_array", "gcm_polyval", "pmult", "pmod", "arrayLookupUnint", "arrayUpdateUnint", "arrayCopyUnint", "arrayConstantUnint"];
     } else do {
       w4_unint_z3 ["aesni_gcm_encrypt", "aes_ctr32_encrypt_blocks_array", "aes_hw_encrypt", "gcm_ghash_blocks_array", "gcm_polyval", "pmult", "pmod", "arrayLookupUnint", "arrayUpdateUnint", "arrayCopyUnint", "arrayConstantUnint"];
