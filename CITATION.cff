@@ -1,0 +1,4 @@
+cff-version: 1.2.0
+message: "Please cite this work as shown below."
+title: "Formal Verification of AWS libcrypto"
+url: "https://github.com/awslabs/awslc-verification"
