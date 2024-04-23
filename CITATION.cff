@@ -1,5 +1,4 @@
 cff-version: 1.2.0
-message: "Please cite this work as shown below."
 title: "Formal Verification of AWS libcrypto"
 authors:
   - name: Amazon Web Services and contributors
