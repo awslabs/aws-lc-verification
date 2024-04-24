@@ -1,0 +1,178 @@
+/*
+ * Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+*/
+
+// Using experimental proof command "crucible_llvm_verify_x86"
+enable_experimental;
+
+
+////////////////////////////////////////////////////////////////////////////////
+// Specifications
+
+let AES_BLOCK_SIZE = 16;
+let aes_key_len = 32;
+// the number of AES rounds excluding the initial round and the final round
+let aes_rounds = 13;
+
+
+let fresh_aes_key_st = do {
+  crucible_fresh_var "key" (llvm_array aes_key_len (llvm_int 8));
+};
+
+let points_to_aes_key_st ptr key = do {
+  crucible_points_to_untyped ptr (crucible_struct [(crucible_term {{ key }}), crucible_term ({{ aes_key_from_schedule (ExpandKey (join key)) }}), (crucible_term {{ `aes_rounds : [32] }})]);
+};
+
+// Some specs manipulate the blocks of the key, it is useful to represent the key as a pair of blocks.
+let fresh_aes_key_256_parts = do {
+  low <- crucible_fresh_var "key_low" (llvm_array (eval_size {|aes_key_len/2|}) (llvm_int 8));
+  high <- crucible_fresh_var "key_high" (llvm_array (eval_size {|aes_key_len/2|}) (llvm_int 8));
+  return (low,high);
+};
+
+// For AES decrypt, the round keys are stored in memory in reverse order.
+let points_to_inv_aes_key_st ptr (low,high) = do {
+  crucible_points_to (crucible_elem ptr 1) (crucible_term {{ `aes_rounds : [32] }});
+
+  crucible_points_to_untyped (crucible_elem (crucible_elem ptr 0) 0) (crucible_term {{ (inv_aes_key_from_schedule (ExpandKey (join (low#high))))}});
+
+  crucible_points_to_untyped (crucible_elem (crucible_elem ptr 0) (eval_size {|4 *13 |})) (crucible_term high);
+  crucible_points_to_untyped (crucible_elem (crucible_elem ptr 0) (eval_size {|4 *14 |})) (crucible_term low);
+};
+
+let aes_hw_set_encrypt_key_spec = do {
+  global_alloc_init "OPENSSL_ia32cap_P" {{ ia32cap }};
+
+  (user_key, user_key_ptr) <- ptr_to_fresh_readonly "user_key" (llvm_array aes_key_len (llvm_int 8));
+  key_ptr <- crucible_alloc (llvm_struct "struct.aes_key_st");
+
+  let bits = eval_size {| aes_key_len * 8 |};
+  crucible_execute_func [user_key_ptr, (crucible_term {{ `bits : [32] }}), key_ptr];
+
+  global_points_to "OPENSSL_ia32cap_P" {{ ia32cap }};
+
+  points_to_aes_key_st key_ptr user_key;
+
+  crucible_return (crucible_term {{ 0 : [32] }});
+};
+
+
+let aes_hw_encrypt_spec = do {
+  (in_, in_ptr) <- ptr_to_fresh_readonly "in" (llvm_array AES_BLOCK_SIZE (llvm_int 8));
+  out_ptr <- crucible_alloc (llvm_array AES_BLOCK_SIZE (llvm_int 8));
+  key_ptr <- crucible_alloc_readonly (llvm_struct "struct.aes_key_st");
+  key <- fresh_aes_key_st;
+  points_to_aes_key_st key_ptr key;
+
+  crucible_execute_func [in_ptr, out_ptr, key_ptr];
+
+  crucible_points_to out_ptr (crucible_term {{ aes_hw_encrypt in_ key }});
+};
+
+let aes_hw_encrypt_in_place_spec = do {
+  (in_, inout_ptr) <- ptr_to_fresh "in" (llvm_array AES_BLOCK_SIZE (llvm_int 8));
+  key_ptr <- crucible_alloc_readonly (llvm_struct "struct.aes_key_st");
+  key <- fresh_aes_key_st;
+  points_to_aes_key_st key_ptr key;
+
+  crucible_execute_func [inout_ptr, inout_ptr, key_ptr];
+
+  crucible_points_to inout_ptr (crucible_term {{ aes_hw_encrypt in_ key }});
+};
+
+
+let aes_hw_decrypt_spec = do {
+  (in_, in_ptr) <- ptr_to_fresh_readonly "in" (llvm_array AES_BLOCK_SIZE (llvm_int 8));
+  out_ptr <- crucible_alloc (llvm_array AES_BLOCK_SIZE (llvm_int 8));
+  key_ptr <- crucible_alloc_readonly (llvm_struct "struct.aes_key_st");
+  (key_low, key_high) <- fresh_aes_key_256_parts;
+  points_to_inv_aes_key_st key_ptr (key_low, key_high);
+
+  crucible_execute_func [in_ptr, out_ptr, key_ptr];
+
+  crucible_points_to out_ptr (crucible_term {{ aes_hw_decrypt in_ (key_low # key_high) }});
+};
+
+let aes_hw_decrypt_in_place_spec = do {
+  (in_, inout_ptr) <- ptr_to_fresh "in" (llvm_array AES_BLOCK_SIZE (llvm_int 8));
+  key_ptr <- crucible_alloc_readonly (llvm_struct "struct.aes_key_st");
+  (key_low, key_high) <- fresh_aes_key_256_parts;
+  points_to_inv_aes_key_st key_ptr (key_low, key_high);
+
+  crucible_execute_func [inout_ptr, inout_ptr, key_ptr];
+
+  crucible_points_to inout_ptr (crucible_term {{ aes_hw_decrypt in_ (key_low # key_high) }});
+};
+
+
+let aes_hw_ctr32_encrypt_blocks_spec len = do {
+  let len' = eval_size {| len * AES_BLOCK_SIZE |};
+  global_alloc_init "OPENSSL_ia32cap_P" {{ ia32cap }};
+
+  (in_, in_ptr) <- ptr_to_fresh_readonly "in" (llvm_array len' (llvm_int 8));
+  out_ptr <- crucible_alloc (llvm_array len' (llvm_int 8));
+  key_ptr <- crucible_alloc_readonly (llvm_struct "struct.aes_key_st");
+  key <- fresh_aes_key_st;
+  points_to_aes_key_st key_ptr key;
+  (ivec, ivec_ptr) <- ptr_to_fresh_readonly "ivec" (llvm_array AES_BLOCK_SIZE (llvm_int 8));
+
+  crucible_execute_func [in_ptr, out_ptr, (crucible_term {{ `len : [64] }}), key_ptr, ivec_ptr];
+
+  crucible_points_to out_ptr (crucible_term {{ aes_hw_ctr32_encrypt_blocks in_ key ivec }});
+
+  global_alloc_init "OPENSSL_ia32cap_P" {{ ia32cap }};
+};
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+// Proof commands
+aes_hw_set_encrypt_key_ov <- llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "aes_hw_set_encrypt_key"
+  []
+  true
+  aes_hw_set_encrypt_key_spec
+  (do {
+    simplify (cryptol_ss ());
+    simplify (addsimps slice_384_thms basic_ss);
+    w4_unint_yices ["SubByte'"];
+  });
+
+aes_hw_encrypt_ov <- llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "aes_hw_encrypt"
+  []
+  true
+  aes_hw_encrypt_spec
+  (do {
+    simplify (cryptol_ss ());
+    simplify (addsimps slice_384_thms basic_ss);
+    w4_unint_yices ["AESRound", "AESFinalRound"];
+  });
+aes_hw_encrypt_in_place_ov <- llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "aes_hw_encrypt"
+  []
+  true
+  aes_hw_encrypt_in_place_spec
+  (do {
+    simplify (cryptol_ss ());
+    simplify (addsimps slice_384_thms basic_ss);
+    w4_unint_yices ["AESRound", "AESFinalRound"];
+  });
+
+aes_hw_decrypt_ov <- llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "aes_hw_decrypt"
+  []
+  true
+  aes_hw_decrypt_spec
+  (do {
+    simplify (cryptol_ss ());
+    simplify (addsimps slice_384_thms basic_ss);
+    w4_unint_yices ["AESInvRound", "AESFinalInvRound"];
+  });
+aes_hw_decrypt_in_place_ov <- llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "aes_hw_decrypt"
+  []
+  true
+  aes_hw_decrypt_in_place_spec
+  (do {
+    simplify (cryptol_ss ());
+    simplify (addsimps slice_384_thms basic_ss);
+    w4_unint_yices ["AESInvRound", "AESFinalInvRound"];
+  });
+
