@@ -17,16 +17,18 @@ The easiest way to build the library and run the proofs is to use [Docker](https
 2. Build a Docker image:
    `docker build --pull --no-cache -f Dockerfile.[...] -t awslc-saw .`
    1. For running SAW proofs on X86_64, use: `Dockerfile.saw_x86`
-   2. For running SAW proofs on AARCH64, use: `Dockerfile.saw_aarch64`
-   3. For running Coq proofs, use: `Dockerfile.coq`
-   4. For running NSym proofs, use: `Dockerfile.nsym`
+   1. For running SAW proofs for AES-GCM on X86_64, use: `Dockerfile.saw_x86_aes_gcm`
+   3. For running SAW proofs on AARCH64, use: `Dockerfile.saw_aarch64`
+   4. For running Coq proofs, use: `Dockerfile.coq`
+   5. For running NSym proofs, use: `Dockerfile.nsym`
 
 3. Run the SAW proofs inside the Docker container: ``docker run -v `pwd`:`pwd` -w `pwd` awslc-saw``
    1. Run SAW proofs on X86_64: ``docker run -it -v `pwd`:`pwd` -w `pwd` --entrypoint SAW/scripts/x86_64/docker_entrypoint.sh awslc-saw``
       1. This step will also run formally-verified tests on certain hard-coded constant values.
-   2. Run SAW proofs on AARCH64: ``docker run -it -v `pwd`:`pwd` -w `pwd` --entrypoint SAW/scripts/aarch64/docker_entrypoint.sh awslc-saw``
-   3. Use Coq to validate the Cryptol specs used in the SAW proofs: ``docker run -it -v `pwd`:`pwd` -w `pwd` --entrypoint Coq/docker_entrypoint.sh awslc-saw``
-   4. Run NSym for AARCH64 assembly: ``docker run -it -v `pwd`:`pwd` -w `pwd` --entrypoint NSym/scripts/docker_entrypoint.sh awslc-saw``
+   2. RUN SAW proofs for AES-GCM on x86_64: ``docker run -it -v `pwd`:`pwd` -w `pwd` --entrypoint SAW/scripts/x86_64/docker_entrypoint_aes_gcm.sh awslc-saw``
+   3. Run SAW proofs on AARCH64: ``docker run -it -v `pwd`:`pwd` -w `pwd` --entrypoint SAW/scripts/aarch64/docker_entrypoint.sh awslc-saw``
+   4. Use Coq to validate the Cryptol specs used in the SAW proofs: ``docker run -it -v `pwd`:`pwd` -w `pwd` --entrypoint Coq/docker_entrypoint.sh awslc-saw``
+   5. Run NSym for AARCH64 assembly: ``docker run -it -v `pwd`:`pwd` -w `pwd` --entrypoint NSym/scripts/docker_entrypoint.sh awslc-saw``
 
 Running ``docker run -it -v `pwd`:`pwd` -w `pwd` --entrypoint bash awslc-saw`` will enter an interactive shell within the container, which is often useful for debugging.
 
@@ -40,6 +42,7 @@ AWS libcrypto includes many cryptographic algorithm implementations for several 
 | [SHA-2](SPEC.md#SHA-2) | 384 | EVP_DigestInit, EVP_DigestUpdate, EVP_DigestFinal | neoverse-n1, neoverse-v1 | NoEngine, MemCorrect, ArmSpecGap, ToolGap | SAW, NSym |
 | [HMAC](SPEC.md#HMAC-with-SHA-384) | with <nobr>SHA-384</nobr> | HMAC_CTX_init, HMAC_Init_ex, HMAC_Update, HMAC_Final, HMAC | SandyBridge+ | NoEngine, MemCorrect, InitZero, NoInline, CRYPTO_once_Correct | SAW |
 | [<nobr>AES-KW(P)</nobr>](SPEC.md#AES-KWP) | 256 | AES_wrap_key, AES_unwrap_key, AES_wrap_key_padded, AES_unwrap_key_padded | SandyBridge+ | InputLength, MemCorrect, NoInline | SAW |
+| [<nobr>AES-GCM</nobr>](SPEC.md#AES-GCM) | 256 | gcm_ghash_avx, aes_hw_ctr32_encrypt_blocks, aesni_gcm_encrypt, aesni_gcm_decrypt | SandyBridge+ | MemCorrect, NoInline | SAW |
 | [Elliptic Curve Keys and Parameters](SPEC.md#Elliptic-Curve-Keys-and-Parameters) | with <nobr>P-384</nobr> | EVP_PKEY_CTX_new_id, EVP_PKEY_CTX_new, EVP_PKEY_paramgen_init, EVP_PKEY_CTX_set_ec_paramgen_curve_nid, EVP_PKEY_paramgen, EVP_PKEY_keygen_init, EVP_PKEY_keygen | SandyBridge+ | SAWCore_Coq, EC_Fiat_Crypto, ToolGap, NoEngine, MemCorrect, CRYPTO_refcount_Correct, CRYPTO_once_Correct, OptNone, SAWBreakpoint | SAW, Coq |
 | [ECDSA](SPEC.md#ECDSA) | with <nobr>P-384</nobr>, <nobr>SHA-384</nobr> | EVP_DigestSignInit, EVP_DigestVerifyInit, EVP_DigestSignUpdate, EVP_DigestVerifyUpdate, EVP_DigestSignFinal, EVP_DigestVerifyFinal, EVP_DigestSign, EVP_DigestVerify | SandyBridge+ | EC_Pub_Mul_Correct, EC_Constants_Correct, EC_Conversion_Correct, SAWCore_Coq, EC_Fiat_Crypto, NoEngine, MemCorrect, ECDSA_k_Valid, ECDSA_SignatureLength, CRYPTO_refcount_Correct, CRYPTO_once_Correct, ERR_put_error_Correct, NoInline | SAW, Coq |
 | [ECDH](SPEC.md#ECDH) | with <nobr>P-384</nobr> | EVP_PKEY_derive_init, EVP_PKEY_derive | SandyBridge+ | SAWCore_Coq, EC_Fiat_Crypto, ECDH_InfinityTestCorrect, ToolGap, MemCorrect, NoEngine, CRYPTO_refcount_Correct, PubKeyValid | SAW, Coq |
