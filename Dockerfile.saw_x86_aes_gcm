@@ -19,6 +19,7 @@ RUN pip3 install psutil
 ADD ./SAW/scripts/x86_64 /lc/scripts
 RUN /lc/scripts/docker_install_aes_gcm.sh
 ENV CRYPTOLPATH="../../../cryptol-specs-aes-gcm:../../spec"
+ENV AES_GCM_SELECTCHECK=1
 
 # This container expects all files in the directory to be mounted or copied.
 # The GitHub action will mount the workspace and set the working directory of the container.

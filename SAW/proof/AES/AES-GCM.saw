@@ -23,29 +23,6 @@ m <- llvm_load_module "../../build/llvm_x86/crypto/crypto_test.bc";
 include "../common/helpers.saw";
 include "../common/memory.saw";
 include "helpers.saw";
-
-/*
- * Verification parameters.
- */
-
-// The EVP_{Encrypt,Decrypt}Update and EVP_{Encrypt,Decrypt}Final_ex
-// specifications must specify the initial value of the `mres` field in the
-// GCM128_CONTEXT struct contained within the EVP_AES_GCM_CTX struct argument.
-// This is ultimately used to set the last four bits of the message length,
-// which is otherwise symbolic.
-let GCM128_CONTEXT_mres = 1;
-// Similarly, the EVP_{Encrypt,Decrypt}Update specifications must specify the
-// value of `mres` after the function is invoked, which may be different from
-// the initial value (`GCM128_CONTEXT_mres`). Note that the
-// EVP_{Encrypt,Decrypt}Final_ex specifications do not make use of
-// GCM128_CONTEXT_res_mres, as they require the value of `mres` to be the same
-// before and after calling the function.
-let GCM128_CONTEXT_res_mres = 15;
-
-print (str_concat "GCM128_CONTEXT_mres=" (show GCM128_CONTEXT_mres));
-print (str_concat "GCM128_CONTEXT_res_mres=" (show GCM128_CONTEXT_res_mres));
-
-
 include "goal-rewrites.saw";
 
 
