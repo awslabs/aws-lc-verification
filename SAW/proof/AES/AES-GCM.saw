@@ -69,6 +69,20 @@ let GHASH_length_blocks_decrypt = eval_size {| whole_blocks_after_bulk_decrypt *
 
 let evp_cipher_final_gcm_len = eval_size {| evp_cipher_update_gcm_len + evp_cipher_update_len |};
 
+// The EVP_{Encrypt,Decrypt}Update and EVP_{Encrypt,Decrypt}Final_ex
+// specifications must specify the initial value of the `mres` field in the
+// GCM128_CONTEXT struct contained within the EVP_AES_GCM_CTX struct argument.
+// This is ultimately used to set the last four bits of the message length,
+// which is otherwise symbolic.
+let GCM128_CONTEXT_mres = 1;
+// Similarly, the EVP_{Encrypt,Decrypt}Update specifications must specify the
+// value of `mres` after the function is invoked, which may be different from
+// the initial value (`GCM128_CONTEXT_mres`). Note that the
+// EVP_{Encrypt,Decrypt}Final_ex specifications do not make use of
+// GCM128_CONTEXT_res_mres, as they require the value of `mres` to be the same
+// before and after calling the function.
+let GCM128_CONTEXT_res_mres = 15;
+
 // Log the calculated values to help find errors when the proof fails.
 print (str_concat "evp_cipher_update_len=" (show evp_cipher_update_len));
 print (str_concat "aesni_gcm_cipher_gcm_len=" (show aesni_gcm_cipher_gcm_len));
@@ -85,6 +99,9 @@ print (str_concat "bulk_decrypt_used=" (show bulk_decrypt_used));
 print (str_concat "length_after_bulk_decrypt=" (show length_after_bulk_decrypt));
 print (str_concat "whole_blocks_after_bulk_decrypt=" (show whole_blocks_after_bulk_decrypt));
 print (str_concat "GHASH_length_blocks_decrypt=" (show GHASH_length_blocks_decrypt));
+
+print (str_concat "GCM128_CONTEXT_mres=" (show GCM128_CONTEXT_mres));
+print (str_concat "GCM128_CONTEXT_res_mres=" (show GCM128_CONTEXT_res_mres));
 
 
 include "goal-rewrites.saw";
@@ -309,7 +326,7 @@ llvm_verify m "EVP_EncryptUpdate"
   , aesni_gcm_decrypt_array_ov
   ]
   true
-  (EVP_CipherUpdate_array_len_zero_spec {{ 1 : [32] }} 1 15)
+  (EVP_CipherUpdate_array_len_zero_spec {{ 1 : [32] }} GCM128_CONTEXT_mres GCM128_CONTEXT_res_mres)
   (do {
     simplify (cryptol_ss ());
     goal_eval_unint ["aesni_gcm_encrypt", "aes_ctr32_encrypt_blocks_array", "aes_hw_encrypt", "gcm_ghash_blocks_array", "gcm_polyval", "pmult", "pmod"];
@@ -343,7 +360,7 @@ llvm_verify m "EVP_EncryptUpdate"
   , aesni_gcm_decrypt_array_ov
   ]
   true
-  (EVP_CipherUpdate_array_len_nonzero_spec {{ 1 : [32] }} 1 15)
+  (EVP_CipherUpdate_array_len_nonzero_spec {{ 1 : [32] }} GCM128_CONTEXT_mres GCM128_CONTEXT_res_mres)
   (do {
     simplify (cryptol_ss ());
     goal_eval_unint ["aesni_gcm_encrypt", "aes_ctr32_encrypt_blocks_array", "aes_hw_encrypt", "gcm_ghash_blocks_array", "gcm_polyval", "pmult", "pmod"];
@@ -378,7 +395,7 @@ llvm_verify m "EVP_DecryptUpdate"
   , aesni_gcm_decrypt_array_ov
   ]
   true
-  (EVP_CipherUpdate_array_spec {{ 0 : [32] }} 1 15)
+  (EVP_CipherUpdate_array_spec {{ 0 : [32] }} GCM128_CONTEXT_mres GCM128_CONTEXT_res_mres)
   (do {
     simplify (cryptol_ss ());
     goal_eval_unint ["aesni_gcm_decrypt", "aes_ctr32_encrypt_blocks_array", "aes_hw_encrypt", "gcm_ghash_blocks_array", "gcm_polyval", "pmult", "pmod"];
@@ -407,15 +424,14 @@ disable_what4_hash_consing;
 enable_no_satisfying_write_fresh_constant;
 disable_what4_push_mux_ops;
 
-
 llvm_verify m "EVP_EncryptFinal_ex"
   evp_cipher_ovs
   true
-  (EVP_EncryptFinal_ex_spec evp_cipher_final_gcm_len)
+  (EVP_EncryptFinal_ex_spec GCM128_CONTEXT_mres)
   evp_cipher_tactic;
 
 llvm_verify m "EVP_DecryptFinal_ex"
   evp_cipher_ovs
   true
-  (EVP_DecryptFinal_ex_spec evp_cipher_final_gcm_len)
+  (EVP_DecryptFinal_ex_spec GCM128_CONTEXT_mres)
   evp_cipher_tactic;

@@ -133,13 +133,12 @@ let EVP_CipherUpdate_array_len_nonzero_spec =
               return {{ if (len_28_ == ~zero) then ~zero else len_28_ + 1 }};
             });
 
-let EVP_EncryptFinal_ex_spec gcm_len = do {
+let EVP_EncryptFinal_ex_spec mres = do {
   cipher_ptr <- crucible_alloc_readonly (llvm_struct "struct.evp_cipher_st");
   points_to_evp_cipher_st cipher_ptr;
 
   cipher_data_ptr <- crucible_alloc_aligned 16 (llvm_struct "struct.EVP_AES_GCM_CTX");
-  ctx <- fresh_aes_gcm_ctx gcm_len;
-  let mres = eval_size {| gcm_len % AES_BLOCK_SIZE |};
+  ctx <- fresh_aes_gcm_ctx' mres;
   points_to_EVP_AES_GCM_CTX cipher_data_ptr ctx mres {{ 1 : [32] }} 0xffffffff;
 
   ctx_ptr <- crucible_alloc (llvm_struct "struct.evp_cipher_ctx_st");
@@ -163,13 +162,12 @@ let EVP_EncryptFinal_ex_spec gcm_len = do {
   crucible_return (crucible_term {{ 1 : [32] }});
 };
 
-let EVP_DecryptFinal_ex_spec gcm_len = do {
+let EVP_DecryptFinal_ex_spec mres = do {
   cipher_ptr <- crucible_alloc_readonly (llvm_struct "struct.evp_cipher_st");
   points_to_evp_cipher_st cipher_ptr;
 
   cipher_data_ptr <- crucible_alloc_aligned 16 (llvm_struct "struct.EVP_AES_GCM_CTX");
-  ctx <- fresh_aes_gcm_ctx gcm_len;
-  let mres = eval_size {| gcm_len % AES_BLOCK_SIZE |};
+  ctx <- fresh_aes_gcm_ctx' mres;
   points_to_EVP_AES_GCM_CTX cipher_data_ptr ctx mres {{ 1 : [32] }} AES_BLOCK_SIZE;
 
   ctx_ptr <- crucible_alloc_readonly (llvm_struct "struct.evp_cipher_ctx_st");
