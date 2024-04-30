@@ -7,45 +7,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 // Specifications
 
-let aesni_gcm_cipher_spec enc gcm_len len = do {
-  let ctr = eval_size {| gcm_len / AES_BLOCK_SIZE + 2 |};
-  let encT = eval_int {{ enc }};
-  // Bulk encrypt requires 3*6 blocks of input. Bulk decrypt only requires 6 blocks.
-  let min_size = eval_size {| (1 + 2 * encT) * 6 * AES_BLOCK_SIZE |};
-
-  (in_, in_ptr) <- ptr_to_fresh_readonly "in" (llvm_array len (llvm_int 8));
-  out_ptr <- crucible_alloc (llvm_array len (llvm_int 8));
-  key <- fresh_aes_key_st;
-  key_ptr <- crucible_alloc_readonly (llvm_struct "struct.aes_key_st");
-  ivec_ptr <- crucible_alloc (llvm_array AES_BLOCK_SIZE (llvm_int 8));
-  ivec <- crucible_fresh_var "ivec" (llvm_array aes_iv_len (llvm_int 8));
-  crucible_points_to_untyped (crucible_elem ivec_ptr 0) (crucible_term ivec);
-  crucible_points_to_untyped (crucible_elem ivec_ptr 12) (crucible_term {{ split`{4} (`ctr : [32]) }});
-  Htable_ptr <- crucible_alloc_readonly_aligned 16 (llvm_array 12 (llvm_int 128));
-  crucible_points_to Htable_ptr (crucible_term {{ get_Htable key }});
-  (Xi, Xi_ptr) <- ptr_to_fresh "Xi" (llvm_array AES_BLOCK_SIZE (llvm_int 8));
-  let ctx = {{ { key = key, iv = ivec, Xi = Xi, len = `gcm_len } : AES_GCM_Ctx }};
-  points_to_aes_key_st key_ptr key;
-
-  crucible_execute_func [in_ptr, out_ptr, (crucible_term {{ `len : [64] }}), key_ptr, ivec_ptr, Htable_ptr, Xi_ptr];
-
-  let bulk_len = eval_size {| max min_size ((len / (6 * AES_BLOCK_SIZE)) * (6 * AES_BLOCK_SIZE)) |};
-  let do_bulk = eval_size {| len / bulk_len |};
-  let res_len = eval_size {| do_bulk * bulk_len |};
-  let res_ctr = eval_size {| ctr + res_len / AES_BLOCK_SIZE |};
-
-  crucible_points_to ivec_ptr (crucible_term {{ ivec # (split (`res_ctr : [32])) }});
-
-  if eval_bool {{ `do_bulk == 0 }} then do {
-    crucible_points_to_untyped (crucible_elem Xi_ptr 0) (crucible_term Xi);
-  } else do {
-    crucible_points_to_untyped out_ptr (crucible_term {{ ctr32_encrypt ctx (take`{res_len} in_) }});
-    crucible_points_to_untyped (crucible_elem Xi_ptr 0) (crucible_term {{ (cipher_update enc ctx (take`{res_len} in_)).Xi }} );
-  };
-
-  crucible_return (crucible_term {{ `res_len : [64] }});
-};
-
 let aesni_gcm_cipher_array_spec enc = do {
   len <- llvm_fresh_var "len" (llvm_int 64);
   crucible_precond {{ len < 2 ^^ 36 }};
@@ -93,21 +54,6 @@ let aesni_gcm_cipher_array_spec enc = do {
 // introduce any new assumptions.
 add_x86_preserved_reg "rax";
 enable_what4_hash_consing;
-
-aesni_gcm_encrypt_ov <- llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "aesni_gcm_encrypt"
-  [ ("byte64_len_to_mask_table", 640) // We need .Lbswap_mask. Its location is <byte64_len_to_mask_table+0x240>. 640 bytes is an offset that would be large enough to contain the right bytes after alignment.
-  ]
-  true
-  (aesni_gcm_cipher_spec {{ 1 : [32] }} aesni_gcm_cipher_gcm_len aesni_gcm_cipher_len)
-  aesni_gcm_cipher_tactic;
-
-aesni_gcm_decrypt_ov <- llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "aesni_gcm_decrypt"
-  [ ("byte64_len_to_mask_table", 640)
-  ]
-  true
-  (aesni_gcm_cipher_spec {{ 0 : [32] }} aesni_gcm_cipher_gcm_len aesni_gcm_cipher_len)
-  aesni_gcm_cipher_tactic;
-
 enable_what4_eval;
 enable_x86_what4_hash_consing;
 disable_no_satisfying_write_fresh_constant;
