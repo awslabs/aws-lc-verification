@@ -7,6 +7,9 @@
 ////////////////////////////////////////////////////////////////////////////////
 // Specifications
 
+// An unbounded specification for `aesni_gcm_encrypt` (if `enc == 1`) or
+// `aesni_gcm_decrypt` (if `enc == 0`). The length is symbolic, although it
+// is constrained to be less than 2 ^^ 36.
 let aesni_gcm_cipher_array_spec enc = do {
   len <- llvm_fresh_var "len" (llvm_int 64);
   crucible_precond {{ len < 2 ^^ 36 }};
@@ -58,6 +61,8 @@ enable_what4_eval;
 enable_x86_what4_hash_consing;
 disable_no_satisfying_write_fresh_constant;
 enable_what4_push_mux_ops;
+
+// Prove that aesni_gcm_{encrypt,decrypt} adhere to aesni_gcm_cipher_array_spec.
 
 aesni_gcm_encrypt_array_ov <- llvm_verify_fixpoint_chc_x86' m "../../build/x86/crypto/crypto_test" "aesni_gcm_encrypt"
   [ ("byte64_len_to_mask_table", 704) // We need .Lbswap_mask. Its location is <byte64_len_to_mask_table+0x240>. 704 bytes is an offset that would be large enough to contain the right bytes after alignment.

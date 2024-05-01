@@ -10,6 +10,9 @@ enable_experimental;
 ////////////////////////////////////////////////////////////////////////////////
 // Specifications
 
+// A bounded specification for aes_hw_ctr32_encrypt_blocks where `in_ptr` and `out_ptr`
+// point to a fixed-size arrays, where the length of the arrays are determined
+// by the supplied number of `blocks`.
 let aes_hw_ctr32_encrypt_blocks_spec blocks = do {
   let len' = eval_size {| blocks * AES_BLOCK_SIZE |};
   global_alloc_init "OPENSSL_ia32cap_P" {{ ia32cap }};
@@ -28,6 +31,13 @@ let aes_hw_ctr32_encrypt_blocks_spec blocks = do {
   global_alloc_init "OPENSSL_ia32cap_P" {{ ia32cap }};
 };
 
+// A bounded specification for aes_hw_ctr32_encrypt_blocks where `in_ptr` and `out_ptr`
+// point to a fixed-size arrays, where the length of the arrays are determined
+// by the supplied number of `blocks`.
+//
+// This spec is very nearly the same as `aes_hw_ctr32_encrypt_blocks_spec`
+// above, except that this spec uses SMT arrays to specify the storage for
+// `in_ptr` and `out_ptr`.
 let aes_hw_ctr32_encrypt_blocks_array_spec blocks = do {
   let len = eval_size {| blocks * AES_BLOCK_SIZE |};
   global_alloc_init "OPENSSL_ia32cap_P" {{ ia32cap }};
@@ -49,6 +59,9 @@ let aes_hw_ctr32_encrypt_blocks_array_spec blocks = do {
   global_alloc_init "OPENSSL_ia32cap_P" {{ ia32cap }};
 };
 
+// An unbounded specification for aes_hw_ctr32_encrypt_blocks where `in_ptr` and
+// `out_ptr` point to arrays of symbolic lengths. The number of blocks must be
+// in the range (0, MIN_BULK_BLOCKS) (exclusive).
 let aes_hw_ctr32_encrypt_bounded_array_spec = do {
   global_alloc_init "OPENSSL_ia32cap_P" {{ ia32cap }};
 
@@ -78,6 +91,8 @@ let aes_hw_ctr32_encrypt_bounded_array_spec = do {
 
 ////////////////////////////////////////////////////////////////////////////////
 // Proof commands
+
+// A tactic for simplifying proof goals in the proof of `aes_hw_ctr32_encrypt_blocks_spec`.
 let aes_hw_ctr32_tactic = do {
   simplify (cryptol_ss ());
   simplify (addsimps slice_384_thms basic_ss);
@@ -87,6 +102,9 @@ let aes_hw_ctr32_tactic = do {
   w4_unint_yices ["AESRound", "AESFinalRound"];
 };
 
+// Helper theorems for refining `aes_hw_ctr32_encrypt_bounded_array_spec`.
+// These are used to equate calling `aes_ctr32_encrypt_blocks_array` to an
+// equivalent expression involving the SMT arrayCopy operation.
 aes_hw_ctr32_copy_thms <- for (eval_list {{ [ 1:[16] .. < MIN_BULK_BLOCKS ] }}) (\i -> do {
   let blocks = eval_int i;
   print (str_concat "aes_hw_ctr32 copy lemma: " (show blocks));
@@ -101,6 +119,8 @@ aes_hw_ctr32_copy_thms <- for (eval_list {{ [ 1:[16] .. < MIN_BULK_BLOCKS ] }}) 
     }});
 });
 
+// For each possible number of blocks, prove `aes_hw_ctr32_encrypt_blocks_spec`
+// and use it to refine `aes_hw_ctr32_encrypt_blocks_array_spec`.
 aes_hw_ctr32_encrypt_blocks_concrete_ovs <- for (eval_list {{ [ 1:[16] .. < MIN_BULK_BLOCKS ] }}) (\i -> do {
   let blocks = eval_int i;
   print (str_concat "aes_hw_ctr32_encrypt blocks=" (show blocks));
@@ -118,6 +138,9 @@ aes_hw_ctr32_encrypt_blocks_concrete_ovs <- for (eval_list {{ [ 1:[16] .. < MIN_
     (w4_unint_z3 ["aes_ctr32_encrypt_block"]);
 });
 
+// Now that we've proven `aes_hw_ctr32_encrypt_blocks_array_spec` overrides at
+// all possible block lengths, use the overrides to refine a proof for
+// `aes_hw_ctr32_encrypt_bounded_array_spec`.
 aes_hw_ctr32_encrypt_blocks_bounded_array_ov <- llvm_refine_spec' m "aes_hw_ctr32_encrypt_blocks"
   aes_hw_ctr32_encrypt_blocks_concrete_ovs
   aes_hw_ctr32_encrypt_bounded_array_spec

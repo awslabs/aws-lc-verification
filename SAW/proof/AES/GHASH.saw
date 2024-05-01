@@ -28,7 +28,8 @@ let gcm_gmult_avx_spec = do {
   crucible_points_to Xi_ptr (crucible_term {{ gcm_gmult Htable0 Xi }});
 };
 
-// len must be a multiple of 16
+// A bounded specification for `gcm_ghash_avx` using a concrete length `len`,
+// where `len` must be a multiple of 16.
 let gcm_ghash_avx_spec len = do {
   (Xi, Xi_ptr) <- ptr_to_fresh "Xi" (llvm_array 16 (llvm_int 8));
   Htable_ptr <- crucible_alloc_readonly (llvm_array 12 (llvm_int 128));
@@ -42,6 +43,9 @@ let gcm_ghash_avx_spec len = do {
   crucible_points_to Xi_ptr (crucible_term {{ gcm_ghash Htable0 Xi inp }});
 };
 
+// An unbounded specification for `gcm_ghash_avx` using a symbolic length `len`.
+// Note that `len` must be a multiple of 16, and `len` must be in the range
+// (0, AES_BLOCK_SIZE * MIN_BULK_BLOCKS) (exclusive).
 let gcm_ghash_avx_bounded_array_spec = do {
   (Xi, Xi_ptr) <- ptr_to_fresh "Xi" (llvm_array 16 (llvm_int 8));
   Htable_ptr <- crucible_alloc_readonly (llvm_array 12 (llvm_int 128));
@@ -98,6 +102,8 @@ gcm_gmult_avx_ov <- llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "gcm_
 enable_what4_hash_consing;
 enable_what4_eval;
 
+// For all possible length values, prove `gcm_ghash_avx` adheres to
+// `gcm_ghash_avx_spec`.
 gcm_ghash_avx_concrete_ovs <- for (eval_list {{ [ 1:[16] .. < MIN_BULK_BLOCKS ] }}) (\i -> do {
   let len = eval_int {{ i * 16 }};
   print (str_concat "gcm_ghash_avx len=" (show len));

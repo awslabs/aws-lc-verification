@@ -42,6 +42,25 @@ let EVP_CipherInit_ex_spec enc = do {
   points_to_evp_cipher_ctx_st ctx_ptr cipher_ptr cipher_data_ptr enc;
 };
 
+// A helper function for defining a specification for `EVP_CipherUpdate`.
+// Note that:
+//
+// * The length is factored out into a `mk_len` function, which controls how
+//   the upper 28 bits of the length are created. This is needed because the
+//   proof for EVP_EncryptUpdate needs to be split into two cases for
+//   performance reasons: one where `mk_len` returns `0` (see
+//   `EVP_CipherUpdate_array_len_zero_spec`), and another where `mk_len` returns
+//   a non-zero length (see `EVP_CipherUpdate_array_len_nonzero_spec`).
+//
+// * `enc` is `1` if we are encrypting (i.e., if we are invoking
+//   `EVP_EncryptUpdate`) and `0` if we are decrypting (i.e., if we are invoking
+//   `EVP_DecryptUpdate`).
+//
+// * `mres` is the value of the `mres` field prior to invoking the function, and
+//   `res_mres` is the value of the `mres` field after invoking the function. In
+//   addition, the values of `mres` and `res_mres` control the lower 4 bits of
+//   the length. It proves difficult to make these symbolic, so they are passed
+//   as concrete parameters.
 let EVP_CipherUpdate_array_spec_internal mk_len enc mres res_mres = do {
   global_alloc_init "OPENSSL_ia32cap_P" {{ ia32cap }};
 
@@ -89,17 +108,43 @@ let EVP_CipherUpdate_array_spec_internal mk_len enc mres res_mres = do {
   crucible_return (crucible_term {{ 1 : [32] }});
 };
 
+// A specification for `EVP_CipherUpdate` where the upper 28 bits of the length
+// are fully symbolic. This is used for the `EVP_DecryptUpdate` proof.
 let EVP_CipherUpdate_array_spec =
       EVP_CipherUpdate_array_spec_internal (llvm_fresh_var "len" (llvm_int 28));
 
+// A specification for `EVP_CipherUpdate` where the upper 28 bits of the length
+// are all zero. This is used for one of the `EVP_EncryptUpdate` proofs.
 let EVP_CipherUpdate_array_len_zero_spec =
       EVP_CipherUpdate_array_spec_internal (return {{ 0 : [28] }});
 
+// A specification for `EVP_CipherUpdate` where the upper 28 bits of the length
+// are non-zero. This is used for one of the `EVP_EncryptUpdate` proofs.
+//
+// Note that we define the length in a somewhat funny way (using an `if`
+// expression) to make it easier for the `EncryptUpdate_slice_ite_prop` rewrite
+// to apply.
 let EVP_CipherUpdate_array_len_nonzero_spec =
       EVP_CipherUpdate_array_spec_internal
         (do { len_28_ <- llvm_fresh_var "len" (llvm_int 28);
               return {{ if (len_28_ == ~zero) then ~zero else len_28_ + 1 }};
             });
+
+/*
+ * These specifications for EVP_{Encrypt,Decrypt}Final_ex are very similar, but
+ * with a handful of key differences:
+ *
+ * * EVP_EncryptFinal_ex_spec expects `buf` to be written to after calling the function, but
+ *   EVP_DecryptFinal_ex_spec does not.
+ *
+ * * EVP_EncryptFinal_ex_spec expects an initial taglen value of -1, whereas
+ *   EVP_DecryptFinal_ex_spec expects an initial taglen value of AES_BLOCK_SIZE.
+ *
+ * * EVP_EncryptFinal expects an iv_set value of 1 after calling the function, but
+ *   EVP_DecryptFinal expects an iv_set value of 1 or 0 depending on whether the
+ *   initial value of `buf` is equal to `cipher_final` or not. Similarly for the
+ *   return values of each function.
+ */
 
 let EVP_EncryptFinal_ex_spec mres = do {
   cipher_ptr <- crucible_alloc_readonly (llvm_struct "struct.evp_cipher_st");

@@ -3,6 +3,14 @@
  * SPDX-License-Identifier: Apache-2.0
 */
 
+// Cryptol specifications for EVP_{Encrypt,Decrypt}Update (and related functions) with the
+// following design goals in mind:
+//
+// * SMT arrays (i.e., Cryptol's Array type) are used throughout to support
+//   making these specifications work for messages of unbounded size.
+//
+// * The type signatures should work well with SAW's
+//   `llvm_verify_fixpoint_chc_x86` command.
 module AES_GCM_Unbounded where
 
 import Array
@@ -12,6 +20,12 @@ import Primitive::Symmetric::Cipher::Authenticated::AES_256_GCM
 import AES_GCM
 import AES_GCM_Implementation
 
+// The central loops in aesni_gcm{encrypt,decrypt} may update the output
+// buffer, as well as a set of LLVM stack values and x86-64 register values.
+// Note that the order of these variables is largely determined by SAW's
+// `llvm_verify_fixpoint_chc_x86` command. To avoid having to remember what
+// the order is, we define the order here as a type synonym and define helper
+// functions for retrieving specific values.
 type LoopTuple =
   ( Array[64][8] // Output buffer
   // stack values
@@ -23,6 +37,8 @@ type LoopTuple =
   // general purpose registers
   , [64], [64], [64]
   )
+
+// Helper functions for retrieving specific values from a LoopTuple.
 
 get_loop_index : LoopTuple -> [64]
 get_loop_index
@@ -100,6 +116,7 @@ combine_Xi_parts
     , prefetch_offset, ctr_least_byte, loop_index
     )
 
+// Look up a half-block-sized word in a message.
 loadHalfBlock : Array[64][8] -> [64] -> [64]
 loadHalfBlock arr idx = join (arrayRangeLookup arr idx)
 
@@ -138,10 +155,12 @@ aes_encrypt_blocks_6_impl key ctr_least_byte T1 inout0 inout1 inout2 inout3 inou
   out_block5 = in_block5
              ^ (aesEncryptWithKeySchedule (swap8 (drop (if ctr_least_byte_overflow then inc_ctr' T1 5 else inout5))) key_schedule)
 
+// The inc32 function, as defined in Section 6.2 of NIST SP 800-38D.
 inc_ctr : [512] -> [32] -> [128]
 inc_ctr ctr_iv i =
   (join (split`{each=8} ((swap8 ((swap8 (take`{32} (drop`{384} ctr_iv))) + i)) # (drop`{416} ctr_iv))))
 
+// The result of calling inc32, but zero-extended to be 512 bits.
 inc_ctr' : [512] -> [32] -> [512]
 inc_ctr' ctr_iv i =
   0 # (join (split`{each=8} ((swap8 ((swap8 (take`{32} (drop`{384} ctr_iv))) + i)) # (drop`{416} ctr_iv))))
@@ -190,6 +209,8 @@ combine_Xi_triple : ([128], [128], [128]) -> [128]
 combine_Xi_triple (x, y, z) = x ^ y ^ z
 
 
+// The main loop of the aesni_gcm_encrypt function. This is used in the proof of
+// aesni_gcm_cipher_array_spec to identify the loop invariants.
 aesni_gcm_encrypt_impl_loop :
   [64] ->
   Array[64][8] ->
@@ -269,6 +290,8 @@ aesni_gcm_encrypt_impl_loop_step len in out key ivec ctr Xi
   (next_spill_Z3, next_loop_Xi, next_Z0) = gcm_polyval_pmult4_impl key spill_Z3 (drop loop_Xi) (drop Z0) blocks
 
 
+// The main loop of the aesni_gcm_decrypt function. This is used in the proof of
+// aesni_gcm_cipher_array_spec to identify the loop invariants.
 aesni_gcm_decrypt_impl_loop :
   [64] ->
   Array[64][8] ->
@@ -348,6 +371,7 @@ aesni_gcm_decrypt_impl_loop_step len in out key ivec ctr Xi
   (next_spill_Z3, next_loop_Xi, next_Z0) = gcm_polyval_pmult4_impl key spill_Z3 (drop loop_Xi) (drop Z0) blocks
 
 
+// An unbounded specification for aesni_gcm_encrypt.
 aesni_gcm_encrypt :
   [64] ->
   Array[64][8] ->
@@ -370,6 +394,7 @@ aesni_gcm_encrypt len in out key iv ctr Xi loop_index current_out current_Xi =
   next_out = arrayRangeUpdate current_out (loop_index * 96) (split (join out_blocks))
   next_Xi = gcm_ghash_blocks (gcm_init_H (join (get_H' key))) current_Xi out_blocks
 
+// An unbounded specification for aesni_gcm_decrypt.
 aesni_gcm_decrypt :
   [64] ->
   Array[64][8] ->
@@ -427,6 +452,10 @@ gcm_ghash_blocks_array H blocks len i Xi =
     Xi
 
 
+// An unbounded specification for EVP_EncryptUpdate. This performs the update
+// phase of the GCM-AD_E algorithm described in Section 7.1 of NIST SP 800-38D.
+// Unlike the presentation in NIST SP 800-38D, this heavily uses SMT arrays,
+// which better facilitates an unbounded proof in SAW.
 aes_gcm_encrypt_update : AES_GCM_Ctx -> Array[64][8] -> [64] -> Array[64][8] -> (AES_GCM_Ctx, Array[64][8])
 aes_gcm_encrypt_update ctx in len out =
   if ctx.len % 16 != 0 /\ (ctx.len % 16) + (0 # drop`{60} len) < 16 /\ len - (0 # drop`{60} len) == 0
@@ -505,6 +534,10 @@ aes_gcm_encrypt_update_bytes eki in offset n j (out, Xi) =
     enc_byte = (arrayLookup in offset) ^ (eki @ j)
 
 
+// An unbounded specification for EVP_DecryptUpdate. This performs the update
+// phase of the GCM-AD_K algorithm described in Section 7.2 of NIST SP 800-38D.
+// Unlike the presentation in NIST SP 800-38D, this heavily uses SMT arrays,
+// which better facilitates an unbounded proof in SAW.
 aes_gcm_decrypt_update : AES_GCM_Ctx -> Array[64][8] -> [64] -> Array[64][8] -> (AES_GCM_Ctx, Array[64][8])
 aes_gcm_decrypt_update ctx in len out =
   if ctx.len % 16 != 0 /\ (ctx.len % 16) + (0 # drop`{60} len) < 16 /\ len - (0 # drop`{60} len) == 0

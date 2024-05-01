@@ -26,9 +26,14 @@ include "helpers.saw";
 include "goal-rewrites.saw";
 
 
+// The same value as defined in include/openssl/nid.h.
 let NID_aes_256_gcm = 901;
+// The same block_size value that EVP_aes_256_gcm uses.
 let aes_block_size = 1;
-// the IV for AES-GCM consists of 12 32-bit integers
+// The same value as AES_GCM_NONCE_LENGTH in crypto/fipsmodule/cipher/e_aes.c,
+// which is what EVP_aes_256_gcm uses to set iv_len.
+//
+// The IV for AES-GCM consists of 12 32-bit integers.
 let aes_iv_len = 12;
 
 // This computes the total number of message blocks that can be
@@ -64,13 +69,15 @@ include "AESNI-GCM.saw";
 ////////////////////////////////////////////////////////////////////////////////
 // Specifications
 
+// The same value as defined in crypto/fipsmodule/cipher/e_aes.c (for 64-bit code).
 let EVP_AES_GCM_CTX_PADDING = 8;
 let EVP_AES_GCM_CTX_size = llvm_sizeof m (llvm_struct "struct.EVP_AES_GCM_CTX");
 let ctx_size = eval_size {| EVP_AES_GCM_CTX_size + EVP_AES_GCM_CTX_PADDING |};
 
 
 /*
- * Helpers for specifying the AES-GCM structs
+ * Helpers for specifying the AES-GCM structs.
+ * These values are all taken from include/openssl/cipher.h.
  */
 let EVP_CIPH_GCM_MODE = 0x6;
 let EVP_CIPH_ALWAYS_CALL_INIT = 0x80;
@@ -84,6 +91,8 @@ let EVP_CIPH_CUSTOM_COPY = 0x1000;
 // for AES-GCM.
 let TOTAL_MESSAGE_MAX_LENGTH = eval_size {| TOTAL_MESSAGE_BLOCKS * AES_BLOCK_SIZE |};
 
+// Initialize the fields of an `EVP_CIPHER` struct to point to the same values as the
+// `EVP_aes_256_gcm()` function.
 let points_to_evp_cipher_st ptr = do {
   crucible_points_to (crucible_elem ptr 0) (crucible_term {{ `NID_aes_256_gcm : [32] }});
   crucible_points_to (crucible_elem ptr 1) (crucible_term {{ `aes_block_size : [32] }});
@@ -101,6 +110,9 @@ let points_to_evp_cipher_st ptr = do {
   crucible_points_to (crucible_elem ptr 10) (crucible_global "aes_gcm_ctrl");
 };
 
+// Initialize the fields of an `EVP_CIPHER_CTX` struct to point to the same values as a
+// successful invocation of the `EVP_CipherInit_ex` function. This assumes that
+// the `cipher_ptr` has been initialized according to `points_to_evp_cipher_st`.
 let points_to_evp_cipher_ctx_st ptr cipher_ptr cipher_data_ptr enc = do {
   crucible_points_to (crucible_field ptr "cipher") cipher_ptr;
   crucible_points_to (crucible_field ptr "cipher_data") cipher_data_ptr;
@@ -112,6 +124,10 @@ let points_to_evp_cipher_ctx_st ptr cipher_ptr cipher_data_ptr enc = do {
   crucible_points_to (crucible_field ptr "poisoned") (crucible_term {{ 0 : [32] }});
 };
 
+// Initialize an `AES_GCM_Ctx` with symbolic fields, where the last four bits
+// of the `len` field are constrained to be concrete. The value of `mres` will
+// come from the proofs for `EVP_{Encrypt,Decrypt}Update` and
+// `EVP_{Encrypt,Decrypt}Final_ex`.
 let fresh_aes_gcm_ctx mres = do {
   key <- fresh_aes_key_st;
   iv <- crucible_fresh_var "iv" (llvm_array aes_iv_len (llvm_int 8));
@@ -121,6 +137,15 @@ let fresh_aes_gcm_ctx mres = do {
   return {{ { key = key, iv = iv, Xi = Xi, len = len } : AES_GCM_Ctx }};
 };
 
+// Initialize the fields of a `GCM128_KEY` struct to point to the same values
+// as an invocation of the `CRYPTO_gcm128_init_key` function. This assumes:
+//
+// * The fields at indexes 0, 1, and 2 (`Htable`, `gmult`, and `ghash`,
+//   respectively) are set according to what the `CRYPTO_ghash_init`
+//   function does when `crypto_gcm_clmul_enabled()` returns true.
+// * The fields at indexes 3 and 4 (`block` and `use_hw_gcm_crypt`,
+//   respectively) are set according to what the `aes_ctr_set_key`
+//   function does when `hwaes_capable()` returns true.
 let points_to_gcm128_key_st ptr ctx = do {
   crucible_points_to_untyped (crucible_elem ptr 0) (crucible_term {{ get_Htable ctx.key }});
   crucible_points_to (crucible_elem ptr 1) (crucible_global "gcm_gmult_avx");
@@ -129,6 +154,8 @@ let points_to_gcm128_key_st ptr ctx = do {
   crucible_points_to (crucible_elem ptr 4) (crucible_term {{ 1 : [8] }});
 };
 
+// Initialize the fields of a `GCM128_CONTEXT` struct to point to the
+// same values as an invocation of the `CRYPTO_gcm128_{encrypt,decrypt}_ctr32` function.
 let points_to_GCM128_CONTEXT ptr ctx mres = do {
   crucible_points_to_untyped (crucible_elem ptr 0) (crucible_term {{ get_Yi ctx }});
   if eval_bool {{ `mres == 0 }} then do {
@@ -144,6 +171,10 @@ let points_to_GCM128_CONTEXT ptr ctx mres = do {
   crucible_points_to (crucible_elem ptr 7) (crucible_term {{ 0 : [32] }});
 };
 
+// Initialize the fields of an `EVP_AES_GCM_CTX` struct. While many of these
+// fields are constants, some of these fields can vary over the course of
+// performing AES-GCM, (e.g., mres), so we make these parameters to the
+// `points_to_EVP_AES_GCM_CTX` function.
 let points_to_EVP_AES_GCM_CTX ptr ctx mres iv_set taglen = do {
   points_to_GCM128_CONTEXT (crucible_field ptr "gcm") ctx mres;
   points_to_aes_key_st (crucible_field ptr "ks") {{ ctx.key }};
@@ -195,6 +226,10 @@ let evp_cipher_ovs =
   , aesni_gcm_decrypt_array_ov
   ];
 
+/*
+ * Proofs for the top-level AES-GCM functions: EVP_CipherInit_ex,
+ * EVP_{Encrypt,Decrypt}, and EVP_{Encrypt,Decrypt}Final_ex
+ */
 
 llvm_verify m "EVP_CipherInit_ex"
   evp_cipher_ovs
