@@ -21,7 +21,7 @@ apply_patch "p384_validate"
 
 # Build in release mode
 
-./scripts/x86_64/build_llvm.sh "Release"
+./scripts/x86_64/build_llvm.sh "RelWithDebInfo"
 mkdir -p build/llvm_x86/crypto build/x86/crypto
 cp build_src/llvm_x86/crypto/crypto_test build/llvm_x86/crypto/crypto_test
 extract-bc build/llvm_x86/crypto/crypto_test
@@ -70,8 +70,8 @@ apply_patch "noinline_ec_GFp_simple_is_at_infinity"
 
 # Check the proofs using CMake's Release settings...
 
-./scripts/x86_64/build_x86.sh  "Release"
-./scripts/x86_64/build_llvm.sh "Release"
+./scripts/x86_64/build_x86.sh  "RelWithDebInfo"
+./scripts/x86_64/build_llvm.sh "RelWithDebInfo"
 ./scripts/x86_64/post_build.sh
 ./scripts/x86_64/run_checks_release.sh
 

@@ -12,7 +12,7 @@ The caveats associated with the RSA-PSS verification results are defined in the 
 | --------------| ------------|
 | RSA_Blinding | Functions rsa_blinding_get, and rsa_blinding_release are are not verified, and are assumed to get and release a valid blinding factor.
 | CRYPTO_MUTEX_Correct | Functions CRYPTO_MUTEX_lock_read, CRYPTO_MUTEX_unlock_read, CRYPTO_MUTEX_lock_write, and CRYPTO_MUTEX_unlock_write are not verified, and are assumed to behave correctly. |
-| DebugSettings | The implementation is verified correct using code that is compiled using CMake's `-DCMAKE_BUILD_TYPE=Debug` settings, which does not apply certain optimizations that are used in `-DCMAKE_BUILD_TYPE=Release` settings. |
+| DebugSettings | The implementation is verified correct using code that is compiled using CMake's `-DCMAKE_BUILD_TYPE=Debug` settings, which does not apply certain optimizations that are used in `-DCMAKE_BUILD_TYPE=RelWithDebInfo` settings. |
 
 The EVP_DigestSign*/EVP_DigestVerify* functions are verified to have the following properties related to RSA-PSS with SHA-384. For more detailed specifications, see [evp-function-specs.saw](evp-function-specs.saw). BLOCK_LENGTH is the block length of the hash function, in bytes. KEY_SIZE is the RSA key size, in bytes. For RSA-PSS-1024 with SHA-384, BLOCK_LENGTH is 64 and KEY_SIZE is 128.
 

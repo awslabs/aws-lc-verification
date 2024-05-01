@@ -24,7 +24,7 @@ rm -rf build/
 rm -rf build_src/
 
 # Build crypto_test binary for Graviton2
-./scripts/build_aarch64.sh "Release" "neoverse-n1"
+./scripts/build_aarch64.sh "RelWithDebInfo" "neoverse-n1"
 ./scripts/post_build.sh
 
 cp -r ./build ./proof/
@@ -40,7 +40,7 @@ rm -rf build/
 rm -rf build_src/
 
 # Build crypto_test binary for Graviton3
-./scripts/build_aarch64.sh "Release" "neoverse-512tvb"
+./scripts/build_aarch64.sh "RelWithDebInfo" "neoverse-512tvb"
 ./scripts/post_build.sh
 
 cp -r ./build ./proof/
