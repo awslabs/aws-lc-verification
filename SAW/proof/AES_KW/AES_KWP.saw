@@ -7,7 +7,7 @@ import "../../../cryptol-specs/Primitive/Symmetric/Cipher/Block/AESKeyWrapPadded
 import "../../../cryptol-specs/Primitive/Symmetric/Cipher/Block/AES.cry";
 import "../../../cryptol-specs/Primitive/Symmetric/Cipher/Authenticated/AES_256_GCM.cry";
 import "../../spec/AES_KW/X86.cry";
-import "../../spec/AES_KW/AES-GCM.cry";
+import "../../spec/AES_KW/AES.cry";
 
 // Disable debug intrinsics to avoid https://github.com/GaloisInc/crucible/issues/778
 disable_debug_intrinsics;

@@ -8,7 +8,7 @@
 // Specifications
 
 let gcm_init_avx_spec = do {
-  (_Htable, Htable_ptr) <- ptr_to_fresh "Htable" (llvm_array 12 (llvm_int 128));
+  (_Htable, Htable_ptr) <- ptr_to_fresh "Htable" (llvm_array HTABLE_LEN (llvm_int 128));
   (Xi, Xi_ptr) <- ptr_to_fresh_readonly "Xi" (llvm_array 2 (llvm_int 64));
 
   crucible_execute_func [Htable_ptr, Xi_ptr];
@@ -17,8 +17,8 @@ let gcm_init_avx_spec = do {
 };
 
 let gcm_gmult_avx_spec = do {
-  (Xi, Xi_ptr) <- ptr_to_fresh "Xi" (llvm_array 16 (llvm_int 8));
-  Htable_ptr <- crucible_alloc_readonly (llvm_array 12 (llvm_int 128));
+  (Xi, Xi_ptr) <- ptr_to_fresh "Xi" (llvm_array AES_BLOCK_SIZE (llvm_int 8));
+  Htable_ptr <- crucible_alloc_readonly (llvm_array HTABLE_LEN (llvm_int 128));
   Htable0 <- crucible_fresh_var "Htable0" (llvm_int 128);
   crucible_points_to_untyped (crucible_elem Htable_ptr 1) (crucible_term {{ drop`{1} (gcm_init_Htable Htable0) }});
   crucible_points_to_untyped (crucible_elem Htable_ptr 0) (crucible_term {{ Htable0 }});
@@ -31,8 +31,8 @@ let gcm_gmult_avx_spec = do {
 // A bounded specification for `gcm_ghash_avx` using a concrete length `len`,
 // where `len` must be a multiple of 16.
 let gcm_ghash_avx_spec len = do {
-  (Xi, Xi_ptr) <- ptr_to_fresh "Xi" (llvm_array 16 (llvm_int 8));
-  Htable_ptr <- crucible_alloc_readonly (llvm_array 12 (llvm_int 128));
+  (Xi, Xi_ptr) <- ptr_to_fresh "Xi" (llvm_array AES_BLOCK_SIZE (llvm_int 8));
+  Htable_ptr <- crucible_alloc_readonly (llvm_array HTABLE_LEN (llvm_int 128));
   Htable0 <- crucible_fresh_var "Htable0" (llvm_int 128);
   crucible_points_to_untyped (crucible_elem Htable_ptr 1) (crucible_term {{ drop`{1} (gcm_init_Htable Htable0) }});
   crucible_points_to_untyped (crucible_elem Htable_ptr 0) (crucible_term {{ Htable0 }});
@@ -47,8 +47,8 @@ let gcm_ghash_avx_spec len = do {
 // Note that `len` must be a multiple of 16, and `len` must be in the range
 // (0, AES_BLOCK_SIZE * MIN_BULK_BLOCKS) (exclusive).
 let gcm_ghash_avx_bounded_array_spec = do {
-  (Xi, Xi_ptr) <- ptr_to_fresh "Xi" (llvm_array 16 (llvm_int 8));
-  Htable_ptr <- crucible_alloc_readonly (llvm_array 12 (llvm_int 128));
+  (Xi, Xi_ptr) <- ptr_to_fresh "Xi" (llvm_array AES_BLOCK_SIZE (llvm_int 8));
+  Htable_ptr <- crucible_alloc_readonly (llvm_array HTABLE_LEN (llvm_int 128));
   Htable0 <- crucible_fresh_var "Htable0" (llvm_int 128);
   crucible_points_to_untyped (crucible_elem Htable_ptr 1) (crucible_term {{ drop`{1} (gcm_init_Htable Htable0) }});
   crucible_points_to_untyped (crucible_elem Htable_ptr 0) (crucible_term {{ Htable0 }});
@@ -121,19 +121,7 @@ gcm_ghash_avx_concrete_ovs <- for (eval_list {{ [ 1:[16] .. < MIN_BULK_BLOCKS ] 
     [ ("shufb_15_7", 384) ]
     true
     (gcm_ghash_avx_spec len)
-    (do {
-      simplify (cryptol_ss ());
-      simplify (addsimps [gcm_ghash_avx_thm] empty_ss);
-      goal_eval_unint ["pmult", "pmod", "gcm_polyval"];
-      simplify (addsimps xor_slice_append_thms basic_ss);
-      simplify (addsimps slice_slice_thms empty_ss);
-      simplify (addsimps xor_slice_append_thms basic_ss);
-      simplify (addsimps concat_assoc_0_thms empty_ss);
-      simplify (addsimps concat_assoc_1_thms empty_ss);
-      simplify (addsimps concat_assoc_2_thms empty_ss);
-      goal_eval_unint ["pmult", "pmod", "gcm_polyval"];
-      w4_unint_z3 ["pmult", "pmod", "gcm_polyval"];
-    });
+    (gcm_ghash_avx_len_tactic gcm_ghash_avx_thm);
 });
 
 // Assemble the individual proofs at each concrete length
@@ -141,28 +129,7 @@ gcm_ghash_avx_concrete_ovs <- for (eval_list {{ [ 1:[16] .. < MIN_BULK_BLOCKS ] 
 gcm_ghash_avx_bounded_array_ov <- llvm_refine_spec' m "gcm_ghash_avx"
   gcm_ghash_avx_concrete_ovs
   gcm_ghash_avx_bounded_array_spec
-  (do {
-    unfolding_fix_once ["gcm_ghash_blocks_array"];
-    unfolding_fix_once ["gcm_ghash_blocks_array"];
-    unfolding_fix_once ["gcm_ghash_blocks_array"];
-    unfolding_fix_once ["gcm_ghash_blocks_array"];
-    unfolding_fix_once ["gcm_ghash_blocks_array"];
-    unfolding_fix_once ["gcm_ghash_blocks_array"];
-    unfolding_fix_once ["gcm_ghash_blocks_array"];
-    unfolding_fix_once ["gcm_ghash_blocks_array"];
-    unfolding_fix_once ["gcm_ghash_blocks_array"];
-    unfolding_fix_once ["gcm_ghash_blocks_array"];
-    unfolding_fix_once ["gcm_ghash_blocks_array"];
-    unfolding_fix_once ["gcm_ghash_blocks_array"];
-    unfolding_fix_once ["gcm_ghash_blocks_array"];
-    unfolding_fix_once ["gcm_ghash_blocks_array"];
-    unfolding_fix_once ["gcm_ghash_blocks_array"];
-    unfolding_fix_once ["gcm_ghash_blocks_array"];
-    unfolding_fix_once ["gcm_ghash_blocks_array"];
-    unfolding_fix_once ["gcm_ghash_blocks_array"];
-    goal_eval_unint ["gcm_ghash_blocks_array", "gcm_polyval"];
-    w4_unint_z3 ["gcm_ghash_blocks_array", "gcm_polyval"];
-  });
+  gcm_ghash_avx_refine_tactic;
 
 
 disable_what4_eval;

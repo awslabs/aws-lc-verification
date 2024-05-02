@@ -787,3 +787,168 @@ let evp_cipher_tactic = do {
   w4_unint_yices ["pmult", "pmod", "gcm_polyval", "aes_hw_encrypt"];
 };
 
+// A tactic for simplifying the proof goals in a proof of gcm_ghash_avx at a particular length.
+// The `gcm_ghash_avx_thm` parameter is a length-specific theorem related `gcm_ghash` to
+// `gcm_ghash_avx`.
+let gcm_ghash_avx_len_tactic gcm_ghash_avx_thm = do {
+      simplify (cryptol_ss ());
+      simplify (addsimps [gcm_ghash_avx_thm] empty_ss);
+      goal_eval_unint ["pmult", "pmod", "gcm_polyval"];
+      simplify (addsimps xor_slice_append_thms basic_ss);
+      simplify (addsimps slice_slice_thms empty_ss);
+      simplify (addsimps xor_slice_append_thms basic_ss);
+      simplify (addsimps concat_assoc_0_thms empty_ss);
+      simplify (addsimps concat_assoc_1_thms empty_ss);
+      simplify (addsimps concat_assoc_2_thms empty_ss);
+      goal_eval_unint ["pmult", "pmod", "gcm_polyval"];
+      w4_unint_z3 ["pmult", "pmod", "gcm_polyval"];
+};
+
+// A tactic for simplifying the proof goals in a refinement proof of gcm_ghash_avx.
+let gcm_ghash_avx_refine_tactic = do {
+    unfolding_fix_once ["gcm_ghash_blocks_array"];
+    unfolding_fix_once ["gcm_ghash_blocks_array"];
+    unfolding_fix_once ["gcm_ghash_blocks_array"];
+    unfolding_fix_once ["gcm_ghash_blocks_array"];
+    unfolding_fix_once ["gcm_ghash_blocks_array"];
+    unfolding_fix_once ["gcm_ghash_blocks_array"];
+    unfolding_fix_once ["gcm_ghash_blocks_array"];
+    unfolding_fix_once ["gcm_ghash_blocks_array"];
+    unfolding_fix_once ["gcm_ghash_blocks_array"];
+    unfolding_fix_once ["gcm_ghash_blocks_array"];
+    unfolding_fix_once ["gcm_ghash_blocks_array"];
+    unfolding_fix_once ["gcm_ghash_blocks_array"];
+    unfolding_fix_once ["gcm_ghash_blocks_array"];
+    unfolding_fix_once ["gcm_ghash_blocks_array"];
+    unfolding_fix_once ["gcm_ghash_blocks_array"];
+    unfolding_fix_once ["gcm_ghash_blocks_array"];
+    unfolding_fix_once ["gcm_ghash_blocks_array"];
+    unfolding_fix_once ["gcm_ghash_blocks_array"];
+    goal_eval_unint ["gcm_ghash_blocks_array", "gcm_polyval"];
+    w4_unint_z3 ["gcm_ghash_blocks_array", "gcm_polyval"];
+};
+
+// A tactic for simplifying the proof goals in the proof of aesni_gcm_encrypt.
+let aesni_gcm_encrypt_tactic = do {
+    simplify (addsimp_shallow aesni_gcm_encrypt_impl_loop_thm empty_ss);
+    simplify (addsimps [aesenc_key0_0_thm, aesenc_key0_1_thm, aesenclast_thm] empty_ss);
+    simplify (addsimps [aesenc_aesenclast_thm, aesenc_aesenclast_1_thm] empty_ss);
+    simplify (addsimps [aesEncryptWithKeySchedule_swap8_0_thm, aesEncryptWithKeySchedule_swap8_1_thm] empty_ss);
+    simplify (addsimps [arrayRangeLookup_impl64_0_thm, arrayRangeLookup_impl64_8_thm, arrayRangeLookup_impl64_16_thm, arrayRangeLookup_impl64_24_thm, arrayRangeLookup_impl64_32_thm, arrayRangeLookup_impl64_40_thm, arrayRangeLookup_impl64_48_thm, arrayRangeLookup_impl64_56_thm, arrayRangeLookup_impl64_64_thm, arrayRangeLookup_impl64_72_thm, arrayRangeLookup_impl64_80_thm, arrayRangeLookup_impl64_88_thm] empty_ss);
+    simplify (cryptol_ss ());
+    goal_eval_unint ["aesni_gcm_encrypt", "pmult", "pmod", "gcm_polyval", "aesEncryptWithKeySchedule", "ExpandKey", "aesni_gcm_encrypt_impl_loop", "get_H'", "get_Htable", "gcm_polyval_red_half_pmult", "loadHalfBlock"];
+    simplify (cryptol_ss ());
+    simplify (addsimps concat_assoc_0_thms empty_ss);
+    simplify (addsimps concat_assoc_1_thms empty_ss);
+    simplify (addsimps concat_assoc_2_thms empty_ss);
+    simplify (addsimps [foo_append_slice_thm, bar_append_slice_thm] empty_ss);
+    goal_eval_unint ["aesni_gcm_encrypt", "pmult", "pmod", "gcm_polyval", "aesEncryptWithKeySchedule", "ExpandKey", "aesni_gcm_encrypt_impl_loop", "get_H'", "get_Htable", "gcm_polyval_red_half_pmult", "loadHalfBlock"];
+    simplify (addsimps [slt_0_thm, slt_1_thm] empty_ss);
+    goal_eval_unint ["aesni_gcm_encrypt", "pmult", "pmod", "gcm_polyval", "aesEncryptWithKeySchedule", "ExpandKey", "aesni_gcm_encrypt_impl_loop", "get_H'", "get_Htable", "loadHalfBlock"];
+    simplify (addsimps [aesEncryptWithKeySchedule_ExpandKey_thm] empty_ss);
+    simplify (addsimps slice_slice_thms empty_ss);
+    simplify (addsimps xor_slice_append_thms basic_ss);
+    simplify (addsimps concat_assoc_0_thms empty_ss);
+    simplify (addsimps concat_assoc_1_thms empty_ss);
+    simplify (addsimps concat_assoc_2_thms empty_ss);
+    simplify (addsimps [ite_slt_1_thm, ite_slt_2_thm, ite_slt_3_thm, ite_slt_4_thm, ite_slt_5_thm, ite_slt_6_thm, ite_slt_7_thm, ite_slt_8_thm, ite_slt_9_thm, ite_slt_10_thm, ite_slt_11_thm, ite_slt_12_thm ] empty_ss);
+    goal_eval_unint ["aesni_gcm_encrypt", "pmult", "pmod", "gcm_polyval", "aesEncryptWithKeySchedule", "ExpandKey", "aesni_gcm_encrypt_impl_loop", "get_H'", "get_Htable", "loadHalfBlock"];
+    simplify (addsimps [ite_slt_1_thm, ite_slt_2_thm, ite_slt_3_thm, ite_slt_4_thm, ite_slt_5_thm, ite_slt_6_thm, ite_slt_7_thm, ite_slt_8_thm, ite_slt_9_thm, ite_slt_10_thm, ite_slt_11_thm, ite_slt_12_thm, ite_slt_12_thm'] empty_ss);
+    goal_eval_unint ["aesni_gcm_encrypt", "pmult", "pmod", "gcm_polyval", "aesEncryptWithKeySchedule", "ExpandKey", "aesni_gcm_encrypt_impl_loop", "get_H'", "get_Htable", "loadHalfBlock"];
+    simplify (addsimps [append_0_xor_thm, append_xor_0_thm, append_add_thm, append_slice_4_8_thm, append_assoc_1_thm] empty_ss);
+    goal_eval_unint ["aesni_gcm_encrypt", "pmult", "pmod", "gcm_polyval", "aesEncryptWithKeySchedule", "ExpandKey", "aesni_gcm_encrypt_impl_loop", "get_H'", "get_Htable", "loadHalfBlock"];
+    goal_eval_unint ["aesni_gcm_encrypt", "pmult", "pmod", "gcm_polyval", "aesEncryptWithKeySchedule", "ExpandKey", "aesni_gcm_encrypt_impl_loop", "get_H'", "get_Htable", "loadHalfBlock"];
+    simplify (addsimps [append_0_xor_thm, append_xor_0_thm, append_add_thm, append_slice_4_8_thm, append_assoc_1_thm] empty_ss);
+    goal_eval_unint ["aesni_gcm_encrypt", "pmult", "pmod", "gcm_polyval", "aesEncryptWithKeySchedule", "ExpandKey", "aesni_gcm_encrypt_impl_loop", "get_H'", "get_Htable", "loadHalfBlock"];
+    simplify (addsimps [add_ite_thm] empty_ss);
+    goal_eval_unint ["aesni_gcm_encrypt", "pmult", "pmod", "gcm_polyval", "aesEncryptWithKeySchedule", "ExpandKey", "aesni_gcm_encrypt_impl_loop", "get_H'", "get_Htable", "loadHalfBlock"];
+    goal_eval_unint ["aesni_gcm_encrypt", "pmult", "pmod", "gcm_polyval", "aesEncryptWithKeySchedule", "ExpandKey", "aesni_gcm_encrypt_impl_loop", "get_H'", "get_Htable", "loadHalfBlock"];
+    goal_eval_unint ["aesni_gcm_encrypt", "pmult", "pmod", "gcm_polyval", "aesEncryptWithKeySchedule", "ExpandKey", "aesni_gcm_encrypt_impl_loop", "get_H'", "gcm_init_H", "loadHalfBlock"];
+
+    goal_num_ite 3 (do {
+      w4_unint_yices ["aesni_gcm_encrypt", "pmult", "pmod", "gcm_polyval", "aesEncryptWithKeySchedule", "ExpandKey", "aesni_gcm_encrypt_impl_loop", "get_H'", "gcm_init_H", "loadHalfBlock"];
+    }) (do {
+      w4_unint_z3 ["aesni_gcm_encrypt", "pmult", "pmod", "gcm_polyval", "aesEncryptWithKeySchedule", "ExpandKey", "aesni_gcm_encrypt_impl_loop", "get_H'", "gcm_init_H", "loadHalfBlock"];
+    });
+};
+
+// A tactic for simplifying the proof goals in the proof of aesni_gcm_decrypt.
+let aesni_gcm_decrypt_tactic = do {
+    simplify (addsimp_shallow aesni_gcm_decrypt_impl_loop_thm empty_ss);
+    simplify (addsimps [aesenc_key0_0_thm, aesenc_key0_1_thm, aesenclast_thm] empty_ss);
+    simplify (addsimps [aesenc_aesenclast_thm, aesenc_aesenclast_1_thm] empty_ss);
+    simplify (addsimps [aesEncryptWithKeySchedule_swap8_0_thm, aesEncryptWithKeySchedule_swap8_1_thm] empty_ss);
+    simplify (cryptol_ss ());
+    simplify (addsimps concat_assoc_0_thms empty_ss);
+    simplify (addsimps concat_assoc_1_thms empty_ss);
+    simplify (addsimps concat_assoc_2_thms empty_ss);
+    simplify (addsimps [foo_append_slice_thm, bar_append_slice_thm] empty_ss);
+    goal_eval_unint ["aesni_gcm_decrypt", "pmult", "pmod", "gcm_polyval", "aesEncryptWithKeySchedule", "ExpandKey", "aesni_gcm_decrypt_impl_loop", "get_H'", "get_Htable"];
+    goal_eval_unint ["aesni_gcm_decrypt", "pmult", "pmod", "gcm_polyval", "aesEncryptWithKeySchedule", "ExpandKey", "aesni_gcm_decrypt_impl_loop", "get_H'", "get_Htable"];
+    simplify (addsimps [aesEncryptWithKeySchedule_ExpandKey_thm] empty_ss);
+    simplify (addsimps xor_slice_append_thms basic_ss);
+    simplify (addsimps slice_slice_thms empty_ss);
+    simplify (addsimps xor_slice_append_thms basic_ss);
+    simplify (addsimps concat_assoc_0_thms empty_ss);
+    simplify (addsimps concat_assoc_1_thms empty_ss);
+    simplify (addsimps concat_assoc_2_thms empty_ss);
+    simplify (addsimps [append_0_xor_thm, append_xor_0_thm, append_add_thm] empty_ss);
+    goal_eval_unint ["aesni_gcm_decrypt", "pmult", "pmod", "gcm_polyval", "aesEncryptWithKeySchedule", "aesni_gcm_decrypt_impl_loop", "get_H'", "get_Htable"];
+    w4_unint_yices ["aesni_gcm_decrypt", "pmult", "pmod", "gcm_polyval", "aesEncryptWithKeySchedule", "ExpandKey", "aesni_gcm_decrypt_impl_loop", "get_H'", "get_Htable"];
+};
+
+// A tactic for simplifying the proof goals in the proofs of EVP_EncryptUpdate.
+// The `len_is_zero` parameter should be `True` if we are proving the case where
+// the length is zero, in which case we don't need to rewrite using the
+// `EncryptUpdate_slice_thms`.
+let EVP_EncryptUpdate_tactic len_is_zero = do {
+    simplify (cryptol_ss ());
+    goal_eval_unint ["aesni_gcm_encrypt", "aes_ctr32_encrypt_blocks_array", "aes_hw_encrypt", "gcm_ghash_blocks_array", "gcm_polyval", "pmult", "pmod"];
+    simplify (addsimps [aesni_gcm_encrypt_Yi_thm] empty_ss);
+    goal_eval_unint ["aesni_gcm_encrypt", "aes_ctr32_encrypt_blocks_array", "aes_hw_encrypt", "gcm_ghash_blocks_array", "gcm_polyval", "pmult", "pmod"];
+    simplify (addsimps [bvand_bvudiv_thm, bvudiv_bvmul_bvudiv_thm, bvurem_16_append_thm] basic_ss);
+    simplify (addsimps [arrayLookupUnint_thm, arrayUpdateUnint_thm, arrayCopyUnint_thm, arrayConstantUnint_thm] empty_ss);
+    simplify (addsimps add_xor_slice_thms basic_ss);
+    goal_eval_unint ["aesni_gcm_encrypt", "aes_ctr32_encrypt_blocks_array", "aes_hw_encrypt", "gcm_ghash_blocks_array", "gcm_polyval", "pmult", "pmod", "arrayLookupUnint", "arrayUpdateUnint", "arrayCopyUnint", "arrayConstantUnint"];
+    simplify (addsimps [ite_bveq_0_thm, ite_bveq_1_thm, bveq_ite_bv8_0_thm, bveq_ite_bv8_1_thm, arrayeq_ite_0_thm, arrayeq_ite_1_thm, foo_thm, bar_thm] basic_ss);
+    goal_eval_unint ["aesni_gcm_encrypt", "aes_ctr32_encrypt_blocks_array", "aes_hw_encrypt", "gcm_ghash_blocks_array", "gcm_polyval", "pmult", "pmod", "arrayLookupUnint", "arrayUpdateUnint", "arrayCopyUnint", "arrayConstantUnint"];
+    print_goal;
+    is_out_post <- goal_has_some_tag ["output buffer postcondition"];
+    is_Xi_post <- goal_has_some_tag ["Xi postcondition"];
+    if is_out_post then do {
+      w4_unint_yices ["aesni_gcm_encrypt", "aes_ctr32_encrypt_blocks_array", "aes_hw_encrypt", "gcm_ghash_blocks_array", "gcm_polyval", "pmult", "pmod", "arrayLookupUnint", "arrayUpdateUnint", "arrayCopyUnint", "arrayConstantUnint"];
+    } else if is_Xi_post then do {
+      if len_is_zero then do {
+        return ();
+      } else do {
+        simplify (addsimps EncryptUpdate_slice_thms empty_ss);
+      };
+      w4_unint_z3_using "qfufbv" ["aesni_gcm_encrypt", "aes_ctr32_encrypt_blocks_array", "aes_hw_encrypt", "gcm_ghash_blocks_array", "gcm_polyval", "pmult", "pmod", "arrayLookupUnint", "arrayUpdateUnint", "arrayCopyUnint", "arrayConstantUnint"];
+    } else do {
+      w4_unint_z3 ["aesni_gcm_encrypt", "aes_ctr32_encrypt_blocks_array", "aes_hw_encrypt", "gcm_ghash_blocks_array", "gcm_polyval", "pmult", "pmod", "arrayLookupUnint", "arrayUpdateUnint", "arrayCopyUnint", "arrayConstantUnint"];
+    };
+};
+
+// A tactic for simplifying the proof goals in the proofs of EVP_DecryptUpdate.
+let EVP_DecryptUpdate_tactic = do {
+    simplify (cryptol_ss ());
+    goal_eval_unint ["aesni_gcm_decrypt", "aes_ctr32_encrypt_blocks_array", "aes_hw_encrypt", "gcm_ghash_blocks_array", "gcm_polyval", "pmult", "pmod"];
+    simplify (addsimps [aesni_gcm_decrypt_Yi_thm] empty_ss);
+    goal_eval_unint ["aesni_gcm_decrypt", "aes_ctr32_encrypt_blocks_array", "aes_hw_encrypt", "gcm_ghash_blocks_array", "gcm_polyval", "pmult", "pmod"];
+    simplify (addsimps [bvand_bvudiv_thm, bvudiv_bvmul_bvudiv_thm, bvurem_16_append_thm] basic_ss);
+    simplify (addsimps [arrayLookupUnint_thm, arrayUpdateUnint_thm, arrayCopyUnint_thm, arrayConstantUnint_thm] empty_ss);
+    simplify (addsimps add_xor_slice_thms basic_ss);
+    goal_eval_unint ["aesni_gcm_decrypt", "aes_ctr32_encrypt_blocks_array", "aes_hw_encrypt", "gcm_ghash_blocks_array", "gcm_polyval", "pmult", "pmod", "arrayLookupUnint", "arrayUpdateUnint", "arrayCopyUnint", "arrayConstantUnint"];
+    simplify (addsimps [ite_bveq_0_thm, ite_bveq_1_thm, bveq_ite_bv8_0_thm, bveq_ite_bv8_1_thm, arrayeq_ite_0_thm, arrayeq_ite_1_thm, foo_thm, bar_thm] basic_ss);
+    goal_eval_unint ["aesni_gcm_decrypt", "aes_ctr32_encrypt_blocks_array", "aes_hw_encrypt", "gcm_ghash_blocks_array", "gcm_polyval", "pmult", "pmod", "arrayLookupUnint", "arrayUpdateUnint", "arrayCopyUnint", "arrayConstantUnint"];
+    print_goal;
+    is_out_post <- goal_has_some_tag ["output buffer postcondition"];
+    is_Xi_post <- goal_has_some_tag ["Xi postcondition"];
+    if is_out_post then do {
+      w4_unint_yices ["aesni_gcm_decrypt", "aes_ctr32_encrypt_blocks_array", "aes_hw_encrypt", "gcm_ghash_blocks_array", "gcm_polyval", "pmult", "pmod", "arrayLookupUnint", "arrayUpdateUnint", "arrayCopyUnint", "arrayConstantUnint"];
+    } else if is_Xi_post then do {
+      w4_unint_z3_using "qfufbv" ["aesni_gcm_decrypt", "aes_ctr32_encrypt_blocks_array", "aes_hw_encrypt", "gcm_ghash_blocks_array", "gcm_polyval", "pmult", "pmod", "arrayLookupUnint", "arrayUpdateUnint", "arrayCopyUnint", "arrayConstantUnint"];
+    } else do {
+      w4_unint_z3 ["aesni_gcm_decrypt", "aes_ctr32_encrypt_blocks_array", "aes_hw_encrypt", "gcm_ghash_blocks_array", "gcm_polyval", "pmult", "pmod", "arrayLookupUnint", "arrayUpdateUnint", "arrayCopyUnint", "arrayConstantUnint"];
+    };
+};
