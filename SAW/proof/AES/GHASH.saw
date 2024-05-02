@@ -132,10 +132,6 @@ gcm_ghash_avx_concrete_ovs <- for (eval_list {{ [ 1:[16] .. < MIN_BULK_BLOCKS ] 
       simplify (addsimps concat_assoc_1_thms empty_ss);
       simplify (addsimps concat_assoc_2_thms empty_ss);
       goal_eval_unint ["pmult", "pmod", "gcm_polyval"];
-      goal_eval_unint ["pmult", "pmod", "gcm_polyval"];
-      goal_eval_unint ["pmult", "pmod", "gcm_polyval"];
-      goal_eval_unint ["pmult", "pmod", "gcm_polyval"];
-      goal_eval_unint ["pmult", "pmod", "gcm_polyval"];
       w4_unint_z3 ["pmult", "pmod", "gcm_polyval"];
     });
 });

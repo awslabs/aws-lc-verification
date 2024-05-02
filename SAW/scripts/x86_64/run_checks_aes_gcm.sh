@@ -5,4 +5,4 @@
 
 set -ex
 
-/usr/bin/python3 ./scripts/parallel.py --file ./scripts/x86_64/release_jobs_aes_gcm.sh
+./scripts/x86_64/release_jobs_aes_gcm.sh

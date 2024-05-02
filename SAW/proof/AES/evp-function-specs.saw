@@ -40,6 +40,8 @@ let EVP_CipherInit_ex_spec enc = do {
   points_to_EVP_AES_GCM_CTX cipher_data_ptr ctx 0 {{ 1 : [32] }} 0xffffffff;
 
   points_to_evp_cipher_ctx_st ctx_ptr cipher_ptr cipher_data_ptr enc;
+
+  crucible_return (crucible_term {{ 1 : [32] }});
 };
 
 // A helper function for defining a specification for `EVP_CipherUpdate`.

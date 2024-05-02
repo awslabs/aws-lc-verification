@@ -42,7 +42,7 @@ AWS libcrypto includes many cryptographic algorithm implementations for several 
 | [SHA-2](SPEC.md#SHA-2) | 384 | EVP_DigestInit, EVP_DigestUpdate, EVP_DigestFinal | neoverse-n1, neoverse-v1 | NoEngine, MemCorrect, ArmSpecGap, ToolGap | SAW, NSym |
 | [HMAC](SPEC.md#HMAC-with-SHA-384) | with <nobr>SHA-384</nobr> | HMAC_CTX_init, HMAC_Init_ex, HMAC_Update, HMAC_Final, HMAC | SandyBridge+ | NoEngine, MemCorrect, InitZero, NoInline, CRYPTO_once_Correct | SAW |
 | [<nobr>AES-KW(P)</nobr>](SPEC.md#AES-KWP) | 256 | AES_wrap_key, AES_unwrap_key, AES_wrap_key_padded, AES_unwrap_key_padded | SandyBridge+ | InputLength, MemCorrect, NoInline | SAW |
-| [<nobr>AES-GCM</nobr>](SPEC.md#AES-GCM) | 256 | gcm_ghash_avx, aes_hw_ctr32_encrypt_blocks, aesni_gcm_encrypt, aesni_gcm_decrypt | SandyBridge+ | MemCorrect, NoInline | SAW |
+| [<nobr>AES-GCM</nobr>](SPEC.md#AES-GCM) | 256 | EVP_CipherInit_ex, EVP_EncryptUpdate, EVP_DecryptUpdate, EVP_EncryptFinal_ex, EVP_DecryptFinal_ex | SandyBridge+ | MemCorrect, NoInline, GcmSpecGap, GcmMultipleOf16, GcmADNotVerified, GcmIV12Tag16 | SAW |
 | [Elliptic Curve Keys and Parameters](SPEC.md#Elliptic-Curve-Keys-and-Parameters) | with <nobr>P-384</nobr> | EVP_PKEY_CTX_new_id, EVP_PKEY_CTX_new, EVP_PKEY_paramgen_init, EVP_PKEY_CTX_set_ec_paramgen_curve_nid, EVP_PKEY_paramgen, EVP_PKEY_keygen_init, EVP_PKEY_keygen | SandyBridge+ | SAWCore_Coq, EC_Fiat_Crypto, ToolGap, NoEngine, MemCorrect, CRYPTO_refcount_Correct, CRYPTO_once_Correct, OptNone, SAWBreakpoint | SAW, Coq |
 | [ECDSA](SPEC.md#ECDSA) | with <nobr>P-384</nobr>, <nobr>SHA-384</nobr> | EVP_DigestSignInit, EVP_DigestVerifyInit, EVP_DigestSignUpdate, EVP_DigestVerifyUpdate, EVP_DigestSignFinal, EVP_DigestVerifyFinal, EVP_DigestSign, EVP_DigestVerify | SandyBridge+ | EC_Pub_Mul_Correct, EC_Constants_Correct, EC_Conversion_Correct, SAWCore_Coq, EC_Fiat_Crypto, NoEngine, MemCorrect, ECDSA_k_Valid, ECDSA_SignatureLength, CRYPTO_refcount_Correct, CRYPTO_once_Correct, ERR_put_error_Correct, NoInline | SAW, Coq |
 | [ECDH](SPEC.md#ECDH) | with <nobr>P-384</nobr> | EVP_PKEY_derive_init, EVP_PKEY_derive | SandyBridge+ | SAWCore_Coq, EC_Fiat_Crypto, ECDH_InfinityTestCorrect, ToolGap, MemCorrect, NoEngine, CRYPTO_refcount_Correct, PubKeyValid | SAW, Coq |
@@ -81,6 +81,10 @@ The caveats associated with some of the verification results are defined in the 
 | SAWBreakpoint | The proof uses SAW's breakpoint feature. This feature assumes the specification on the breakpoint function for the inductive hypothesis. The feature lacks well-foundedness check for the inductive invariant. |
 | ArmSpecGap | The Cryptol specification used in NSym proofs for Arm is different from the one used in the corresponding SAW proofs. Specifically, recursive comprehensions are written as recursions. We verify the body of the recursions are equivalent but the top-level loop structure is not verified. |
 | ToolGap | Adjacent components in the implementation are formally verified using different tools.  These tools may use different language semantics, memory models, etc. It is assumed that a proof of correctness in one tool implies correct behavior as determined by another tool. Additionally, it is assumed that parameter values correctly flow from one component to another. |
+| GcmSpecGap | AES-GCM is verified using an implementation-specific Cryptol spec describing an optimized form of AES-GCM. |
+| GcmMultipleOf16 | EVP_{Encrypt,Decrypt}Update are only verified for cases where whole blocks are encrypted/decrypted, i.e., the length is a multiple of 16. |
+| GcmADNotVerified | Supplying additional data (AD) to AES-GCM is not verified. |
+| GcmIV12Tag16 | The AES-GCM functions are only verified for 12-byte IVs and 16-byte tags. |
 
 
 ### Functions with compiler optimization disabled

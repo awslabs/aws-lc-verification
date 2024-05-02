@@ -74,7 +74,7 @@ func RunSelectCheckScript(path_to_saw_file string, saw_params []string, path_to_
 	cmd.Stderr = os.Stderr
 	err := cmd.Run()
 	if err != nil {
-		log.Fatal("Failed to run saw script %s. Related template: %s.", path_to_saw_file, path_to_template, err)
+		log.Fatalf("Failed to run saw script %s. Related template: %s.", path_to_saw_file, path_to_template, err)
 	} else {
 		log.Printf("Finished executing saw script %s. Related template: %s.", path_to_saw_file, path_to_template)
 	}

@@ -24,11 +24,13 @@ func main() {
 		utility.RunSawScript("verify-AES-GCM-quickcheck.saw")
 		return
 	}
-	// For now, we check a subset of all possible mres/res_mres values.
+	// When 'AES_GCM_SELECTCHECK' is defined, formal verification is executed
+	// with generated saw scripts based on the verification template and
+	// different values of `mres` and `res_mres`. Each of these parameters can
+	// be anything in the range [0, 15], but for now, we only check a subset of
+	// all possible mres/res_mres values.
 	mres_values := [2]int{0, 1}
 	res_mres_values := [2]int{0, 15}
-	// When 'AES_GCM_SELECTCHECK' is defined, formal verification is executed with different `evp_cipher_update_len`.
-	// Generate saw scripts based on the verification template and evp_cipher_update_len range [1, 384].
 	var wg sync.WaitGroup
 	process_count := 0
 
@@ -36,7 +38,7 @@ func main() {
 	num_parallel_process := int(math.Floor((float64(total_memory) / float64(memory_used_per_test))))
 	log.Printf("System has %d bytes of memory, running %d jobs in parallel", total_memory, num_parallel_process)
 	for i := 0; i < 2; i++ {
-		for j := 0; i < 2; i++ {
+		for j := 0; j < 2; i++ {
 			wg.Add(1)
 			saw_template := "verify-AES-GCM-selectcheck-template.txt"
 			mres_placeholder_name := "TARGET_MRES_PLACEHOLDER"

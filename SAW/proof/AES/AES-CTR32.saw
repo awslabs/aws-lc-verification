@@ -124,6 +124,9 @@ aes_hw_ctr32_copy_thms <- for (eval_list {{ [ 1:[16] .. < MIN_BULK_BLOCKS ] }}) 
 aes_hw_ctr32_encrypt_blocks_concrete_ovs <- for (eval_list {{ [ 1:[16] .. < MIN_BULK_BLOCKS ] }}) (\i -> do {
   let blocks = eval_int i;
   print (str_concat "aes_hw_ctr32_encrypt blocks=" (show blocks));
+  // track %r11 across function calls during x86 code discovery, resulting in
+  // more accuracy and less performance. This is a proof hint, and does not
+  // introduce any new assumptions.
   add_x86_preserved_reg "r11";
   ov <- llvm_verify_x86 m "../../build/x86/crypto/crypto_test"
     "aes_hw_ctr32_encrypt_blocks"

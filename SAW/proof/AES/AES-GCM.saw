@@ -33,7 +33,7 @@ let aes_block_size = 1;
 // The same value as AES_GCM_NONCE_LENGTH in crypto/fipsmodule/cipher/e_aes.c,
 // which is what EVP_aes_256_gcm uses to set iv_len.
 //
-// The IV for AES-GCM consists of 12 32-bit integers.
+// The IV for AES-GCM consists of 12 bytes.
 let aes_iv_len = 12;
 
 // This computes the total number of message blocks that can be
@@ -243,11 +243,37 @@ llvm_verify m "EVP_CipherInit_ex"
   (EVP_CipherInit_ex_spec {{ 0 : [32] }})
   evp_cipher_tactic;
 
-
+// The proofs of EVP_{Encrypt,Decrypt}Update are tricky and require some custom
+// SAW settings to make them go through:
+//
+// Enable hash consing at the What4 level, i.e., aggressively deduplicate common
+// subexpressions. This can make certain proof goals easier for SMT solvers to
+// analyze.
 enable_what4_hash_consing;
+// Translate SAWCore terms to What4 during symbolic execution. Translating to
+// What4 can simplify certain proof goals via What4's optimizations.
 enable_what4_eval;
+// Symbolic execution proof goals involving out of potentially invalid writes
+// will directly generate a failing proof goal rather than a fresh constant.
+// The former is more difficult to trace in the output of proof goals, but it
+// has the advantage of being easier to optimize, which is why we use it here.
 disable_no_satisfying_write_fresh_constant;
+// Push certain operations (e.g., zero-extension) down to the branches of
+// if-then-else expressions. In some circumstances, this can result in SMT
+// queries that are easier for solvers to analyze.
 enable_what4_push_mux_ops;
+
+// Below are two proofs of EVP_EncryptUpdate, one where the length is zero
+// and another where the length is non-zero. Attempting to prove this for all
+// lengths takes an infeasibly long time to prove, so we need to apply a
+// rewrite (EncryptUpdate_slice_ite_prop) to make a key proof goal simpler
+// (and solvable within a reasonable amount of time). This rewrite only applies
+// when the length is non-zero, however, motivating the need to split the proofs
+// in two.
+//
+// Thankfully, we don't need to apply this rewrite in the proof where the length
+// is zero, as the resulting proof goals are simple enough that SMT solvers can
+// handle them without much difficulty.
 
 llvm_verify m "EVP_EncryptUpdate"
   [ aes_gcm_from_cipher_ctx_ov

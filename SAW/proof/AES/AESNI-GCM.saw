@@ -63,6 +63,14 @@ disable_no_satisfying_write_fresh_constant;
 enable_what4_push_mux_ops;
 
 // Prove that aesni_gcm_{encrypt,decrypt} adhere to aesni_gcm_cipher_array_spec.
+// These are among the most difficult AES-GCM proofs, as they involve an
+// unbounded loop. In order for SAW to reason about this loop, we use the
+// llvm_verify_fixpoint_chc_x86 command, which computes a symbolic fixpoint
+// expression for the loop and solves for the resulting proof goals using Z3's
+// Constrained Horn Clauses (CHC) feature. As part of this, we need to supply
+// a Cryptol specification for the loop itself
+// (aesni_gcm_{encrypt,decrypt}_impl_loop) to make it easier for SAW to reason
+// about the loop's behavior.
 
 aesni_gcm_encrypt_array_ov <- llvm_verify_fixpoint_chc_x86' m "../../build/x86/crypto/crypto_test" "aesni_gcm_encrypt"
   [ ("byte64_len_to_mask_table", 704) // We need .Lbswap_mask. Its location is <byte64_len_to_mask_table+0x240>. 704 bytes is an offset that would be large enough to contain the right bytes after alignment.
