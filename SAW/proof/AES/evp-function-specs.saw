@@ -164,7 +164,7 @@ let EVP_EncryptFinal_ex_spec mres = do {
   points_to_EVP_AES_GCM_CTX cipher_data_ptr ctx mres {{ 1 : [32] }} 0xffffffff;
 
   ctx_ptr <- crucible_alloc (llvm_struct "struct.evp_cipher_ctx_st");
-  points_to_evp_cipher_ctx_st ctx_ptr cipher_ptr cipher_data_ptr {{ 1 : [32]}};
+  points_to_evp_cipher_ctx_st ctx_ptr cipher_ptr cipher_data_ptr {{ `ENCRYPT_MODE : [32]}};
 
   out_ptr <- crucible_fresh_pointer (llvm_array AES_BLOCK_SIZE (llvm_int 8));
   out_len_ptr <- crucible_alloc (llvm_int 32);
@@ -175,7 +175,7 @@ let EVP_EncryptFinal_ex_spec mres = do {
   let ctx' = {{ { key = ctx.key, iv = ctx.iv, Xi = Xi', len = ctx.len } : AES_GCM_Ctx }};
   points_to_EVP_AES_GCM_CTX cipher_data_ptr ctx' mres {{ 0 : [32] }} AES_BLOCK_SIZE;
 
-  points_to_evp_cipher_ctx_st ctx_ptr cipher_ptr cipher_data_ptr {{ 1 : [32]}};
+  points_to_evp_cipher_ctx_st ctx_ptr cipher_ptr cipher_data_ptr {{ `ENCRYPT_MODE : [32]}};
 
   crucible_points_to_untyped (crucible_field ctx_ptr "buf") (crucible_term {{ cipher_final ctx }});
 
@@ -193,7 +193,7 @@ let EVP_DecryptFinal_ex_spec mres = do {
   points_to_EVP_AES_GCM_CTX cipher_data_ptr ctx mres {{ 1 : [32] }} AES_BLOCK_SIZE;
 
   ctx_ptr <- crucible_alloc_readonly (llvm_struct "struct.evp_cipher_ctx_st");
-  points_to_evp_cipher_ctx_st ctx_ptr cipher_ptr cipher_data_ptr {{ 0 : [32]}};
+  points_to_evp_cipher_ctx_st ctx_ptr cipher_ptr cipher_data_ptr {{ `DECRYPT_MODE : [32]}};
 
   buf <- crucible_fresh_var "buf" (llvm_array AES_BLOCK_SIZE (llvm_int 8));
   crucible_points_to_untyped (crucible_field ctx_ptr "buf") (crucible_term buf);
