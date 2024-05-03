@@ -16,7 +16,7 @@ let aesni_gcm_cipher_array_spec enc = do {
   // number in the x86-64 implementation of `aesni_gcm_encrypt`.
   //
   // According to NIST SP 800-38D (page 8), the requirement is that
-  // `len <= 2 ^^ 36 - 32`. Note that `len` is always a multiple of 144,
+  // `len <= 2 ^^ 36 - 32`. Note that `len` is always a multiple of 96,
   // however, so it suffices to check `len < 2 ^^ 36` here.
   crucible_precond {{ len < 2 ^^ 36 }};
 
