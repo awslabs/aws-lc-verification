@@ -78,8 +78,15 @@ let EVP_CipherUpdate_array_spec_internal mk_len enc mres res_mres = do {
 
   len_28 <- mk_len;
   let len = {{ (len_28 # (`res_mres - `mres)): [32] }};
+  // `len` is a signed 32-bit int in the C code, and it has `len >= 0` as a
+  // precondition. We _could_ express this precondition in Cryptol using signed
+  // arithmetic (len >=$ 0), but in this case, it is easier to simplify proof
+  // goals using unsigned arithmetic, so we use the equivalent precondition
+  // `len < 2 ^^ 31` instead.
   crucible_precond {{ len < 2 ^^ 31 }};
   crucible_precond {{ ctx.len < `TOTAL_MESSAGE_MAX_LENGTH }};
+  // This precondition arises from a similar check at the beginning of
+  // `CRYPTO_gcm128_encrypt_ctr32`.
   crucible_precond {{ ctx.len + (0 # len) < `TOTAL_MESSAGE_MAX_LENGTH }};
 
   (in_, in_ptr) <- ptr_to_fresh_array_readonly "in" {{ sext len : [64] }};

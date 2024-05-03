@@ -496,6 +496,10 @@ let {{
         (split (join (arrayRangeLookup in (loop_index * 96 + 96)))))))
 }};
 
+// The inductive hypothesis for an inductive proof of
+// `aesni_gcm_encrypt_impl_loop_thm`. This is assumed as an axiom (see the
+// `GcmWellFoundedInduction` caveat in the top-level `README`), and so we do not
+// check for the well-foundedness of the inductive hypothesis.
 aesni_gcm_encrypt_impl_loop_hyp <- prove_theorem assume_unsat (rewrite (cryptol_ss ()) (unfold_term ["aesni_gcm_encrypt_impl_loop_stmt"] {{ aesni_gcm_encrypt_impl_loop_stmt }}));
 let aesni_gcm_encrypt_unints =
   [ "aesni_gcm_encrypt"
@@ -635,6 +639,10 @@ let aesni_gcm_decrypt_impl_loop_stmt = rewrite (cryptol_ss ()) {{ \len in out ke
       (aesni_gcm_decrypt len in out key iv ctr Xi loop_index current_out current_Xi))
   }};
 
+// The inductive hypothesis for an inductive proof of
+// `aesni_gcm_decrypt_impl_loop_thm`. This is assumed as an axiom (see the
+// `GcmWellFoundedInduction` caveat in the top-level `README`), and so we do not
+// check for the well-foundedness of the inductive hypothesis.
 aesni_gcm_decrypt_impl_loop_hyp <- prove_theorem assume_unsat aesni_gcm_decrypt_impl_loop_stmt;
 let aesni_gcm_decrypt_unints =
   [ "aesni_gcm_decrypt"
@@ -704,6 +712,10 @@ let aesni_gcm_encrypt_Yi_stmt = rewrite (cryptol_ss ()) {{ \len in out key iv ct
   (aesni_gcm_encrypt len in out key iv ctr Xi i out' Xi').2
   == (join iv) # ((join ctr) + (drop (6 * ((len / 16) / 6))))
 }};
+// The inductive hypothesis for an inductive proof of
+// `aesni_gcm_encrypt_Yi_thm`. This is assumed as an axiom (see the
+// `GcmWellFoundedInduction` caveat in the top-level `README`), and so we do not
+// check for the well-foundedness of the inductive hypothesis.
 aesni_gcm_encrypt_Yi_hyp <- prove_theorem assume_unsat aesni_gcm_encrypt_Yi_stmt;
 aesni_gcm_encrypt_Yi_thm <- prove_theorem
   (do {
@@ -718,6 +730,10 @@ let aesni_gcm_decrypt_Yi_stmt = rewrite (cryptol_ss ()) {{ \len in out key iv ct
   (aesni_gcm_decrypt len in out key iv ctr Xi i out' Xi').2
   == (join iv) # ((join ctr) + (drop (6 * ((len / 16) / 6))))
 }};
+// The inductive hypothesis for an inductive proof of
+// `aesni_gcm_decrypt_Yi_thm`. This is assumed as an axiom (see the
+// `GcmWellFoundedInduction` caveat in the top-level `README`), and so we do not
+// check for the well-foundedness of the inductive hypothesis.
 aesni_gcm_decrypt_Yi_hyp <- prove_theorem assume_unsat aesni_gcm_decrypt_Yi_stmt;
 aesni_gcm_decrypt_Yi_thm <- prove_theorem
   (do {

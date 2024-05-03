@@ -208,6 +208,12 @@ gcm_polyval_pmult4_impl key Xi_part0 Xi_part1 Xi_part2 blks = (res_Xi_part0, res
 combine_Xi_triple : ([128], [128], [128]) -> [128]
 combine_Xi_triple (x, y, z) = x ^ y ^ z
 
+// The minimum amount of bytes that the input buffer must point to before the
+// end of the input. This requirement is derived from the implementations of
+// aesni_gcm_{encrypt,decrypt} (see the comments about the value `2*96`).
+aesni_required_bytes : [64]
+aesni_required_bytes = 2*96
+
 
 // The main loop of the aesni_gcm_encrypt function. This is used in the proof of
 // aesni_gcm_cipher_array_spec to identify the loop invariants.
@@ -229,6 +235,8 @@ aesni_gcm_encrypt_impl_loop len in out key ivec ctr Xi loop_tuple =
     else
       loop_tuple
 
+// The loop body of `aesni_gcm_encrypt_impl_loop`, which SAW uses to identify
+// the loop invariants.
 aesni_gcm_encrypt_impl_loop_step :
   [64] ->
   Array[64][8] ->
@@ -246,7 +254,7 @@ aesni_gcm_encrypt_impl_loop_step len in out key ivec ctr Xi
   , prefetch1, prefetch0
   , inout5, inout4, inout3, inout2, inout1, inout0, loop_Xi, Z3, Z0, T1
   , prefetch_offset, ctr_least_byte, loop_index
-  ) = ( arrayRangeUpdate loop_out (loop_index * 96 + 192) (split (join [out_block0, out_block1, out_block2, out_block3, out_block4, out_block5]))
+  ) = ( arrayRangeUpdate loop_out (loop_index * 96 + aesni_required_bytes) (split (join [out_block0, out_block1, out_block2, out_block3, out_block4, out_block5]))
       , loadHalfBlock loop_out (next_prefetch_offset + 72)
       , loadHalfBlock loop_out (next_prefetch_offset + 64)
       , loadHalfBlock loop_out (next_prefetch_offset + 56)
@@ -274,10 +282,10 @@ aesni_gcm_encrypt_impl_loop_step len in out key ivec ctr Xi
       , loop_index + 1
       )
  where
-  //next_prefetch_offset = prefetch_offset + (if prefetch_offset + 192 <= len then 96 else 0)
+  //next_prefetch_offset = prefetch_offset + (if prefetch_offset + aesni_required_bytes <= len then 96 else 0)
   next_prefetch_offset = prefetch_offset + (if prefetch_offset + 4096 <= len + 3904 then 96 else 0)
 
-  [in_block0, in_block1, in_block2, in_block3, in_block4, in_block5] = split (join (arrayRangeLookup in (loop_index * 96 + 192)))
+  [in_block0, in_block1, in_block2, in_block3, in_block4, in_block5] = split (join (arrayRangeLookup in (loop_index * 96 + aesni_required_bytes)))
   (next_T1, [out_block0, out_block1, out_block2, out_block3, out_block4, out_block5]) = aes_encrypt_blocks_6_impl key ctr_least_byte T1 inout0 inout1 inout2 inout3 inout4 inout5 [in_block0, in_block1, in_block2, in_block3, in_block4, in_block5]
 
   enc_block0 = prefetch0 # prefetch1
@@ -310,6 +318,8 @@ aesni_gcm_decrypt_impl_loop len in out key ivec ctr Xi loop_tuple =
     else
       loop_tuple
 
+// The loop body of `aesni_gcm_decrypt_impl_loop`, which SAW uses to identify
+// the loop invariants.
 aesni_gcm_decrypt_impl_loop_step :
   [64] ->
   Array[64][8] ->
@@ -355,7 +365,7 @@ aesni_gcm_decrypt_impl_loop_step len in out key ivec ctr Xi
       , loop_index + 1
       )
  where
-  //next_prefetch_offset = prefetch_offset + (if prefetch_offset + 192 <= len then 96 else 0)
+  //next_prefetch_offset = prefetch_offset + (if prefetch_offset + aesni_required_bytes <= len then 96 else 0)
   next_prefetch_offset = prefetch_offset + (if prefetch_offset + 4096 <= len + 3904 then 96 else 0)
 
   [in_block0, in_block1, in_block2, in_block3, in_block4, in_block5] = split (join (arrayRangeLookup in (loop_index * 96)))
@@ -371,7 +381,9 @@ aesni_gcm_decrypt_impl_loop_step len in out key ivec ctr Xi
   (next_spill_Z3, next_loop_Xi, next_Z0) = gcm_polyval_pmult4_impl key spill_Z3 (drop loop_Xi) (drop Z0) blocks
 
 
-// An unbounded specification for aesni_gcm_encrypt.
+// An unbounded specification for aesni_gcm_encrypt. This definition represents
+// the bulk encrypt assembly. The bulk encryption phase processes 6 block
+// chunks, and this definition also does 6 blocks in each recursive call.
 aesni_gcm_encrypt :
   [64] ->
   Array[64][8] ->
@@ -394,7 +406,9 @@ aesni_gcm_encrypt len in out key iv ctr Xi loop_index current_out current_Xi =
   next_out = arrayRangeUpdate current_out (loop_index * 96) (split (join out_blocks))
   next_Xi = gcm_ghash_blocks (gcm_init_H (join (get_H' key))) current_Xi out_blocks
 
-// An unbounded specification for aesni_gcm_decrypt.
+// An unbounded specification for aesni_gcm_decrypt. This definition represents
+// the bulk decrypt assembly. The bulk decryption phase processes 6 block
+// chunks, and this definition also does 6 blocks in each recursive call.
 aesni_gcm_decrypt :
   [64] ->
   Array[64][8] ->
@@ -452,10 +466,9 @@ gcm_ghash_blocks_array H blocks len i Xi =
     Xi
 
 
-// An unbounded specification for EVP_EncryptUpdate. This performs the update
-// phase of the GCM-AD_E algorithm described in Section 7.1 of NIST SP 800-38D.
-// Unlike the presentation in NIST SP 800-38D, this heavily uses SMT arrays,
-// which better facilitates an unbounded proof in SAW.
+// An unbounded specification for EVP_EncryptUpdate. This function performs an
+// AES-GCM update to the `ctx` when provided with input message `in` of length
+// `len`, and output the encrypted message as `out`.
 aes_gcm_encrypt_update : AES_GCM_Ctx -> Array[64][8] -> [64] -> Array[64][8] -> (AES_GCM_Ctx, Array[64][8])
 aes_gcm_encrypt_update ctx in len out =
   if ctx.len % 16 != 0 /\ (ctx.len % 16) + (0 # drop`{60} len) < 16 /\ len - (0 # drop`{60} len) == 0
@@ -534,10 +547,9 @@ aes_gcm_encrypt_update_bytes eki in offset n j (out, Xi) =
     enc_byte = (arrayLookup in offset) ^ (eki @ j)
 
 
-// An unbounded specification for EVP_DecryptUpdate. This performs the update
-// phase of the GCM-AD_K algorithm described in Section 7.2 of NIST SP 800-38D.
-// Unlike the presentation in NIST SP 800-38D, this heavily uses SMT arrays,
-// which better facilitates an unbounded proof in SAW.
+// An unbounded specification for EVP_DecryptUpdate. This function performs an
+// AES-GCM update to the `ctx` when provided with input message `in` of length
+// `len`, and output the decrypted message as `out`.
 aes_gcm_decrypt_update : AES_GCM_Ctx -> Array[64][8] -> [64] -> Array[64][8] -> (AES_GCM_Ctx, Array[64][8])
 aes_gcm_decrypt_update ctx in len out =
   if ctx.len % 16 != 0 /\ (ctx.len % 16) + (0 # drop`{60} len) < 16 /\ len - (0 # drop`{60} len) == 0
