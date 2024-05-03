@@ -228,7 +228,9 @@ aesni_gcm_encrypt_impl_loop :
   LoopTuple ->
   LoopTuple
 aesni_gcm_encrypt_impl_loop len in out key ivec ctr Xi loop_tuple =
-  if 6 * (get_loop_index loop_tuple) + 24 <= len / 16
+  // The number `3` on the line below comes from the fact that aesni_gcm_encrypt
+  // needs to process three 6-block iterations.
+  if get_loop_index loop_tuple + 3 < (len / 16) / 6
     then
       aesni_gcm_encrypt_impl_loop len in out key ivec ctr Xi
         (aesni_gcm_encrypt_impl_loop_step len in out key ivec ctr Xi loop_tuple)
@@ -311,7 +313,9 @@ aesni_gcm_decrypt_impl_loop :
   LoopTuple ->
   LoopTuple
 aesni_gcm_decrypt_impl_loop len in out key ivec ctr Xi loop_tuple =
-  if 6 * (get_loop_index loop_tuple) + 12 <= len / 16
+  // The number `1` on the line below comes from the fact that aesni_gcm_decrypt
+  // needs to process one 6-block iteration.
+  if get_loop_index loop_tuple + 1 < (len / 16) / 6
     then
       aesni_gcm_decrypt_impl_loop len in out key ivec ctr Xi
         (aesni_gcm_decrypt_impl_loop_step len in out key ivec ctr Xi loop_tuple)
