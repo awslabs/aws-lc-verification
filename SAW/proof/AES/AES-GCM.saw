@@ -106,6 +106,15 @@ let EVP_CIPH_FLAG_CUSTOM_CIPHER = 0x400;
 let EVP_CIPH_FLAG_AEAD_CIPHER = 0x800;
 let EVP_CIPH_CUSTOM_COPY = 0x1000;
 
+/*
+ * Helpers for specifying the command given to EVP_CIPHER_CTX_ctrl.
+ * These values are taken from include/openssl/cipher.h.
+ */
+let EVP_CTRL_INIT = 0x0;
+let EVP_CTRL_AEAD_GET_TAG = 0x10;
+let EVP_CTRL_AEAD_SET_TAG = 0x11;
+let EVP_CTRL_GCM_SET_TAG = EVP_CTRL_AEAD_SET_TAG;
+
 // This is the total number of bytes that can be in the plain/cyphertext
 // for AES-GCM.
 let TOTAL_MESSAGE_MAX_LENGTH = eval_size {| TOTAL_MESSAGE_BLOCKS * AES_BLOCK_SIZE |};
@@ -228,6 +237,26 @@ aes_gcm_from_cipher_ctx_ov <- crucible_llvm_unsafe_assume_spec
 
 
 llvm_verify m "EVP_aes_256_gcm_init" [] true EVP_aes_256_gcm_init_spec (w4_unint_yices []);
+
+// A proof of EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, AES_BLOCK_SIZE, tag_ptr)
+// (for some `ctx` and `tag_ptr` values, see the comments on
+// EVP_CIPHER_CTX_ctrl_GCM_SET_TAG_spec). This would be called before
+// EVP_DecryptFinal to set the expected tag value and its length.
+llvm_verify m "EVP_CIPHER_CTX_ctrl"
+  [aes_gcm_from_cipher_ctx_ov]
+  true
+  EVP_CIPHER_CTX_ctrl_GCM_SET_TAG_spec
+  (w4_unint_yices []);
+
+// A proof of EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_GET_TAG, AES_BLOCK_SIZE, tag_ptr)
+// (for some `ctx` and `tag_ptr` values, see the comments on
+// EVP_CIPHER_CTX_ctrl_AEAD_GET_TAG_spec)$i. This would be called to get the tag
+// out of the context during encryption.
+llvm_verify m "EVP_CIPHER_CTX_ctrl"
+  [aes_gcm_from_cipher_ctx_ov]
+  true
+  EVP_CIPHER_CTX_ctrl_AEAD_GET_TAG_spec
+  (w4_unint_yices []);
 
 // Overrides shared in common between EVP_CipherInit_ex and
 // EVP_{Encrypt,Decrypt}Final_ex.

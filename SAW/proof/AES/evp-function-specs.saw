@@ -12,6 +12,77 @@ let EVP_aes_256_gcm_init_spec = do {
   points_to_evp_cipher_st (crucible_global "EVP_aes_256_gcm_storage");
 };
 
+// A proof of EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, AES_BLOCK_SIZE, tag_ptr)
+// where:
+//
+// Preconditions:
+// * `ctx` is initialized for AES-GCM using AES-256.
+// * `ctx->encrypt` points to DECRYPT_MODE.
+// * `ctx->cipher` is a valid EVP_CIPHER such as the value returned by `EVP_aes_256_gcm()`.
+// * `tag_ptr` is allocated and points to some value `tag`.
+//
+// Postconditions:
+// * `ctx->buf` points to `tag`.
+// * `ctx->cipher_data->taglen` points to AES_BLOCK_SIZE.
+// * The return value is 1.
+let EVP_CIPHER_CTX_ctrl_GCM_SET_TAG_spec = do {
+  cipher_ptr <- llvm_alloc_readonly (llvm_struct "struct.evp_cipher_st");
+  points_to_evp_cipher_st cipher_ptr;
+
+  let taglen = {{ `AES_BLOCK_SIZE : [32] }};
+
+  cipher_data_ptr <- llvm_alloc_aligned 16 (llvm_struct "struct.EVP_AES_GCM_CTX");
+
+  ctx_ptr <- llvm_alloc (llvm_struct "struct.evp_cipher_ctx_st");
+  points_to_evp_cipher_ctx_st ctx_ptr cipher_ptr cipher_data_ptr {{ `DECRYPT_MODE : [32]}};
+
+  (tag, tag_ptr) <- ptr_to_fresh_readonly "tag" (llvm_array AES_BLOCK_SIZE (llvm_int 8));
+
+  llvm_execute_func [ctx_ptr, llvm_term {{ `EVP_CTRL_GCM_SET_TAG : [32] }}, llvm_term taglen, tag_ptr];
+
+  llvm_points_to_untyped (llvm_field ctx_ptr "buf") (llvm_term tag);
+
+  llvm_points_to (llvm_field cipher_data_ptr "taglen") (llvm_term taglen);
+
+  llvm_return (llvm_term {{ 1 : [32] }});
+};
+
+// A proof of EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_AEAD_GET_TAG, AES_BLOCK_SIZE, tag_ptr)
+// where:
+//
+// Preconditions:
+// * `ctx` is initialized for AES-GCM using AES-256.
+// * `ctx->encrypt` points to ENCRYPT_MODE.
+// * `ctx->cipher` is a valid EVP_CIPHER such as the value returned by `EVP_aes_256_gcm()`.
+// * `ctx->buf` points to some value `tag`.
+// * `ctx->cipher_data->taglen` points to `AES_BLOCK_SIZE`.
+// * `tag_ptr` is allocated.
+//
+// Postconditions:
+// * `tag_ptr` points to `tag`.
+// * The return value is 1.
+let EVP_CIPHER_CTX_ctrl_AEAD_GET_TAG_spec = do {
+  cipher_ptr <- llvm_alloc_readonly (llvm_struct "struct.evp_cipher_st");
+  points_to_evp_cipher_st cipher_ptr;
+
+  let taglen = {{ `AES_BLOCK_SIZE : [32] }};
+
+  cipher_data_ptr <- llvm_alloc_readonly_aligned 16 (llvm_struct "struct.EVP_AES_GCM_CTX");
+  llvm_points_to (llvm_field cipher_data_ptr "taglen") (llvm_term taglen);
+
+  ctx_ptr <- llvm_alloc_readonly (llvm_struct "struct.evp_cipher_ctx_st");
+  points_to_evp_cipher_ctx_st ctx_ptr cipher_ptr cipher_data_ptr {{ `ENCRYPT_MODE : [32]}};
+  tag <- llvm_fresh_var "tag" (llvm_array AES_BLOCK_SIZE (llvm_int 8));
+  llvm_points_to_untyped (llvm_field ctx_ptr "buf") (llvm_term tag);
+
+  tag_ptr <- llvm_alloc (llvm_array AES_BLOCK_SIZE (llvm_int 8));
+
+  llvm_execute_func [ctx_ptr, llvm_term {{ `EVP_CTRL_AEAD_GET_TAG : [32] }}, llvm_term taglen, tag_ptr];
+
+  llvm_points_to tag_ptr (llvm_term tag);
+
+  llvm_return (llvm_term {{ 1 : [32] }});
+};
 
 /*
  * Specifications of EVP_CipherInit_ex, EVP_EncryptUpdate,
@@ -148,6 +219,10 @@ let EVP_CipherUpdate_array_len_nonzero_spec =
  *
  * * EVP_EncryptFinal_ex_spec expects an initial taglen value of -1, whereas
  *   EVP_DecryptFinal_ex_spec expects an initial taglen value of AES_BLOCK_SIZE.
+ *   This is because there will normally be a call to
+ *   EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, AES_BLOCK_SIZE, tag) before
+ *   the call to EVP_DecryptFinal, and the former replaces -1 with
+ *   AES_BLOCK_SIZE.
  *
  * * EVP_EncryptFinal expects an iv_set value of 1 after calling the function, but
  *   EVP_DecryptFinal expects an iv_set value of 1 or 0 depending on whether the
