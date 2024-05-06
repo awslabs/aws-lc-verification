@@ -450,6 +450,13 @@ out_and_tag_aesni_gcm_encrypt_impl_loop_thm <- prove_theorem
   }});
 
 let {{
+  // The statement of equivalence between aesni_gcm_encrypt (a higher-level
+  // unbounded specification) and aesni_gcm_encrypt_impl_loop (a lower-level,
+  // implementation-focused specification). Note that this always calls
+  // aesni_gcm_encrypt_impl_loop_step (which performs a single iteration of the
+  // loop) once after aesni_gcm_encrypt_impl_loop finishes, and as a result,
+  // the indexing in aesni_gcm_encrypt_impl_loop is off by one to account for
+  // this.
   aesni_gcm_encrypt_impl_loop_stmt len in out key iv ctr Xi loop_index current_out current_Xi = pairEq
     (aesni_gcm_encrypt len in out key iv ctr Xi loop_index current_out current_Xi)
     (if (6 * loop_index <= (len / 16) - 18) && (288 <= len) && (len < 68719476736) && (loop_index <= ((len / 16) / 6) - 3) then
@@ -602,6 +609,13 @@ out_and_tag_aesni_gcm_decrypt_impl_loop_thm <- prove_theorem
       (get_decrypt_output_and_tag (aesni_gcm_decrypt_impl_loop_step' len in out key iv ctr Xi (aesni_gcm_decrypt_impl_loop len in out key iv ctr Xi (combine_Xi_parts (aesni_gcm_decrypt_impl_loop_step len in out key iv ctr Xi loop_tuple)))))
   }});
 
+// The statement of equivalence between aesni_gcm_decrypt (a higher-level
+// unbounded specification) and aesni_gcm_decrypt_impl_loop (a lower-level,
+// implementation-focused specification). Note that this always calls
+// aesni_gcm_decrypt_impl_loop_step (which performs a single iteration of the
+// loop) once after aesni_gcm_decrypt_impl_loop finishes, and as a result,
+// the indexing in aesni_gcm_decrypt_impl_loop is off by one to account for
+// this.
 let aesni_gcm_decrypt_impl_loop_stmt = rewrite (cryptol_ss ()) {{ \len in out key iv ctr Xi loop_index current_out current_Xi ->
   pairEq
     (aesni_gcm_decrypt len in out key iv ctr Xi loop_index current_out current_Xi)

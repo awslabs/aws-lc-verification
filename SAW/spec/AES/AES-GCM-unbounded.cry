@@ -230,6 +230,12 @@ aesni_gcm_encrypt_impl_loop :
 aesni_gcm_encrypt_impl_loop len in out key ivec ctr Xi loop_tuple =
   // The number `3` on the line below comes from the fact that aesni_gcm_encrypt
   // needs to process three 6-block iterations.
+  //
+  // Note that this uses <, not <=, when checking against the length, so this
+  // check would return False when `len` is 288 (the minimum length). This is a
+  // consequence of the index-related bookkeeping that we do when calling this
+  // function from SAW. See the comments above aesni_gcm_encrypt_impl_loop_stmt
+  // in SAW/proof/AES/goal-rewrites.saw for an explanation.
   if get_loop_index loop_tuple + 3 < (len / 16) / 6
     then
       aesni_gcm_encrypt_impl_loop len in out key ivec ctr Xi
@@ -315,6 +321,12 @@ aesni_gcm_decrypt_impl_loop :
 aesni_gcm_decrypt_impl_loop len in out key ivec ctr Xi loop_tuple =
   // The number `1` on the line below comes from the fact that aesni_gcm_decrypt
   // needs to process one 6-block iteration.
+  //
+  // Note that this uses <, not <=, when checking against the length, so this
+  // check would return False when `len` is 96 (the minimum length). This is a
+  // consequence of the index-related bookkeeping that we do when calling this
+  // function from SAW. See the comments above aesni_gcm_decrypt_impl_loop_stmt
+  // in SAW/proof/AES/goal-rewrites.saw for an explanation.
   if get_loop_index loop_tuple + 1 < (len / 16) / 6
     then
       aesni_gcm_decrypt_impl_loop len in out key ivec ctr Xi
