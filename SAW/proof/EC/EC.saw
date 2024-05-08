@@ -620,6 +620,7 @@ let bn_rand_range_words_spec = do {
 let ec_point_mul_scalar_spec = do {
 
   global_alloc_init "OPENSSL_ia32cap_P" {{ ia32cap }};
+  alloc_p384_felem_methods_globals;
 
   group_ptr <- pointer_to_fresh_ec_group_st;
   r_ptr <- crucible_alloc (llvm_struct "struct.EC_JACOBIAN");
@@ -640,6 +641,7 @@ let ec_point_mul_scalar_spec = do {
 
 let ec_point_mul_scalar_base_spec = do {
   global_alloc_init "OPENSSL_ia32cap_P" {{ ia32cap }};
+  alloc_p384_felem_methods_globals;
 
   group_ptr <- pointer_to_fresh_ec_group_st;
   r_ptr <- crucible_alloc (llvm_struct "struct.EC_JACOBIAN");
