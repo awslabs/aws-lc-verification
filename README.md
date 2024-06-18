@@ -39,7 +39,7 @@ AWS libcrypto includes many cryptographic algorithm implementations for several 
 | Algorithm | Variants |  API Operations | Platform   | Caveats | Tech |
 | ----------| -------------| --------------- | -----------| ------------ | --------- |
 | [SHA-2](SPEC.md#SHA-2) | 384, 512 | EVP_DigestInit, EVP_DigestUpdate, EVP_DigestFinal | SandyBridge+ | NoEngine, MemCorrect | SAW |
-| [SHA-2](SPEC.md#SHA-2) | 384 | EVP_DigestInit, EVP_DigestUpdate, EVP_DigestFinal | neoverse-n1, neoverse-v1 | NoEngine, MemCorrect, ArmSpecGap, ToolGap | SAW, NSym |
+| [SHA-2](SPEC.md#SHA-2) | 384, 512 | EVP_DigestInit, EVP_DigestUpdate, EVP_DigestFinal | neoverse-n1, neoverse-v1 | NoEngine, NoInline, MemCorrect, ArmSpecGap, ToolGap | SAW, NSym |
 | [HMAC](SPEC.md#HMAC-with-SHA-384) | with <nobr>SHA-384</nobr> | HMAC_CTX_init, HMAC_Init_ex, HMAC_Update, HMAC_Final, HMAC | SandyBridge+ | NoEngine, MemCorrect, InitZero, NoInline, CRYPTO_once_Correct | SAW |
 | [<nobr>AES-KW(P)</nobr>](SPEC.md#AES-KWP) | 256 | AES_wrap_key, AES_unwrap_key, AES_wrap_key_padded, AES_unwrap_key_padded | SandyBridge+ | InputLength, MemCorrect, NoInline | SAW |
 | [<nobr>AES-GCM</nobr>](SPEC.md#AES-GCM) | 256 | EVP_CipherInit_ex, EVP_CIPHER_CTX_ctrl, EVP_EncryptUpdate, EVP_DecryptUpdate, EVP_EncryptFinal_ex, EVP_DecryptFinal_ex | SandyBridge-Skylake | MemCorrect, NoInline, GcmSpecGap, GcmMultipleOf16, GcmADNotVerified, GcmIV12Tag16, GcmWellFoundedInduction | SAW |
