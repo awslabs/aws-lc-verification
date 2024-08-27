@@ -5,7 +5,7 @@
 
 module HASH::SHA384 where
 
-import Primitive::Keyless::Hash::SHA384
+import Primitive::Keyless::Hash::SHA2::SHA384
 import Array
 import Common::ByteArray
 

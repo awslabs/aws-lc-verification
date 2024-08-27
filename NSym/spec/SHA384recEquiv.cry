@@ -3,7 +3,7 @@
 
 module SHA384recEquiv where
 
-import Primitive::Keyless::Hash::SHA384 as SHA384
+import Primitive::Keyless::Hash::SHA2::SHA384 as SHA384
 import SHA384rec as SHA384rec
 import Array
 import Common::ByteArray
