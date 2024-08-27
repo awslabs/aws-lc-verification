@@ -116,23 +116,40 @@ SHAState_Array_eq_implies_SHAFinal_Array_equal_thm <- prove_print
   ((SHAState_Array_eq state1 state2) ==> ((SHAFinal_Array state1) == (SHAFinal_Array state2)))
 }};
 
+print "Proving implication_of_SHAState_eq_thm";
+implication_of_SHAState_eq_thm <- prove_print
+(w4_unint_z3 [])
+{{ \state1 state2  ->
+  ((SHAState_eq state1 state2) ==
+    (state1.block == state2.block
+  /\ state1.h == state2.h
+  /\ state1.n == state2.n
+  /\ state1.sz == state2.sz))
+}};
+
 print "Proving SHAUpdate_maintains_SHAState_eq_thm";
 SHAUpdate_maintains_SHAState_eq_thm <- prove_print
-(do {admit "admit";
-     // w4_unint_z3 ["processBlock_Common"];
+(do {
+  goal_eval_unint ["SHAState_eq", "SHAUpdate"];
+  simplify (addsimps [implication_of_SHAState_eq_thm] empty_ss);
+  w4_unint_z3 ["SHAUpdate"];
 })
 {{ \state1 state2 (data1 : [384]) data2 ->
-  ((SHAState_eq state1 state2) /\ (data1 == data2)
-  ==> (SHAState_eq (SHAUpdate state1 (split`{48} data1)) (SHAUpdate state2 (split`{48} data2))))
+((SHAState_eq state1 state2) /\ (data1 == data2)
+==> (SHAState_eq (SHAUpdate state1 (split`{48} data1))
+                 (SHAUpdate state2 (split`{48} data2))))
 }};
 
 print "Proving SHAState_eq_implies_SHAFinal_equal_thm";
 SHAState_eq_implies_SHAFinal_equal_thm <- prove_print
-(do {admit "admit";
-// w4_unint_z3 ["processBlock_Common"];
+(do {
+  goal_eval_unint ["SHAState_eq", "SHAFinal"];
+  simplify (addsimps [implication_of_SHAState_eq_thm] empty_ss);
+  w4_unint_z3 ["SHAFinal"];
 })
 {{ \state1 state2 ->
-  ((SHAState_eq state1 state2) ==> (SHAFinal state1) == (SHAFinal state2))
+  ((SHAState_eq state1 state2) ==>
+  (SHAFinal state1) == (SHAFinal state2))
 }};
 
 print "Proving n_equal_of_SHAUpdate_Array_thm";
