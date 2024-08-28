@@ -5,7 +5,7 @@
 
 module HASH::HMAC_Seq where
 
-import Primitive::Keyless::Hash::SHA384
+import Primitive::Keyless::Hash::SHA2::SHA384
 import Array
 import Common::ByteArray
 import HASH::SHA384

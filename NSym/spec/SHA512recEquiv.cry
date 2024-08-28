@@ -3,7 +3,7 @@
 
 module SHA512recEquiv where
 
-import Primitive::Keyless::Hash::SHA512 as SHA512
+import Primitive::Keyless::Hash::SHA2::SHA512 as SHA512
 import SHA512rec as SHA512rec
 import Array
 import Common::ByteArray

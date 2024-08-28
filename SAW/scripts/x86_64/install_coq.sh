@@ -5,8 +5,11 @@
 
 set -ex
 
-# SAW_URL='https://saw-builds.s3.us-west-2.amazonaws.com/saw-0.9.0.99-2023-06-08-ab46c76e0-Linux-x86_64.tar.gz'
-SAW_URL='https://saw-builds.s3.us-west-2.amazonaws.com/saw-1.1.0.99-2024-08-27-70fe999e6-Linux-x86_64.tar.gz'
+# The Coq build requires SAW for generating Coq files.
+# Newer version of SAW generates Coq files that are different
+# than expected so we use the old version of SAW.
+# TODO: Fix Coq proofs so that it works with new syntax.
+SAW_URL='https://saw-builds.s3.us-west-2.amazonaws.com/saw-0.9.0.99-2023-06-08-ab46c76e0-Linux-x86_64.tar.gz'
 
 mkdir -p /bin /deps
 
