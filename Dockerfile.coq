@@ -21,7 +21,8 @@ RUN opam init --auto-setup --yes --disable-sandboxing \
    && opam repo add coq-released https://coq.inria.fr/opam/released \
    && opam install -y coq-bits \
    && opam install -y coq-itree.5.1.2 \
-   && opam pin -y entree-specs https://github.com/GaloisInc/entree-specs.git#52c4868f1f65c7ce74e90000214de27e23ba98fb
+   && opam install -y coq-paco.4.2.0 \
+   && opam pin -y entree-specs https://github.com/GaloisInc/entree-specs.git#d871d0af37ffee757e3be1f8d776bd7e84399712
 
 ADD SAW/scripts/x86_64 /lc/scripts
 RUN /lc/scripts/docker_install.sh
