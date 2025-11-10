@@ -162,7 +162,8 @@ HMAC_Init_ex_array_ov <- verify_HMAC_Init_ex_array_spec;
 let verify_HMAC_Init_ex_null_spec = do {
   print "Verifying HMAC_Init_ex_null_spec.";
   llvm_verify m "HMAC_Init_ex"
-  [ GetInPlaceMethods_ov
+  [ OPENSSL_memcpy_ov
+  , GetInPlaceMethods_ov
   , SHA512_Update_0_SHA512_CBLOCK_ov
   , SHA512_Final_array_ov
   , SHA512_Update_array_ov
