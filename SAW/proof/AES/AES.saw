@@ -119,7 +119,7 @@ aes_hw_set_encrypt_key_ov <- llvm_verify_x86 m "../../build/x86/crypto/crypto_te
   });
 
 // Verify the actual assembly function
-aes_hw_encrypt_ov <- llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "aes_hw_encrypt"
+aes_hw_encrypt_asm_ov <- llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "aes_hw_encrypt"
   []
   true
   aes_hw_encrypt_spec
@@ -130,7 +130,7 @@ aes_hw_encrypt_ov <- llvm_verify_x86 m "../../build/x86/crypto/crypto_test" "aes
   });
 
 // The wrapper just calls the assembly function, so assume it has the same spec
-aes_hw_encrypt_wrapper_ov <- crucible_llvm_unsafe_assume_spec
+aes_hw_encrypt_ov <- crucible_llvm_unsafe_assume_spec
   m
   "aes_hw_encrypt_wrapper"
   aes_hw_encrypt_spec;
