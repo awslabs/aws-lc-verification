@@ -3,9 +3,25 @@
 [![.github/workflows/main.yml](https://github.com/awslabs/aws-lc-verification/actions/workflows/main.yml/badge.svg)](https://github.com/awslabs/aws-lc-verification/actions/workflows/main.yml)
 
 
-This repository contains specifications, proof scripts, and other artifacts required to formally verify portions of [AWS libcrypto](https://github.com/awslabs/aws-lc). Formal verification is used to locate bugs and increase assurance of the correctness and security of the library.
+This repository contains specifications, proof scripts, and other artifacts required to formally verify portions of [AWS libcrypto](https://github.com/aws/aws-lc). Formal verification is used to locate bugs and increase assurance of the correctness and security of the library.
 
-C and X86_64 proofs are carried out in [SAW](https://saw.galois.com/) using [Cryptol](https://cryptol.net/) specifications stored in the [Galois Cryptol spec repository](https://github.com/GaloisInc/cryptol-specs). AArch64 proofs are carried out in NSym (a tool for symbolically-simulating and verifying Arm machine code that is currently under development by AWS) using translated specifications from Cryptol. [Coq](https://coq.inria.fr) proofs are developed for proving properties of some of the Cryptol specifications.
+## Recent work, s2n-bignum, and proofs of Post-Quantum Crypto algorithms
+
+Recently, we have changed our technical approach for formal verification to use tools newer than SAW and NSym.
+
+For verification of assembly language (covering both x86_64 and AArch64 ISAs), we use the [s2n-bignum](https://github.com/awslabs/s2n-bignum) infrastructure, which is built on the [HOL Light](https://hol-light.github.io/) theorem prover. The s2n-bignum repository contains both code and proofs for low-level cryptographic functions, including those for the frequently used elliptic curves, RSA, and the the assembly-language components of the ML-KEM and ML-DSA PQ algorithms.
+
+Our production implementation of ML-KEM lies in the [mlkem-native](https://github.com/pq-code-package/mlkem-native) repository. This repo includes code from s2n-bignum, and adds proof of memory- and type-safety for the C components using the [CBMC](https://github.com/diffblue/cbmc/) tool.
+
+Similarly, proof artefacts for ML-DSA lie alongside the code in the [mldsa-native](https://github.com/pq-code-package/mldsa-native) repository.
+
+The [s2n-bignum](https://github.com/awslabs/s2n-bignum), [mlkem-native](https://github.com/pq-code-package/mlkem-native), and [mldsa-native](https://github.com/pq-code-package/mldsa-native) repositories should be consulted for more details.
+
+## What's in this repository
+
+C and x86_64 proofs are carried out in [SAW](https://saw.galois.com/) using [Cryptol](https://cryptol.net/) specifications stored in the [Galois Cryptol spec repository](https://github.com/GaloisInc/cryptol-specs). AArch64 proofs are carried out in NSym (a tool for symbolically-simulating and verifying Arm machine) using translated specifications from Cryptol. [Coq](https://coq.inria.fr) proofs are developed for proving properties of some of the Cryptol specifications.
+
+The proofs in this repository will be maintained and continue to run in CI. Future work will concentrate on using s2n-bignum for assembly language and CBMC for C as described above.
 
 ## Building and Running
 The easiest way to build the library and run the proofs is to use [Docker](https://docs.docker.com/get-docker/). To check the proofs, execute the following steps in the top-level directory of the repository.
@@ -16,19 +32,19 @@ The easiest way to build the library and run the proofs is to use [Docker](https
 
 2. Build a Docker image:
    `docker build --pull --no-cache -f Dockerfile.[...] -t awslc-saw .`
-   1. For running SAW proofs on X86_64, use: `Dockerfile.saw_x86`
-   1. For running SAW proofs for AES-GCM on X86_64, use: `Dockerfile.saw_x86_aes_gcm`
-   3. For running SAW proofs on AARCH64, use: `Dockerfile.saw_aarch64`
+   1. For running SAW proofs on x86_64, use: `Dockerfile.saw_x86`
+   1. For running SAW proofs for AES-GCM on x86_64, use: `Dockerfile.saw_x86_aes_gcm`
+   3. For running SAW proofs on AArch64, use: `Dockerfile.saw_aarch64`
    4. For running Coq proofs, use: `Dockerfile.coq`
    5. For running NSym proofs, use: `Dockerfile.nsym`
 
 3. Run the SAW proofs inside the Docker container: ``docker run -v `pwd`:`pwd` -w `pwd` awslc-saw``
-   1. Run SAW proofs on X86_64: ``docker run -it -v `pwd`:`pwd` -w `pwd` --entrypoint SAW/scripts/x86_64/docker_entrypoint.sh awslc-saw``
+   1. Run SAW proofs on x86_64: ``docker run -it -v `pwd`:`pwd` -w `pwd` --entrypoint SAW/scripts/x86_64/docker_entrypoint.sh awslc-saw``
       1. This step will also run formally-verified tests on certain hard-coded constant values.
    2. RUN SAW proofs for AES-GCM on x86_64: ``docker run -it -v `pwd`:`pwd` -w `pwd` --entrypoint SAW/scripts/x86_64/docker_entrypoint_aes_gcm.sh awslc-saw``
-   3. Run SAW proofs on AARCH64: ``docker run -it -v `pwd`:`pwd` -w `pwd` --entrypoint SAW/scripts/aarch64/docker_entrypoint.sh awslc-saw``
+   3. Run SAW proofs on AArch64: ``docker run -it -v `pwd`:`pwd` -w `pwd` --entrypoint SAW/scripts/aarch64/docker_entrypoint.sh awslc-saw``
    4. Use Coq to validate the Cryptol specs used in the SAW proofs: ``docker run -it -v `pwd`:`pwd` -w `pwd` --entrypoint Coq/docker_entrypoint.sh awslc-saw``
-   5. Run NSym for AARCH64 assembly: ``docker run -it -v `pwd`:`pwd` -w `pwd` --entrypoint NSym/scripts/docker_entrypoint.sh awslc-saw``
+   5. Run NSym for AArch64 assembly: ``docker run -it -v `pwd`:`pwd` -w `pwd` --entrypoint NSym/scripts/docker_entrypoint.sh awslc-saw``
 
 Running ``docker run -it -v `pwd`:`pwd` -w `pwd` --entrypoint bash awslc-saw`` will enter an interactive shell within the container, which is often useful for debugging.
 
