@@ -5,7 +5,7 @@
 
 This repository contains specifications, proof scripts, and other artifacts required to formally verify portions of [AWS libcrypto](https://github.com/aws/aws-lc). Formal verification is used to locate bugs and increase assurance of the correctness and security of the library.
 
-## Recent work, s2n-bignum, and proofs of Post-Quantum Crypto algoriths
+## Recent work, s2n-bignum, and proofs of Post-Quantum Crypto algorithms
 
 Recently, we have changed our technical approach for formal verification to use tools newer than SAW and NSym.
 
@@ -19,7 +19,9 @@ The [s2n-bignum](https://github.com/awslabs/s2n-bignum), [mlkem-native](https://
 
 ## What's in this repository
 
-C and x86_64 proofs are carried out in [SAW](https://saw.galois.com/) using [Cryptol](https://cryptol.net/) specifications stored in the [Galois Cryptol spec repository](https://github.com/GaloisInc/cryptol-specs). AArch64 proofs are carried out in NSym (a tool for symbolically-simulating and verifying Arm machine code that is currently under development by AWS) using translated specifications from Cryptol. [Coq](https://coq.inria.fr) proofs are developed for proving properties of some of the Cryptol specifications.
+C and x86_64 proofs are carried out in [SAW](https://saw.galois.com/) using [Cryptol](https://cryptol.net/) specifications stored in the [Galois Cryptol spec repository](https://github.com/GaloisInc/cryptol-specs). AArch64 proofs are carried out in NSym (a tool for symbolically-simulating and verifying Arm machine) using translated specifications from Cryptol. [Coq](https://coq.inria.fr) proofs are developed for proving properties of some of the Cryptol specifications.
+
+The proofs in this repository will be maintained and continue to run in CI. Future work will concentrate on using s2n-bignum for assembly language and CBMC for C as described above.
 
 ## Building and Running
 The easiest way to build the library and run the proofs is to use [Docker](https://docs.docker.com/get-docker/). To check the proofs, execute the following steps in the top-level directory of the repository.
