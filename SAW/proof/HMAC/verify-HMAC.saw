@@ -191,7 +191,8 @@ HMAC_Update_array_ov <- verify_HMAC_Update_array_spec;
 let verify_HMAC_Final_array_with_length withLength = do {
   print (str_concat "Verifying HMAC_Final_array_spec with withLength=" (show withLength));
   llvm_verify m "HMAC_Final"
-  [ SHA512_Final_SHA_DIGEST_LENGTH_ov
+  [ OPENSSL_cleanse_ov
+  , SHA512_Final_SHA_DIGEST_LENGTH_ov
   , SHA512_Update_0_SHA_DIGEST_LENGTH_ov
   , SHA512_Final_array_ov
   ]
@@ -208,7 +209,8 @@ HMAC_Final_array_ovs <- for [false, true] verify_HMAC_Final_array_with_length;
 let verify_HMAC_Final_array_with_hmac_ctx_with_length withLength = do {
   print (str_concat "Verifying HMAC_Final_array_with_hmac_ctx_spec with withLength=" (show withLength));
   llvm_verify m "HMAC_Final"
-  [ SHA512_Final_SHA_DIGEST_LENGTH_ov
+  [ OPENSSL_cleanse_ov
+  , SHA512_Final_SHA_DIGEST_LENGTH_ov
   , SHA512_Update_0_SHA_DIGEST_LENGTH_ov
   , SHA512_Final_array_ov
   ]
