@@ -262,6 +262,7 @@ llvm_verify m "EVP_CIPHER_CTX_ctrl"
 // EVP_{Encrypt,Decrypt}Final_ex.
 let evp_cipher_ovs =
   [ OPENSSL_malloc_ov
+  , OPENSSL_cleanse_ov
   , aes_gcm_from_cipher_ctx_ov
   , aes_hw_set_encrypt_key_ov
   , aes_hw_encrypt_ov
